@@ -29,7 +29,7 @@ window/handheld/orientation=4
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/godot_ai/plugin.cfg", "res://addons/godot_mcp/plugin.cfg", "res://addons/path_point_inserter/plugin.cfg", "res://addons/ship_to_cursor/plugin.cfg")
+enabled=PackedStringArray("res://addons/godot_ai/plugin.cfg", "res://addons/godot_mcp/plugin.cfg", "res://addons/path_point_inserter/plugin.cfg", "res://addons/path_point_viewer/plugin.cfg", "res://addons/ship_to_cursor/plugin.cfg")
 
 [layer_names]
 
