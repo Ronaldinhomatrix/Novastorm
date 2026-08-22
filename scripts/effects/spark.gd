@@ -167,7 +167,7 @@ func _make_sphere(radius: float) -> SphereMesh:
 	return m
 
 
-func _make_material(blend_mode: int) -> StandardMaterial3D:
+func _make_material(blend_mode: StandardMaterial3D.BlendMode) -> StandardMaterial3D:
 	var mat := StandardMaterial3D.new()
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	mat.blend_mode = blend_mode

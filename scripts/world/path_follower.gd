@@ -116,8 +116,8 @@ func _align_to_path(delta: float) -> void:
 		var dot := clampf(_prev_forward.dot(forward), -1.0, 1.0)
 		angular_velocity = acos(dot) / maxf(delta, 0.0001)
 		var cross := _prev_forward.cross(forward)
-		var sign: float = signf(cross.y)
-		angular_velocity *= sign
+		var turn_sign: float = signf(cross.y)
+		angular_velocity *= turn_sign
 	
 	_prev_forward = forward
 	var target_tilt: float = -angular_velocity * tilt_intensity

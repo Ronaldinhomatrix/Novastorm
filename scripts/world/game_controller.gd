@@ -57,7 +57,7 @@ func _ready() -> void:
 	_generate_world_collision()
 
 
-func _process(delta: float) -> void:
+func _process(_delta: float) -> void:
 	# Detectar fim do nível
 	if not _level_completed and show_level_complete and path_follower:
 		if path_follower.progress >= _path_length - 1.0:
