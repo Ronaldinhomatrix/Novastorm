@@ -102,18 +102,22 @@ func _update_camera_and_speed(raw_progress: float) -> void:
 	var cam_pos := ship_pos + offset
 	camera.position = cam_pos
 
+	var target_basis := Basis.from_euler(_default_camera_rot)
+	var look_target := ship_pos
+	var forward := (look_target - cam_pos).normalized()
+	var up := Vector3.UP
+	var right := forward.cross(up).normalized()
+	if right.length_squared() < 0.0001:
+		right = Vector3.RIGHT
+	var true_up := right.cross(forward).normalized()
+	var look_basis := Basis(right, true_up, -forward).orthonormalized()
+
+	# Transição perfeitamente contínua e sem degrau para a orientação padrão
+	camera.transform.basis = look_basis.slerp(target_basis, s * s).orthonormalized()
+
 	if s >= 0.999:
 		camera.position = _default_camera_pos
-		camera.rotation = _default_camera_rot
-	else:
-		var look_target := ship_pos
-		var forward := (look_target - cam_pos).normalized()
-		var up := Vector3.UP
-		var right := forward.cross(up).normalized()
-		if right.length_squared() < 0.0001:
-			right = Vector3.RIGHT
-		var true_up := right.cross(forward).normalized()
-		camera.transform.basis = Basis(right, true_up, -forward).orthonormalized()
+		camera.transform.basis = target_basis
 
 
 func _end() -> void:

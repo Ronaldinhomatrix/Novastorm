@@ -115,17 +115,20 @@ func _align_to_path(delta: float) -> void:
 	_smoothed_forward = _smoothed_forward.slerp(raw_forward, t).normalized()
 	var forward := _smoothed_forward
 
-	# Bank / Tilt
+	# Bank / Tilt (com amortecimento na partida para evitar solavancos iniciais)
 	var angular_velocity: float = 0.0
 	if _prev_forward.length_squared() > 0.0001:
 		var dot := clampf(_prev_forward.dot(forward), -1.0, 1.0)
 		angular_velocity = acos(dot) / maxf(delta, 0.0001)
 		var cross := _prev_forward.cross(forward)
 		var turn_sign: float = signf(cross.y)
-		angular_velocity *= turn_sign
+		angular_velocity = clampf(angular_velocity * turn_sign, -12.0, 12.0)
 	
 	_prev_forward = forward
-	var target_tilt: float = -angular_velocity * tilt_intensity
+	
+	# Escala o tilt pela velocidade da nave para que a câmera não dê solavancos angulares ao acelerar do zero
+	var speed_factor := clampf(_current_speed() / maxf(forward_speed * 0.3, 0.001), 0.0, 1.0)
+	var target_tilt: float = -angular_velocity * tilt_intensity * speed_factor
 	var max_tilt_rad := deg_to_rad(max_tilt_degrees)
 	target_tilt = clampf(target_tilt, -max_tilt_rad, max_tilt_rad)
 	
