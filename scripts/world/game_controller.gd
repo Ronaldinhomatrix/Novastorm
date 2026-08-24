@@ -5,6 +5,8 @@ extends Node3D
 ## Gerencia HUD, pontuação e referências aos componentes principais.
 ## O movimento ao longo do Path3D é controlado por PathFollower.
 ## Detecta fim do nível e exibe tela de LEVEL COMPLETE.
+## Inclui fase de pré-carregamento/aquecimento com cortina preta (warmup) para garantir
+## que colisões, texturas e shaders estejam 100% prontos na VRAM antes do jogo aparecer.
 
 # ---------------------------------------------------------------------------
 # Exportações e Configurações
@@ -45,13 +47,6 @@ var _intro_timer: float = 0.0
 var _default_camera_pos: Vector3 = Vector3(-0.0112, 0.0, 33.85669)
 var _default_camera_rot: Vector3 = Vector3.ZERO
 
-## Thread de background para geração de colisão sem bloquear renderização
-var _collision_thread: Thread = null
-## Dados das faces extraídos na thread principal para processamento na thread de background
-var _collision_face_data: Array = []
-## Resultados prontos gerados pela thread de background
-var _collision_results: Array = []
-
 # ---------------------------------------------------------------------------
 # Ciclo de Vida
 # ---------------------------------------------------------------------------
@@ -72,22 +67,41 @@ func _ready() -> void:
 	if not camera and path_follower:
 		camera = path_follower.get_node_or_null("Camera3D") as Camera3D
 
+	# Pausa o movimento imediatamente durante a fase de pré-carregamento
+	if path_follower:
+		path_follower.set_paused(true)
+
+	if player and player.has_method("set_controls_enabled"):
+		player.set_controls_enabled(false)
+
 	# Calcular comprimento do path
 	var flight_path := get_node_or_null("FlightPath") as Path3D
 	if flight_path and flight_path.curve:
 		_path_length = flight_path.curve.get_baked_length()
 
 	_apply_terrain_detail_material()
-	# Colisão é gerada em thread de background — zero impacto nos primeiros frames
-	_start_collision_thread()
 
 	if enable_cloud_sky and not get_node_or_null("ProceduralCloudSky"):
 		var cloud_sky := ProceduralCloudSky.new()
 		cloud_sky.name = "ProceduralCloudSky"
 		add_child(cloud_sky)
 
+	# Cria a cortina preta de pré-carregamento
+	var canvas_layer := CanvasLayer.new()
+	canvas_layer.layer = 100
+	add_child(canvas_layer)
+
+	var curtain := ColorRect.new()
+	curtain.color = Color.BLACK
+	curtain.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	curtain.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	canvas_layer.add_child(curtain)
+
+	# Cria a instância da intro cinematográfica se habilitada
+	var intro: CinematicIntro = null
 	if enable_cinematic_intro:
-		var intro := CinematicIntro.new()
+		intro = CinematicIntro.new()
+		intro.enabled = false  # Só inicia após o aquecimento
 		intro.path_follower = path_follower
 		intro.player = player
 		intro.camera = camera
@@ -97,6 +111,9 @@ func _ready() -> void:
 		intro.start_distance_fraction = intro_start_distance_fraction
 		add_child(intro)
 
+	# Dispara o pré-carregamento e aquecimento de shaders/colisões
+	_run_preload_and_warmup(canvas_layer, curtain, intro)
+
 
 func _process(_delta: float) -> void:
 	# Detectar fim do nível
@@ -105,20 +122,8 @@ func _process(_delta: float) -> void:
 			_on_level_finished()
 
 
-func _exit_tree() -> void:
-	# Garante que a thread seja finalizada ao sair da cena
-	if _collision_thread and _collision_thread.is_started():
-		_collision_thread.wait_to_finish()
-		_collision_thread = null
-
-
 func _on_level_finished() -> void:
 	_level_completed = true
-	
-	# Aguarda a thread terminar se ainda estiver rodando
-	if _collision_thread and _collision_thread.is_started():
-		_collision_thread.wait_to_finish()
-		_collision_thread = null
 	
 	# Pausar o movimento
 	if path_follower:
@@ -145,8 +150,6 @@ func _get_terrain_node() -> Node:
 func _apply_terrain_detail_material() -> void:
 	if terrain_detail_material == null:
 		return
-	# O terreno é uma instância GLTF; aplica o material de detalhe em runtime
-	# em todos os MeshInstance3D aninhados, pois o override não persiste no .tscn.
 	var mountains := _get_terrain_node()
 	if not mountains:
 		return
@@ -160,12 +163,42 @@ func _apply_terrain_detail_material() -> void:
 
 
 # ---------------------------------------------------------------------------
-# Geração de Colisão em Thread de Background (zero bloqueio na renderização)
+# Pré-carregamento Síncrono e Aquecimento de Shaders/VRAM (Warmup)
 # ---------------------------------------------------------------------------
 
-func _start_collision_thread() -> void:
-	## Coleta as faces de cada mesh na thread principal e dispara a thread de
-	## background para construir os ConcavePolygonShape3D sem travar o jogo.
+func _run_preload_and_warmup(canvas_layer: CanvasLayer, curtain: ColorRect, intro: CinematicIntro) -> void:
+	# 1. Gera e conecta todas as colisões físicas de forma síncrona atrás da cortina preta
+	_generate_all_world_collision_sync()
+
+	# 2. Aguarda 2 quadros de renderização para a GPU compilar todos os shaders,
+	# carregar texturas na VRAM e estabilizar os buffers
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	# 3. Reinicia o progresso para garantir início no ponto zero exato
+	if path_follower:
+		path_follower.reset_progress()
+
+	# 4. Despausa o jogo / inicia a introdução cinematográfica
+	if intro:
+		intro.enabled = true
+		intro.start()
+	else:
+		if path_follower:
+			path_follower.set_paused(false)
+		if player and player.has_method("set_controls_enabled"):
+			player.set_controls_enabled(true)
+
+	# 5. Transição suave (fade-out) da cortina preta para revelar o jogo rodando 100% fluido
+	var tween := create_tween()
+	tween.tween_property(curtain, "modulate:a", 0.0, 0.4).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	await tween.finished
+
+	if is_instance_valid(canvas_layer):
+		canvas_layer.queue_free()
+
+
+func _generate_all_world_collision_sync() -> void:
 	if _collision_generated:
 		return
 
@@ -182,74 +215,31 @@ func _start_collision_thread() -> void:
 	if small_bridge:
 		targets.append(small_bridge)
 
-	_collision_face_data.clear()
-
 	for target in targets:
 		for child in target.find_children("*", "MeshInstance3D", true, false):
 			var mesh_instance := child as MeshInstance3D
 			if not mesh_instance or not mesh_instance.mesh:
 				continue
 
-			# Se já possui colisão pré-salva no modelo, apenas valida a camada
 			var existing_body := mesh_instance.get_node_or_null("StaticBody3D") as StaticBody3D
 			if existing_body:
 				existing_body.collision_layer = 1 << 3  # layer 4 ("world")
 				existing_body.collision_mask = 0
 				continue
 
-			# Extrai as faces na thread principal (rápido — apenas copia referência de dados)
-			var faces: PackedVector3Array = mesh_instance.mesh.get_faces()
-			if faces.size() > 0:
-				_collision_face_data.append({
-					"mesh_instance": mesh_instance,
-					"faces": faces
-				})
+			mesh_instance.create_trimesh_collision()
+			var body := mesh_instance.get_node_or_null("StaticBody3D") as StaticBody3D
+			if not body:
+				for c in mesh_instance.get_children():
+					if c is StaticBody3D:
+						body = c as StaticBody3D
+						break
+			if body:
+				body.collision_layer = 1 << 3  # layer 4 ("world")
+				body.collision_mask = 0
+				for col in body.find_children("*", "CollisionShape3D", false, false):
+					var cs := col as CollisionShape3D
+					if cs and cs.shape is ConcavePolygonShape3D:
+						(cs.shape as ConcavePolygonShape3D).backface_collision = true
 
-	if _collision_face_data.is_empty():
-		_collision_generated = true
-		return
-
-	# Dispara thread de background para construir as collision shapes
-	_collision_thread = Thread.new()
-	_collision_thread.start(_build_collision_shapes_threaded)
-
-
-func _build_collision_shapes_threaded() -> void:
-	## Executa na thread de background — constroi ConcavePolygonShape3D para cada mesh.
-	## O cálculo pesado (BVH de milhões de faces) acontece aqui sem bloquear a renderização.
-	var results: Array = []
-	for data: Dictionary in _collision_face_data:
-		var shape := ConcavePolygonShape3D.new()
-		shape.backface_collision = true
-		shape.set_faces(data["faces"])
-		results.append({
-			"mesh_instance": data["mesh_instance"],
-			"shape": shape
-		})
-	_collision_results = results
-	# Agenda a aplicação dos resultados na thread principal
-	call_deferred("_apply_collision_results")
-
-
-func _apply_collision_results() -> void:
-	## Executa na thread principal — adiciona os nós de colisão à árvore de cena.
-	## Esta operação é instantânea pois as shapes já estão prontas.
-	if _collision_thread and _collision_thread.is_started():
-		_collision_thread.wait_to_finish()
-		_collision_thread = null
-
-	for result: Dictionary in _collision_results:
-		var mi: MeshInstance3D = result["mesh_instance"]
-		if not is_instance_valid(mi):
-			continue
-		var body := StaticBody3D.new()
-		body.collision_layer = 1 << 3  # layer 4 ("world")
-		body.collision_mask = 0
-		var col := CollisionShape3D.new()
-		col.shape = result["shape"]
-		body.add_child(col)
-		mi.add_child(body)
-
-	_collision_results.clear()
-	_collision_face_data.clear()
 	_collision_generated = true
