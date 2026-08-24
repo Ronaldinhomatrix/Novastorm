@@ -45,10 +45,12 @@ var _intro_timer: float = 0.0
 var _default_camera_pos: Vector3 = Vector3(-0.0112, 0.0, 33.85669)
 var _default_camera_rot: Vector3 = Vector3.ZERO
 
-## Fila de MeshInstance3D aguardando geração de colisão (processado 1 por frame)
-var _collision_queue: Array[MeshInstance3D] = []
-## Delay em frames antes de iniciar a geração (permite primeiros frames renderizarem limpos)
-var _collision_delay_frames: int = 10
+## Thread de background para geração de colisão sem bloquear renderização
+var _collision_thread: Thread = null
+## Dados das faces extraídos na thread principal para processamento na thread de background
+var _collision_face_data: Array = []
+## Resultados prontos gerados pela thread de background
+var _collision_results: Array = []
 
 # ---------------------------------------------------------------------------
 # Ciclo de Vida
@@ -76,8 +78,8 @@ func _ready() -> void:
 		_path_length = flight_path.curve.get_baked_length()
 
 	_apply_terrain_detail_material()
-	# Colisão é adiada — enfileira meshes e processa gradualmente no _process()
-	_enqueue_world_collision()
+	# Colisão é gerada em thread de background — zero impacto nos primeiros frames
+	_start_collision_thread()
 
 	if enable_cloud_sky and not get_node_or_null("ProceduralCloudSky"):
 		var cloud_sky := ProceduralCloudSky.new()
@@ -97,24 +99,26 @@ func _ready() -> void:
 
 
 func _process(_delta: float) -> void:
-	# Geração incremental de colisão: 1 mesh por frame após delay inicial
-	if _collision_delay_frames > 0:
-		_collision_delay_frames -= 1
-	elif _collision_queue.size() > 0:
-		_process_one_collision()
-
 	# Detectar fim do nível
 	if not _level_completed and show_level_complete and path_follower:
 		if path_follower.progress >= _path_length - 1.0:
 			_on_level_finished()
 
 
+func _exit_tree() -> void:
+	# Garante que a thread seja finalizada ao sair da cena
+	if _collision_thread and _collision_thread.is_started():
+		_collision_thread.wait_to_finish()
+		_collision_thread = null
+
+
 func _on_level_finished() -> void:
 	_level_completed = true
 	
-	# Finalizar qualquer colisão pendente imediatamente
-	while _collision_queue.size() > 0:
-		_process_one_collision()
+	# Aguarda a thread terminar se ainda estiver rodando
+	if _collision_thread and _collision_thread.is_started():
+		_collision_thread.wait_to_finish()
+		_collision_thread = null
 	
 	# Pausar o movimento
 	if path_follower:
@@ -156,11 +160,12 @@ func _apply_terrain_detail_material() -> void:
 
 
 # ---------------------------------------------------------------------------
-# Geração Incremental de Colisão (sem bloquear a thread principal)
+# Geração de Colisão em Thread de Background (zero bloqueio na renderização)
 # ---------------------------------------------------------------------------
 
-func _enqueue_world_collision() -> void:
-	## Coleta todos os MeshInstance3D que precisam de colisão e enfileira para processamento gradual.
+func _start_collision_thread() -> void:
+	## Coleta as faces de cada mesh na thread principal e dispara a thread de
+	## background para construir os ConcavePolygonShape3D sem travar o jogo.
 	if _collision_generated:
 		return
 
@@ -177,6 +182,8 @@ func _enqueue_world_collision() -> void:
 	if small_bridge:
 		targets.append(small_bridge)
 
+	_collision_face_data.clear()
+
 	for target in targets:
 		for child in target.find_children("*", "MeshInstance3D", true, false):
 			var mesh_instance := child as MeshInstance3D
@@ -190,34 +197,59 @@ func _enqueue_world_collision() -> void:
 				existing_body.collision_mask = 0
 				continue
 
-			# Enfileira para processamento gradual
-			_collision_queue.append(mesh_instance)
+			# Extrai as faces na thread principal (rápido — apenas copia referência de dados)
+			var faces: PackedVector3Array = mesh_instance.mesh.get_faces()
+			if faces.size() > 0:
+				_collision_face_data.append({
+					"mesh_instance": mesh_instance,
+					"faces": faces
+				})
 
-
-func _process_one_collision() -> void:
-	## Processa exatamente 1 MeshInstance3D da fila de colisão por frame.
-	if _collision_queue.is_empty():
+	if _collision_face_data.is_empty():
 		_collision_generated = true
 		return
 
-	var mesh_instance: MeshInstance3D = _collision_queue.pop_front()
-	if not is_instance_valid(mesh_instance) or not mesh_instance.mesh:
-		return
+	# Dispara thread de background para construir as collision shapes
+	_collision_thread = Thread.new()
+	_collision_thread.start(_build_collision_shapes_threaded)
 
-	mesh_instance.create_trimesh_collision()
-	var body := mesh_instance.get_node_or_null("StaticBody3D") as StaticBody3D
-	if not body:
-		for c in mesh_instance.get_children():
-			if c is StaticBody3D:
-				body = c as StaticBody3D
-				break
-	if body:
+
+func _build_collision_shapes_threaded() -> void:
+	## Executa na thread de background — constroi ConcavePolygonShape3D para cada mesh.
+	## O cálculo pesado (BVH de milhões de faces) acontece aqui sem bloquear a renderização.
+	var results: Array = []
+	for data: Dictionary in _collision_face_data:
+		var shape := ConcavePolygonShape3D.new()
+		shape.backface_collision = true
+		shape.set_faces(data["faces"])
+		results.append({
+			"mesh_instance": data["mesh_instance"],
+			"shape": shape
+		})
+	_collision_results = results
+	# Agenda a aplicação dos resultados na thread principal
+	call_deferred("_apply_collision_results")
+
+
+func _apply_collision_results() -> void:
+	## Executa na thread principal — adiciona os nós de colisão à árvore de cena.
+	## Esta operação é instantânea pois as shapes já estão prontas.
+	if _collision_thread and _collision_thread.is_started():
+		_collision_thread.wait_to_finish()
+		_collision_thread = null
+
+	for result: Dictionary in _collision_results:
+		var mi: MeshInstance3D = result["mesh_instance"]
+		if not is_instance_valid(mi):
+			continue
+		var body := StaticBody3D.new()
 		body.collision_layer = 1 << 3  # layer 4 ("world")
 		body.collision_mask = 0
-		for col in body.find_children("*", "CollisionShape3D", false, false):
-			var cs := col as CollisionShape3D
-			if cs and cs.shape is ConcavePolygonShape3D:
-				(cs.shape as ConcavePolygonShape3D).backface_collision = true
+		var col := CollisionShape3D.new()
+		col.shape = result["shape"]
+		body.add_child(col)
+		mi.add_child(body)
 
-	if _collision_queue.is_empty():
-		_collision_generated = true
+	_collision_results.clear()
+	_collision_face_data.clear()
+	_collision_generated = true
