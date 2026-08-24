@@ -45,6 +45,11 @@ var _intro_timer: float = 0.0
 var _default_camera_pos: Vector3 = Vector3(-0.0112, 0.0, 33.85669)
 var _default_camera_rot: Vector3 = Vector3.ZERO
 
+## Fila de MeshInstance3D aguardando geração de colisão (processado 1 por frame)
+var _collision_queue: Array[MeshInstance3D] = []
+## Delay em frames antes de iniciar a geração (permite primeiros frames renderizarem limpos)
+var _collision_delay_frames: int = 10
+
 # ---------------------------------------------------------------------------
 # Ciclo de Vida
 # ---------------------------------------------------------------------------
@@ -71,7 +76,8 @@ func _ready() -> void:
 		_path_length = flight_path.curve.get_baked_length()
 
 	_apply_terrain_detail_material()
-	_generate_world_collision()
+	# Colisão é adiada — enfileira meshes e processa gradualmente no _process()
+	_enqueue_world_collision()
 
 	if enable_cloud_sky and not get_node_or_null("ProceduralCloudSky"):
 		var cloud_sky := ProceduralCloudSky.new()
@@ -91,6 +97,12 @@ func _ready() -> void:
 
 
 func _process(_delta: float) -> void:
+	# Geração incremental de colisão: 1 mesh por frame após delay inicial
+	if _collision_delay_frames > 0:
+		_collision_delay_frames -= 1
+	elif _collision_queue.size() > 0:
+		_process_one_collision()
+
 	# Detectar fim do nível
 	if not _level_completed and show_level_complete and path_follower:
 		if path_follower.progress >= _path_length - 1.0:
@@ -99,6 +111,10 @@ func _process(_delta: float) -> void:
 
 func _on_level_finished() -> void:
 	_level_completed = true
+	
+	# Finalizar qualquer colisão pendente imediatamente
+	while _collision_queue.size() > 0:
+		_process_one_collision()
 	
 	# Pausar o movimento
 	if path_follower:
@@ -139,9 +155,12 @@ func _apply_terrain_detail_material() -> void:
 			stack.append(child)
 
 
-func _generate_world_collision() -> void:
-	## Configura colisão física (trimesh) para o terreno e pontes do cenário para que os tiros possam
-	## detectar acertos via raycast. Utiliza colisores pré-salvos quando disponíveis para tempo zero de startup.
+# ---------------------------------------------------------------------------
+# Geração Incremental de Colisão (sem bloquear a thread principal)
+# ---------------------------------------------------------------------------
+
+func _enqueue_world_collision() -> void:
+	## Coleta todos os MeshInstance3D que precisam de colisão e enfileira para processamento gradual.
 	if _collision_generated:
 		return
 
@@ -164,27 +183,41 @@ func _generate_world_collision() -> void:
 			if not mesh_instance or not mesh_instance.mesh:
 				continue
 
-			# Se já possui colisão pré-salva no modelo, apenas valida a camada de colisão
+			# Se já possui colisão pré-salva no modelo, apenas valida a camada
 			var existing_body := mesh_instance.get_node_or_null("StaticBody3D") as StaticBody3D
 			if existing_body:
 				existing_body.collision_layer = 1 << 3  # layer 4 ("world")
 				existing_body.collision_mask = 0
 				continue
 
-			# Criação sob demanda apenas caso o modelo não tenha colisor pré-salvo
-			mesh_instance.create_trimesh_collision()
-			var body := mesh_instance.get_node_or_null("StaticBody3D") as StaticBody3D
-			if not body:
-				for c in mesh_instance.get_children():
-					if c is StaticBody3D:
-						body = c as StaticBody3D
-						break
-			if body:
-				body.collision_layer = 1 << 3  # layer 4 ("world")
-				body.collision_mask = 0
-				for col in body.find_children("*", "CollisionShape3D", false, false):
-					var cs := col as CollisionShape3D
-					if cs and cs.shape is ConcavePolygonShape3D:
-						(cs.shape as ConcavePolygonShape3D).backface_collision = true
+			# Enfileira para processamento gradual
+			_collision_queue.append(mesh_instance)
 
-	_collision_generated = true
+
+func _process_one_collision() -> void:
+	## Processa exatamente 1 MeshInstance3D da fila de colisão por frame.
+	if _collision_queue.is_empty():
+		_collision_generated = true
+		return
+
+	var mesh_instance := _collision_queue.pop_front()
+	if not is_instance_valid(mesh_instance) or not mesh_instance.mesh:
+		return
+
+	mesh_instance.create_trimesh_collision()
+	var body := mesh_instance.get_node_or_null("StaticBody3D") as StaticBody3D
+	if not body:
+		for c in mesh_instance.get_children():
+			if c is StaticBody3D:
+				body = c as StaticBody3D
+				break
+	if body:
+		body.collision_layer = 1 << 3  # layer 4 ("world")
+		body.collision_mask = 0
+		for col in body.find_children("*", "CollisionShape3D", false, false):
+			var cs := col as CollisionShape3D
+			if cs and cs.shape is ConcavePolygonShape3D:
+				(cs.shape as ConcavePolygonShape3D).backface_collision = true
+
+	if _collision_queue.is_empty():
+		_collision_generated = true
