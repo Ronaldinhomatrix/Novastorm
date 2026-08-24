@@ -78,6 +78,7 @@ var _max_up: float = 30.0  # Limite vertical superior (para cima)
 var _recent_move_local: Vector3 = Vector3.ZERO
 var _target_local_pos: Vector3 = Vector3.ZERO
 var _bounce_vel: Vector3 = Vector3.ZERO  # Velocidade de ricochete (espaço local)
+var _controls_enabled: bool = true
 
 @onready var ship_model: Node3D = $ShipModel
 
@@ -101,11 +102,23 @@ func _ready() -> void:
 	_target_local_pos = position
 
 
+func set_controls_enabled(enabled: bool) -> void:
+	_controls_enabled = enabled
+	if not enabled:
+		_is_firing = false
+		_pointer_active = false
+		_drag_active = false
+		_drag_delta_acc = Vector2.ZERO
+		_target_local_pos = Vector3(0.0, 0.0, forward_offset)
+
+
 # ---------------------------------------------------------------------------
 # Input
 # ---------------------------------------------------------------------------
 
 func _unhandled_input(event: InputEvent) -> void:
+	if not _controls_enabled:
+		return
 	if _is_mobile:
 		_handle_mobile_input(event)
 	else:
@@ -152,6 +165,13 @@ func _physics_process(delta: float) -> void:
 	# posicionada no editor. O movimento só ocorre no modo rail shooter
 	# (nave filha de um PathFollow3D).
 	if not (get_parent() is PathFollow3D):
+		return
+
+	if not _controls_enabled:
+		_is_firing = false
+		position = position.lerp(Vector3(0.0, 0.0, forward_offset), 8.0 * delta)
+		if ship_model:
+			ship_model.rotation = ship_model.rotation.lerp(Vector3.ZERO, 8.0 * delta)
 		return
 
 	_update_screen_extents()

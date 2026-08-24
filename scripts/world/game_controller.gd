@@ -13,9 +13,18 @@ extends Node3D
 @export_category("Componentes")
 @export var path_follower: PathFollower = null
 @export var player: Node3D = null
+@export var camera: Camera3D = null
 @export var player_scene: PackedScene = preload("res://scenes/player.tscn")
 
+@export_category("Intro Cinematica")
+@export var enable_cinematic_intro: bool = false
+@export var intro_duration: float = 5.0
+@export var intro_start_azimuth_deg: float = 135.0  ## Ângulo horizontal inicial em graus (135 = diagonal lateral frontal)
+@export var intro_start_elevation_deg: float = -20.0  ## Ângulo vertical inicial em graus (negativo = abaixo da nave)
+@export_range(0.05, 1.0) var intro_start_distance_fraction: float = 0.25  ## Distância inicial como fração da distância padrão (0.25 = 25%)
+
 @export_category("Cenario")
+@export var enable_cloud_sky: bool = true  ## Gera nuvens estáticas no céu do nível
 @export var terrain_detail_material: Material = preload("res://assets/materials/terrain_detailed.tres")
 
 @export_category("Progressão de Nível")
@@ -30,6 +39,11 @@ extends Node3D
 var _collision_generated: bool = false
 var _level_completed: bool = false
 var _path_length: float = 0.0
+
+var _intro_active: bool = false
+var _intro_timer: float = 0.0
+var _default_camera_pos: Vector3 = Vector3(-0.0112, 0.0, 33.85669)
+var _default_camera_rot: Vector3 = Vector3.ZERO
 
 # ---------------------------------------------------------------------------
 # Ciclo de Vida
@@ -48,6 +62,9 @@ func _ready() -> void:
 			p_instance.position = Vector3(0.0, 0.0, -40.0)
 			player = p_instance
 
+	if not camera and path_follower:
+		camera = path_follower.get_node_or_null("Camera3D") as Camera3D
+
 	# Calcular comprimento do path
 	var flight_path := get_node_or_null("FlightPath") as Path3D
 	if flight_path and flight_path.curve:
@@ -55,6 +72,22 @@ func _ready() -> void:
 
 	_apply_terrain_detail_material()
 	_generate_world_collision()
+
+	if enable_cloud_sky and not get_node_or_null("ProceduralCloudSky"):
+		var cloud_sky := ProceduralCloudSky.new()
+		cloud_sky.name = "ProceduralCloudSky"
+		add_child(cloud_sky)
+
+	if enable_cinematic_intro:
+		var intro := CinematicIntro.new()
+		intro.path_follower = path_follower
+		intro.player = player
+		intro.camera = camera
+		intro.duration = intro_duration
+		intro.start_azimuth_deg = intro_start_azimuth_deg
+		intro.start_elevation_deg = intro_start_elevation_deg
+		intro.start_distance_fraction = intro_start_distance_fraction
+		add_child(intro)
 
 
 func _process(_delta: float) -> void:
@@ -107,44 +140,51 @@ func _apply_terrain_detail_material() -> void:
 
 
 func _generate_world_collision() -> void:
-	## Gera colisão física (trimesh) para o terreno para que os tiros possam
-	## detectar acertos via raycast. O terreno GLTF vem apenas com malha visual
-	## e sem colisor, então criamos StaticBody3D + CollisionShape3D em modo
-	## "concave" (trimesh) automaticamente, uma única vez, no primeiro _ready.
+	## Configura colisão física (trimesh) para o terreno e pontes do cenário para que os tiros possam
+	## detectar acertos via raycast. Utiliza colisores pré-salvos quando disponíveis para tempo zero de startup.
 	if _collision_generated:
 		return
 
-	var mountains := _get_terrain_node()
-	if not mountains:
-		return
+	var targets: Array[Node] = []
+	var terrain := _get_terrain_node()
+	if terrain:
+		targets.append(terrain)
+	
+	var high_bridge := get_node_or_null("HighBridge")
+	if high_bridge:
+		targets.append(high_bridge)
 
-	for child in mountains.find_children("*", "MeshInstance3D", true, false):
-		var mesh_instance := child as MeshInstance3D
-		if not mesh_instance or not mesh_instance.mesh:
-			continue
+	var small_bridge := get_node_or_null("SmallBridge")
+	if small_bridge:
+		targets.append(small_bridge)
 
-		# Trimesh collision gera um ConcavePolygonShape3D a partir da malha.
-		mesh_instance.create_trimesh_collision()
+	for target in targets:
+		for child in target.find_children("*", "MeshInstance3D", true, false):
+			var mesh_instance := child as MeshInstance3D
+			if not mesh_instance or not mesh_instance.mesh:
+				continue
 
-		# O colisor recém-criado vira filho do MeshInstance3D. Corrige a camada
-		# para "world" (layer 4) para o raycast do projétil poder filtrar.
-		var body := mesh_instance.get_node_or_null("StaticBody3D") as StaticBody3D
-		if not body:
-			# Godot nomeia o corpo gerado de "StaticBody3D" (ou auto-nome).
-			for c in mesh_instance.get_children():
-				if c is StaticBody3D:
-					body = c as StaticBody3D
-					break
-		if body:
-			body.collision_layer = 1 << 3  # layer 4 ("world")
-			body.collision_mask = 0
-			# A malha do terreno é double-sided (doubleSided no GLTF), mas o
-			# trimesh só colide com faces "da frente" por padrão. Habilitar
-			# backface_collision faz o tiro reconhecer a superfície dos DOIS
-			# lados, resolvendo as regiões onde o tiro atravessava sem explodir.
-			for col in body.find_children("*", "CollisionShape3D", false, false):
-				var cs := col as CollisionShape3D
-				if cs and cs.shape is ConcavePolygonShape3D:
-					(cs.shape as ConcavePolygonShape3D).backface_collision = true
+			# Se já possui colisão pré-salva no modelo, apenas valida a camada de colisão
+			var existing_body := mesh_instance.get_node_or_null("StaticBody3D") as StaticBody3D
+			if existing_body:
+				existing_body.collision_layer = 1 << 3  # layer 4 ("world")
+				existing_body.collision_mask = 0
+				continue
+
+			# Criação sob demanda apenas caso o modelo não tenha colisor pré-salvo
+			mesh_instance.create_trimesh_collision()
+			var body := mesh_instance.get_node_or_null("StaticBody3D") as StaticBody3D
+			if not body:
+				for c in mesh_instance.get_children():
+					if c is StaticBody3D:
+						body = c as StaticBody3D
+						break
+			if body:
+				body.collision_layer = 1 << 3  # layer 4 ("world")
+				body.collision_mask = 0
+				for col in body.find_children("*", "CollisionShape3D", false, false):
+					var cs := col as CollisionShape3D
+					if cs and cs.shape is ConcavePolygonShape3D:
+						(cs.shape as ConcavePolygonShape3D).backface_collision = true
 
 	_collision_generated = true

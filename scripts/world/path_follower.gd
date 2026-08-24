@@ -39,6 +39,7 @@ extends PathFollow3D
 # ---------------------------------------------------------------------------
 
 var _paused: bool = false
+var _speed_multiplier: float = 1.0
 var _smoothed_forward: Vector3 = Vector3.ZERO
 var _forward_initialized: bool = false
 var _smoothed_tilt: float = 0.0  ## Tilt suavizado (roll em radianos)
@@ -53,14 +54,17 @@ func _ready() -> void:
 	rotation_mode = RotationMode.ROTATION_NONE
 	_forward_initialized = false
 	_prev_forward = Vector3.ZERO
+	_align_to_path(0.016)
 
 
 func _physics_process(delta: float) -> void:
 	if _paused:
 		return
 
-	progress += _current_speed() * delta
-	_align_to_path(delta)
+	# Limita o delta para no máximo 50ms para evitar saltos bruscos no primeiro frame pós-carregamento
+	var dt := minf(delta, 0.05)
+	progress += _current_speed() * dt
+	_align_to_path(dt)
 
 
 # ---------------------------------------------------------------------------
@@ -68,6 +72,7 @@ func _physics_process(delta: float) -> void:
 # ---------------------------------------------------------------------------
 
 func _current_speed() -> float:
+	var base_speed := forward_speed
 	if speed_curve and speed_curve.point_count > 0:
 		var parent_path := get_parent() as Path3D
 		var total := 1.0
@@ -75,8 +80,8 @@ func _current_speed() -> float:
 			total = maxf(parent_path.curve.get_baked_length(), 0.001)
 		var normalized := clampf(progress / total, 0.0, 1.0)
 		var factor := speed_curve.sample_baked(normalized)
-		return forward_speed * clampf(factor, 0.1, 10.0)
-	return forward_speed
+		base_speed = forward_speed * clampf(factor, 0.1, 10.0)
+	return base_speed * _speed_multiplier
 
 
 # ---------------------------------------------------------------------------
@@ -185,6 +190,10 @@ func _calculate_barrel_roll_angle(c: Curve3D) -> float:
 
 func set_paused(paused: bool) -> void:
 	_paused = paused
+
+
+func set_speed_multiplier(multiplier: float) -> void:
+	_speed_multiplier = multiplier
 
 
 func reset_progress() -> void:
