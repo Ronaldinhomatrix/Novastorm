@@ -200,7 +200,7 @@ func _process_one_collision() -> void:
 		_collision_generated = true
 		return
 
-	var mesh_instance := _collision_queue.pop_front()
+	var mesh_instance: MeshInstance3D = _collision_queue.pop_front()
 	if not is_instance_valid(mesh_instance) or not mesh_instance.mesh:
 		return
 
