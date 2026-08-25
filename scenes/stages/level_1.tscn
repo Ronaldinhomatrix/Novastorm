@@ -41,7 +41,9 @@ script = ExtResource("1_game")
 path_follower = NodePath("FlightPath/PathFollower")
 player = NodePath("FlightPath/PathFollower/Player")
 camera = NodePath("FlightPath/PathFollower/Camera3D")
+mothership_rotation_deg = 30.0
 enable_cinematic_intro = true
+intro_start_distance_fraction = 0.15000000000000002
 next_level_path = "res://scenes/stages/level_2.tscn"
 
 [node name="ProceduralCloudSky" type="Node" parent="." unique_id=950873757]
@@ -76,7 +78,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8049.7285, 139.74136, -8274.
 curve = SubResource("Curve3D_6cw15")
 
 [node name="PathFollower" type="PathFollow3D" parent="FlightPath" unique_id=1708290487]
-transform = Transform3D(-0.8547794, -0.037440546, -0.51763505, -3.725285e-09, 0.9973872, -0.07214147, 0.5189887, -0.061664935, -0.85255, 263.2085, 26.139328, 368.41406)
+transform = Transform3D(-0.8547794, -0.037440535, -0.51763505, -3.725285e-09, 0.9973869, -0.07214147, 0.5189887, -0.061664917, -0.85255, 263.2085, 26.139328, 368.41406)
 script = ExtResource("3_path_follower")
 forward_speed = 395.0
 
@@ -90,7 +92,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -40)
 fire_rate = 0.25
 
 [node name="Mothership" parent="." unique_id=1920165867 instance=ExtResource("8_o4vue")]
-transform = Transform3D(9.982725, 0, -28.290373, 0, 30, 0, 28.290373, 0, 9.982725, 4220.5264, 632.2262, -2177.4849)
+transform = Transform3D(1.4401197, 0, -44.976948, 0, 45, 0, 44.976948, 0, 1.4401197, 4245.986, 733.6441, -2190.2405)
 
 [node name="Castle" parent="." unique_id=1560527075 instance=ExtResource("9_6cw15")]
 transform = Transform3D(25.887053, 0, 15.161147, 0, 29.999998, 0, -15.161147, 0, 25.887053, 2832.8882, -21.202759, -611.6739)

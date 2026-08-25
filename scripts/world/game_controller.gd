@@ -17,6 +17,12 @@ extends Node3D
 @export var player: Node3D = null
 @export var camera: Camera3D = null
 @export var player_scene: PackedScene = preload("res://scenes/player.tscn")
+@export var mothership: Node3D = null
+
+@export_category("Mothership Animation")
+@export var mothership_start_point: int = 22
+@export var mothership_end_point: int = 29
+@export var mothership_rotation_deg: float = 20.0
 
 @export_category("Intro Cinematica")
 @export var enable_cinematic_intro: bool = false
@@ -47,6 +53,11 @@ var _intro_timer: float = 0.0
 var _default_camera_pos: Vector3 = Vector3(-0.0112, 0.0, 33.85669)
 var _default_camera_rot: Vector3 = Vector3.ZERO
 
+# Parâmetros de distância para a rotação da Mothership
+var _start_dist: float = 0.0
+var _end_dist: float = 0.0
+var _initial_mothership_rot_y: float = 0.0
+
 # ---------------------------------------------------------------------------
 # Ciclo de Vida
 # ---------------------------------------------------------------------------
@@ -55,6 +66,12 @@ func _ready() -> void:
 	if not path_follower:
 		path_follower = get_node_or_null("FlightPath/PathFollower") as PathFollower
 	
+	if not mothership:
+		mothership = get_node_or_null("Mothership")
+	
+	if mothership:
+		_initial_mothership_rot_y = mothership.rotation_degrees.y
+
 	if not player:
 		player = get_node_or_null("FlightPath/PathFollower/Player")
 		if not player and path_follower:
@@ -74,10 +91,19 @@ func _ready() -> void:
 	if player and player.has_method("set_controls_enabled"):
 		player.set_controls_enabled(false)
 
-	# Calcular comprimento do path
+	# Calcular comprimento do path e distâncias dos pontos 22 a 29
 	var flight_path := get_node_or_null("FlightPath") as Path3D
 	if flight_path and flight_path.curve:
-		_path_length = flight_path.curve.get_baked_length()
+		var curve := flight_path.curve
+		_path_length = curve.get_baked_length()
+		
+		# Calcula a distância exata ao longo da curva dos pontos especificados
+		var point_count := curve.point_count
+		if point_count > 0:
+			var clamped_start := clampi(mothership_start_point, 0, point_count - 1)
+			var clamped_end := clampi(mothership_end_point, 0, point_count - 1)
+			_start_dist = curve.get_closest_offset(curve.get_point_position(clamped_start))
+			_end_dist = curve.get_closest_offset(curve.get_point_position(clamped_end))
 
 	_apply_terrain_detail_material()
 
@@ -120,6 +146,23 @@ func _process(_delta: float) -> void:
 	if not _level_completed and show_level_complete and path_follower:
 		if path_follower.progress >= _path_length - 1.0:
 			_on_level_finished()
+	
+	# Animação de rotação da Mothership entre os pontos do Path3D
+	_update_mothership_rotation()
+
+
+func _update_mothership_rotation() -> void:
+	if not mothership or not path_follower or _end_dist <= _start_dist:
+		return
+	
+	var current_prog: float = path_follower.progress
+	if current_prog <= _start_dist:
+		mothership.rotation_degrees.y = _initial_mothership_rot_y
+	elif current_prog >= _end_dist:
+		mothership.rotation_degrees.y = _initial_mothership_rot_y + mothership_rotation_deg
+	else:
+		var t := (current_prog - _start_dist) / (_end_dist - _start_dist)
+		mothership.rotation_degrees.y = _initial_mothership_rot_y + lerp(0.0, mothership_rotation_deg, t)
 
 
 func _on_level_finished() -> void:
