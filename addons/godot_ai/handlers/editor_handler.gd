@@ -671,13 +671,7 @@ func _take_screenshot_impl(params: Dictionary) -> Dictionary:
 			"Captured an empty image from %s. The 3D viewport produced no output — typically headless mode or the 3D viewport has not drawn a frame yet." % source
 		)
 
-	var res := _finalize_image(image, source, max_resolution)
-	if source == "viewport" and viewport != null:
-		var cam := viewport.get_camera_3d()
-		if cam != null:
-			res.data["editor_camera_position"] = [cam.global_position.x, cam.global_position.y, cam.global_position.z]
-			res.data["editor_camera_rotation"] = [cam.global_rotation.x, cam.global_rotation.y, cam.global_rotation.z]
-	return res
+	return _finalize_image(image, source, max_resolution)
 
 
 ## Render the edited scene through its active Camera3D without running the
