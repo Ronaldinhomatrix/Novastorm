@@ -23,7 +23,7 @@ const ManeuverSound := preload("res://assets/audio/maneuver1.ogg")
 
 var _active: bool = false
 var _timer: float = 0.0
-var _default_camera_pos: Vector3 = Vector3(-0.0112, 0.0, 33.85669)
+var _default_camera_pos: Vector3 = Vector3(-0.0112, 0.0, 18.0)
 var _default_camera_rot: Vector3 = Vector3.ZERO
 
 # Player de áudio da manobra (não posicional, pois a câmera gira pela cena).

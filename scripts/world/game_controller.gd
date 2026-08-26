@@ -56,7 +56,7 @@ var _path_length: float = 0.0
 
 var _intro_active: bool = false
 var _intro_timer: float = 0.0
-var _default_camera_pos: Vector3 = Vector3(-0.0112, 0.0, 33.85669)
+var _default_camera_pos: Vector3 = Vector3(-0.0112, 0.0, 18.0)
 var _default_camera_rot: Vector3 = Vector3.ZERO
 
 # Parâmetros de distância para a rotação da Mothership
