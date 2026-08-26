@@ -3,7 +3,6 @@
 [ext_resource type="Script" uid="uid://btqr6og4j66xg" path="res://scripts/world/game_controller.gd" id="1_game"]
 [ext_resource type="Script" uid="uid://cjy7p78imdiy2" path="res://scripts/world/procedural_cloud_sky.gd" id="2_cloud_sky"]
 [ext_resource type="Script" uid="uid://dw8luifwfy2lq" path="res://scripts/world/path_follower.gd" id="3_path_follower"]
-[ext_resource type="PackedScene" uid="uid://di8jrupvocyse" path="res://scenes/player.tscn" id="4_player"]
 [ext_resource type="PackedScene" uid="uid://cil8kktg7167c" path="res://assets/models/levels/high_bridge_cut.tscn" id="6_high_bridge"]
 [ext_resource type="PackedScene" uid="uid://dx2mq7wge8xy2" path="res://assets/models/levels/small_bridge.glb" id="7_small_bridge"]
 [ext_resource type="PackedScene" uid="uid://ce5msb3cqp6x5" path="res://assets/models/levels/mothership_1.glb" id="8_o4vue"]
@@ -37,10 +36,9 @@ _data = {
 }
 point_count = 43
 
-[node name="Game" type="Node3D" unique_id=246272061 node_paths=PackedStringArray("path_follower", "player", "camera")]
+[node name="Game" type="Node3D" unique_id=246272061 node_paths=PackedStringArray("path_follower", "camera")]
 script = ExtResource("1_game")
 path_follower = NodePath("FlightPath/PathFollower")
-player = NodePath("FlightPath/PathFollower/Player")
 camera = NodePath("FlightPath/PathFollower/Camera3D")
 mothership_rotation_deg = 30.0
 enable_cinematic_intro = true
@@ -79,7 +77,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8049.7285, 139.74136, -8274.
 curve = SubResource("Curve3D_6cw15")
 
 [node name="PathFollower" type="PathFollow3D" parent="FlightPath" unique_id=1708290487]
-transform = Transform3D(-0.8547794, -0.037440415, -0.51763505, -3.725285e-09, 0.9973837, -0.07214147, 0.5189887, -0.06166472, -0.85255, 263.2085, 26.139328, 368.41406)
+transform = Transform3D(-0.8547794, -0.03744041, -0.51763505, -3.725285e-09, 0.99738365, -0.07214147, 0.5189887, -0.061664715, -0.85255, 263.2085, 26.139328, 368.41406)
 script = ExtResource("3_path_follower")
 forward_speed = 300.0
 roll_start_point = 32
@@ -89,10 +87,6 @@ roll_end_point = 37
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.0112, 0, 18)
 current = true
 fov = 56.25
-
-[node name="Player" parent="FlightPath/PathFollower" unique_id=1368633193 instance=ExtResource("4_player")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -40)
-fire_rate = 0.25
 
 [node name="Mothership" parent="." unique_id=1920165867 instance=ExtResource("8_o4vue")]
 transform = Transform3D(1.4401197, 0, -44.976948, 0, 45, 0, 44.976948, 0, 1.4401197, 4245.986, 733.6441, -2190.2405)
