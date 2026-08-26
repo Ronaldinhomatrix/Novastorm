@@ -9,6 +9,7 @@
 [ext_resource type="PackedScene" uid="uid://ce5msb3cqp6x5" path="res://assets/models/levels/mothership_1.glb" id="8_o4vue"]
 [ext_resource type="PackedScene" uid="uid://c82me1yjjw0i2" path="res://assets/models/levels/castle.glb" id="9_6cw15"]
 [ext_resource type="PackedScene" uid="uid://d0s6loxu6uluo" path="res://assets/models/levels/grand_canyon_normalized.tscn" id="10_normalized"]
+[ext_resource type="PackedScene" path="res://scenes/world/big_rock.tscn" id="11_big_rock"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_desert"]
 sky_top_color = Color(0.85, 0.55, 0.3, 1)
@@ -78,7 +79,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8049.7285, 139.74136, -8274.
 curve = SubResource("Curve3D_6cw15")
 
 [node name="PathFollower" type="PathFollow3D" parent="FlightPath" unique_id=1708290487]
-transform = Transform3D(-0.8547794, -0.037440527, -0.51763505, -3.725285e-09, 0.99738675, -0.07214147, 0.5189887, -0.06166491, -0.85255, 263.2085, 26.139328, 368.41406)
+transform = Transform3D(-0.8547794, -0.037440527, -0.51763505, -3.725285e-09, 0.9973867, -0.07214147, 0.5189887, -0.061664905, -0.85255, 263.2085, 26.139328, 368.41406)
 script = ExtResource("3_path_follower")
 forward_speed = 300.0
 
@@ -96,3 +97,6 @@ transform = Transform3D(1.4401197, 0, -44.976948, 0, 45, 0, 44.976948, 0, 1.4401
 
 [node name="Castle" parent="." unique_id=1560527075 instance=ExtResource("9_6cw15")]
 transform = Transform3D(25.887053, 0, 15.161147, 0, 29.999998, 0, -15.161147, 0, 25.887053, 2832.8882, -21.202759, -611.6739)
+
+[node name="BigRock" parent="." unique_id=1987654321 instance=ExtResource("11_big_rock")]
+transform = Transform3D(2, 0, 0, 0, 2, 0, 0, 0, 2, 8000, 250, -1200)
