@@ -82,7 +82,8 @@ curve = SubResource("Curve3D_6cw15")
 transform = Transform3D(-0.8547794, -0.037440415, -0.51763505, -3.725285e-09, 0.9973837, -0.07214147, 0.5189887, -0.06166472, -0.85255, 263.2085, 26.139328, 368.41406)
 script = ExtResource("3_path_follower")
 forward_speed = 300.0
-roll_start_point = 33
+roll_start_point = 32
+roll_end_point = 37
 
 [node name="Camera3D" type="Camera3D" parent="FlightPath/PathFollower" unique_id=1685004412]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.0112, 0, 18)

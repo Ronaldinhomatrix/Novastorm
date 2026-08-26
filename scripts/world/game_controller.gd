@@ -161,9 +161,9 @@ func _ready() -> void:
 
 
 func _process(_delta: float) -> void:
-	# Detectar fim do nível
+	# Detectar fim do nível (baseado em ratio >= 0.99 ou progresso a menos de 5 unidades do fim)
 	if not _level_completed and show_level_complete and path_follower:
-		if path_follower.progress >= _path_length - 1.0:
+		if path_follower.progress_ratio >= 0.99 or path_follower.progress >= _path_length - 5.0:
 			_on_level_finished()
 	
 	# Animação de rotação da Mothership entre os pontos do Path3D
@@ -190,16 +190,20 @@ func _update_mothership_rotation() -> void:
 func _on_level_finished() -> void:
 	_level_completed = true
 	
-	# Pausar o movimento
+	# Pausar o movimento permanentemente no fim do percurso
 	if path_follower:
 		path_follower.set_paused(true)
 	
 	# Mostrar tela de level complete
-	if level_complete_scene and next_level_path != "":
+	if level_complete_scene:
+		var target_next_level := next_level_path
+		if target_next_level == "":
+			target_next_level = "res://scenes/stages/level_2.tscn"
+		
 		var ui := level_complete_scene.instantiate() as LevelComplete
 		if ui:
 			add_child(ui)
-			ui.next_level_path = next_level_path
+			ui.next_level_path = target_next_level
 
 
 func _get_terrain_node() -> Node:

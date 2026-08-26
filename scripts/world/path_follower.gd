@@ -58,6 +58,7 @@ var _barrel_roll_sound_played: bool = false
 # ---------------------------------------------------------------------------
 
 func _ready() -> void:
+	loop = false
 	rotation_mode = RotationMode.ROTATION_NONE
 	_forward_initialized = false
 	_prev_forward = Vector3.ZERO
