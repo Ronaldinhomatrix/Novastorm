@@ -1,0 +1,7 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://assets/models/levels/mothership_1.glb" id="1_cbkfp"]
+
+[node name="Mothership" type="Node3D" unique_id=1991164365]
+
+[node name="MothershipModel" type="Node3D" parent="." unique_id=1920165867 instance=ExtResource("1_cbkfp")]
