@@ -79,7 +79,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8049.7285, 139.74136, -8274.
 curve = SubResource("Curve3D_6cw15")
 
 [node name="PathFollower" type="PathFollow3D" parent="FlightPath" unique_id=1708290487]
-transform = Transform3D(-0.8547794, -0.037440527, -0.51763505, -3.725285e-09, 0.9973867, -0.07214147, 0.5189887, -0.061664905, -0.85255, 263.2085, 26.139328, 368.41406)
+transform = Transform3D(-0.8547794, -0.037440524, -0.51763505, -3.725285e-09, 0.99738663, -0.07214147, 0.5189887, -0.0616649, -0.85255, 263.2085, 26.139328, 368.41406)
 script = ExtResource("3_path_follower")
 forward_speed = 300.0
 
