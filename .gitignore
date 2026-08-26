@@ -1,6 +1,9 @@
 # Godot 4+ specific ignores
 .godot/
 /android/
+build/
+*.apk
+*.idsig
 
 # Summer Engine local-only state (SummerGit, caches, locks)
 .summer/local/

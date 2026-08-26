@@ -1,0 +1,9 @@
+[gd_resource type="StandardMaterial3D" format=3 uid="uid://c6rl2bq5mm8p"]
+
+[ext_resource type="Texture2D" uid="uid://dy8shenl8dk61" path="res://assets/models/levels/mountains_1/textures/Material_25_baseColor.jpeg" id="1_ifaav"]
+[ext_resource type="Texture2D" uid="uid://5wq75cgsjvyh" path="res://assets/models/levels/mountains_1/textures/Material_25_normal.png" id="2_lgxu7"]
+
+[resource]
+albedo_texture = ExtResource("1_ifaav")
+normal_texture = ExtResource("2_lgxu7")
+uv1_scale = Vector3(1, 1, 1)

@@ -34,6 +34,9 @@ extends PathFollow3D
 @export_range(0.0, 1.0) var roll_start_ratio: float = -1.0  ## Opcional: sobrescreve por ratio
 @export_range(0.0, 1.0) var roll_end_ratio: float = -1.0  ## Opcional: sobrescreve por ratio
 
+# Som de manobra tocado quando o giro em parafuso (barrel roll) da câmera inicia.
+const ManeuverSound := preload("res://assets/audio/maneuver1.ogg")
+
 # ---------------------------------------------------------------------------
 # Estado Interno
 # ---------------------------------------------------------------------------
@@ -46,6 +49,10 @@ var _smoothed_tilt: float = 0.0  ## Tilt suavizado (roll em radianos)
 var _prev_forward: Vector3 = Vector3.ZERO  ## Direcao anterior
 var _barrel_roll_angle: float = 0.0  ## Rotacao adicional de roll em radianos
 
+# Player de áudio da manobra (barrel roll) + controle de disparo único.
+var _maneuver_player: AudioStreamPlayer = null
+var _barrel_roll_sound_played: bool = false
+
 # ---------------------------------------------------------------------------
 # Ciclo de Vida
 # ---------------------------------------------------------------------------
@@ -54,6 +61,12 @@ func _ready() -> void:
 	rotation_mode = RotationMode.ROTATION_NONE
 	_forward_initialized = false
 	_prev_forward = Vector3.ZERO
+	# Prepara o player de áudio para o som de manobra do barrel roll.
+	_maneuver_player = AudioStreamPlayer.new()
+	_maneuver_player.stream = ManeuverSound
+	_maneuver_player.bus = "Master"
+	_maneuver_player.volume_db = 0.0
+	add_child(_maneuver_player)
 	_align_to_path(0.016)
 
 
@@ -138,6 +151,7 @@ func _align_to_path(delta: float) -> void:
 	# Giro em Parafuso (Barrel Roll)
 	var barrel_roll_angle := _calculate_barrel_roll_angle(c)
 	_barrel_roll_angle = barrel_roll_angle
+	_update_barrel_roll_sound(c)
 
 	var up := Vector3.UP
 	var total_roll := _smoothed_tilt + _barrel_roll_angle
@@ -187,6 +201,38 @@ func _calculate_barrel_roll_angle(c: Curve3D) -> float:
 	return organic_t * full_rotation
 
 
+## Dispara o som de manobra uma única vez, exatamente quando o barrel roll
+## (giro em parafuso da câmera) inicia (progresso cruza roll_start_point).
+func _update_barrel_roll_sound(c: Curve3D) -> void:
+	if not enable_barrel_roll or _maneuver_player == null or _barrel_roll_sound_played:
+		return
+	if c == null or c.point_count < 2:
+		return
+
+	var start_offset: float = 0.0
+	var end_offset: float = 0.0
+	var total_len := maxf(c.get_baked_length(), 0.001)
+
+	if roll_start_ratio >= 0.0 and roll_end_ratio > roll_start_ratio:
+		start_offset = roll_start_ratio * total_len
+		end_offset = roll_end_ratio * total_len
+	else:
+		if roll_start_point >= 0 and roll_start_point < c.point_count and roll_end_point >= 0 and roll_end_point < c.point_count:
+			start_offset = c.get_closest_offset(c.get_point_position(roll_start_point))
+			end_offset = c.get_closest_offset(c.get_point_position(roll_end_point))
+		else:
+			return
+
+	if end_offset <= start_offset:
+		return
+	if progress < start_offset or progress > end_offset:
+		return
+
+	_maneuver_player.pitch_scale = randf_range(0.97, 1.03)
+	_maneuver_player.play()
+	_barrel_roll_sound_played = true
+
+
 # ---------------------------------------------------------------------------
 # API Publica
 # ---------------------------------------------------------------------------
@@ -202,3 +248,4 @@ func set_speed_multiplier(multiplier: float) -> void:
 func reset_progress() -> void:
 	progress = 0.0
 	_forward_initialized = false
+	_barrel_roll_sound_played = false

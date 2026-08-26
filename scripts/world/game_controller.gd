@@ -12,6 +12,12 @@ extends Node3D
 # Exportações e Configurações
 # ---------------------------------------------------------------------------
 
+# Trilha sonora do nível 1.
+const MUSIC_LEVEL_1 := preload("res://assets/audio/music_1_Aphelion.mp3")
+
+# Som da nave mãe (Mothership) - efeito posicional tocado ao se aproximar dela.
+const MOTHERSHIP_SOUND := preload("res://assets/audio/mothership1.ogg")
+
 @export_category("Componentes")
 @export var path_follower: PathFollower = null
 @export var player: Node3D = null
@@ -58,11 +64,19 @@ var _start_dist: float = 0.0
 var _end_dist: float = 0.0
 var _initial_mothership_rot_y: float = 0.0
 
+# Player de áudio posicional ancorado na Mothership.
+var _mothership_sound_player: AudioStreamPlayer3D = null
+
+# Reproduz a trilha sonora do nível.
+var _music_player: AudioStreamPlayer = null
+
 # ---------------------------------------------------------------------------
 # Ciclo de Vida
 # ---------------------------------------------------------------------------
 
 func _ready() -> void:
+	_start_background_music()
+
 	if not path_follower:
 		path_follower = get_node_or_null("FlightPath/PathFollower") as PathFollower
 	
@@ -83,6 +97,10 @@ func _ready() -> void:
 
 	if not camera and path_follower:
 		camera = path_follower.get_node_or_null("Camera3D") as Camera3D
+
+	# Configura o ouvinte de áudio 3D na câmera e o som da Mothership.
+	_setup_audio_listener()
+	_setup_mothership_sound()
 
 	# Pausa o movimento imediatamente durante a fase de pré-carregamento
 	if path_follower:
@@ -105,7 +123,8 @@ func _ready() -> void:
 			_start_dist = curve.get_closest_offset(curve.get_point_position(clamped_start))
 			_end_dist = curve.get_closest_offset(curve.get_point_position(clamped_end))
 
-	_apply_terrain_detail_material()
+	# Configuração gráfica dinâmica: PC Ultra vs Mobile Otimizado
+	_apply_platform_graphics_settings()
 
 	if enable_cloud_sky and not get_node_or_null("ProceduralCloudSky"):
 		var cloud_sky := ProceduralCloudSky.new()
@@ -150,6 +169,9 @@ func _process(_delta: float) -> void:
 	# Animação de rotação da Mothership entre os pontos do Path3D
 	_update_mothership_rotation()
 
+	# Aciona/para o som da Mothership conforme a proximidade do jogador
+	_update_mothership_sound()
+
 
 func _update_mothership_rotation() -> void:
 	if not mothership or not path_follower or _end_dist <= _start_dist:
@@ -190,19 +212,74 @@ func _get_terrain_node() -> Node:
 	return get_node_or_null("Terrain")
 
 
-func _apply_terrain_detail_material() -> void:
-	if terrain_detail_material == null:
-		return
+const TerrainMobileMaterial := preload("res://assets/materials/terrain_detailed_mobile.tres")
+
+func _apply_platform_graphics_settings() -> void:
+	var is_mobile := OS.has_feature("mobile") or OS.has_feature("android") or OS.has_feature("ios")
+	var sun := get_node_or_null("DirectionalLight3D") as DirectionalLight3D
+	
+	if is_mobile:
+		# --- CONFIGURAÇÃO MOBILE (Alta Performance - 60 FPS) ---
+		Engine.max_fps = 60
+		get_viewport().scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR
+		get_viewport().scaling_3d_scale = 0.80
+		get_viewport().fsr_sharpness = 0.2
+		
+		# Câmera: corte de distância em 1200m (descarta 60% dos triângulos distantes)
+		if camera:
+			camera.far = 1200.0
+		
+		# Sol e Sombras no Mobile: 250m de alcance, 1 passe ortogonal leve
+		if sun:
+			sun.directional_shadow_max_distance = 250.0
+			sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
+			sun.directional_shadow_blend_splits = false
+		
+		# Terreno no Mobile: material leve sem triplanar e sem projeção de sombras no cenário
+		_apply_scenery_materials_and_shadows(TerrainMobileMaterial, GeometryInstance3D.SHADOW_CASTING_SETTING_OFF)
+	else:
+		# --- CONFIGURAÇÃO PC / DESKTOP (Ultra Visuals - 144Hz+) ---
+		Engine.max_fps = 0
+		get_viewport().scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR
+		get_viewport().scaling_3d_scale = 1.0
+		
+		# Câmera: alcance total até o horizonte (4000m)
+		if camera:
+			camera.far = 4000.0
+		
+		# Sol e Sombras no PC: 800m de alcance, 4 divisões ultra suaves
+		if sun:
+			sun.directional_shadow_max_distance = 800.0
+			sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
+			sun.directional_shadow_blend_splits = true
+		
+		# Terreno no PC: material ultra detalhado com Triplanar e sombras ativas
+		_apply_scenery_materials_and_shadows(terrain_detail_material, GeometryInstance3D.SHADOW_CASTING_SETTING_ON)
+
+
+func _apply_scenery_materials_and_shadows(mat: Material, shadow_setting: GeometryInstance3D.ShadowCastingSetting) -> void:
 	var mountains := _get_terrain_node()
-	if not mountains:
-		return
-	var stack: Array = [mountains]
-	while stack.size() > 0:
-		var node: Node = stack.pop_back()
-		if node is MeshInstance3D:
-			(node as MeshInstance3D).material_override = terrain_detail_material
-		for child in node.get_children():
-			stack.append(child)
+	if mountains:
+		var stack: Array = [mountains]
+		while stack.size() > 0:
+			var node: Node = stack.pop_back()
+			if node is MeshInstance3D:
+				var mi := node as MeshInstance3D
+				if mat:
+					mi.material_override = mat
+				mi.cast_shadow = shadow_setting
+			for child in node.get_children():
+				stack.append(child)
+	
+	# Ajusta projeção de sombra em outros objetos estáticos do cenário
+	var static_scenery := ["HighBridge", "SmallBridge", "Castle", "Mothership"]
+	for sc_name in static_scenery:
+		var sc_node := get_node_or_null(sc_name)
+		if sc_node:
+			for child in sc_node.find_children("*", "MeshInstance3D", true, false):
+				var mi := child as MeshInstance3D
+				if mi:
+					mi.cast_shadow = shadow_setting
 
 
 # ---------------------------------------------------------------------------
@@ -286,3 +363,94 @@ func _generate_all_world_collision_sync() -> void:
 						(cs.shape as ConcavePolygonShape3D).backface_collision = true
 
 	_collision_generated = true
+
+
+# ---------------------------------------------------------------------------
+# Áudio (Trilha Sonora)
+# ---------------------------------------------------------------------------
+
+func _start_background_music() -> void:
+	if _music_player or MUSIC_LEVEL_1 == null:
+		return
+	_music_player = AudioStreamPlayer.new()
+	_music_player.stream = MUSIC_LEVEL_1
+	_music_player.bus = "Master"
+	_music_player.volume_db = -12.0  # Música um pouco abaixo dos efeitos sonoros
+	_music_player.finished.connect(_on_music_finished)
+	add_child(_music_player)
+	_music_player.play()
+
+
+func _on_music_finished() -> void:
+	# Faz a música tocar em loop contínuo durante o nível.
+	if _music_player:
+		_music_player.play()
+
+
+# ---------------------------------------------------------------------------
+# Áudio 3D (Ouvinte + Nave Mãe)
+# ---------------------------------------------------------------------------
+
+## Garante que a câmera tenha um AudioListener3D (o "ouvido" do jogo).
+## Sem ele, o áudio posicional 3D não tem ponto de escuta e não atenua por
+## distância — essencial para que o som da Mothership se comporte.
+func _setup_audio_listener() -> void:
+	if not camera:
+		return
+	if camera.get_node_or_null("AudioListener3D") == null:
+		var listener := AudioListener3D.new()
+		listener.name = "AudioListener3D"
+		camera.add_child(listener)
+
+
+## Cria o player de áudio posicional ancorado na Mothership.
+## O som toca em loop enquanto a nave do jogador estiver perto dela e a
+## distância é calculada automaticamente pelo motor (com atenuação por unit_size).
+func _setup_mothership_sound() -> void:
+	if _mothership_sound_player or not mothership or MOTHERSHIP_SOUND == null:
+		return
+	_mothership_sound_player = AudioStreamPlayer3D.new()
+	_mothership_sound_player.name = "MothershipSound"
+	_mothership_sound_player.stream = MOTHERSHIP_SOUND
+	if _mothership_sound_player.stream and "loop" in _mothership_sound_player.stream:
+		_mothership_sound_player.stream.loop = true
+	_mothership_sound_player.bus = "Master"
+	# Modelo logarítmico: no afastamento o volume decai bem mais devagar que
+	# o padrão (INVERSE_DISTANCE), evitando que o som "suma" cedo demais.
+	_mothership_sound_player.attenuation_model = AudioStreamPlayer3D.ATTENUATION_LOGARITHMIC
+	_mothership_sound_player.unit_size = 900.0   # Volume pleno até ~900 unid.
+	_mothership_sound_player.max_distance = 5200.0  # Borda real de audibilidade (fade até aqui)
+	_mothership_sound_player.volume_db = 0.0
+	mothership.add_child(_mothership_sound_player)
+	# Começa silencioso; só dispara quando o jogador se aproxima.
+	_mothership_sound_player.playing = false
+
+
+## Liga/desliga a reprodução conforme a distância do jogador à Mothership.
+## Combina o gatilho (play/stop por proximidade) com a atenuação automática
+## por distância que o AudioStreamPlayer3D já aplica.
+func _update_mothership_sound() -> void:
+	if _mothership_sound_player == null or not mothership:
+		return
+
+	# Ponto de escuta: usa a nave do jogador se disponível, senão a câmera.
+	var listener_pos := _mothership_listener_pos()
+
+	var dist := listener_pos.distance_to(mothership.global_position)
+	var activation_radius := 3600.0  # A partir de qual distância começa a tocar (aproximação)
+	# No afastamento, só para na borda real do fade (max_distance) para não
+	# cortar o som antes do esperado (histérese: evita liga/desliga perto da borda).
+	var stop_radius := _mothership_sound_player.max_distance
+
+	if dist <= activation_radius and not _mothership_sound_player.playing:
+		_mothership_sound_player.play()
+	elif dist > stop_radius and _mothership_sound_player.playing:
+		_mothership_sound_player.stop()
+
+
+func _mothership_listener_pos() -> Vector3:
+	# Prefere a posição do jogador (a nave que percorre o caminho).
+	var ref: Node3D = player if player else camera
+	if ref:
+		return ref.global_position
+	return mothership.global_position if mothership else Vector3.ZERO

@@ -45,3 +45,6 @@ common/physics_interpolation=true
 [rendering]
 
 textures/vram_compression/import_etc2_astc=true
+lights_and_shadows/directional_shadow/size.mobile=1024
+scaling_3d/mode.mobile=1
+scaling_3d/scale.mobile=0.8

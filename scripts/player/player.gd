@@ -54,6 +54,9 @@ extends CharacterBody3D
 # Script da faísca de atrito (procedural, sem assets externos).
 const SparkScript := preload("res://scripts/effects/spark.gd")
 
+# Som de disparo do laser (Efeito Sonoro).
+const LaserSound := preload("res://assets/audio/laser1.ogg")
+
 # ---------------------------------------------------------------------------
 # Estado Interno
 # ---------------------------------------------------------------------------
@@ -80,6 +83,9 @@ var _target_local_pos: Vector3 = Vector3.ZERO
 var _bounce_vel: Vector3 = Vector3.ZERO  # Velocidade de ricochete (espaço local)
 var _controls_enabled: bool = true
 
+# Player de áudio do disparo (posicional, ancorado na nave).
+var _laser_player: AudioStreamPlayer3D = null
+
 @onready var ship_model: Node3D = $ShipModel
 
 # ---------------------------------------------------------------------------
@@ -88,6 +94,13 @@ var _controls_enabled: bool = true
 
 func _ready() -> void:
 	_is_mobile = OS.has_feature("android") or OS.has_feature("ios")
+
+	# Áudio de disparo: som posicional ancorado no corpo da nave.
+	_laser_player = AudioStreamPlayer3D.new()
+	_laser_player.stream = LaserSound
+	_laser_player.max_distance = 120.0
+	_laser_player.volume_db = 0.0
+	add_child(_laser_player)
 
 	var col_shape := $CollisionShape3D as CollisionShape3D
 	if col_shape and col_shape.shape is BoxShape3D:
@@ -342,6 +355,11 @@ func _spawn_bullet() -> void:
 	get_tree().current_scene.add_child(bullet)
 	bullet.global_position = spawn_pos
 	bullet.setup(_aim_direction(spawn_pos))
+
+	# Reproduz o som do disparo do laser.
+	if _laser_player:
+		_laser_player.pitch_scale = randf_range(0.95, 1.08)
+		_laser_player.play()
 
 
 ## Calcula a direção de tiro no estilo "a nave é o cursor" (rail shooter).

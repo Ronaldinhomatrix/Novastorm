@@ -6,6 +6,9 @@ extends Node
 
 signal intro_completed
 
+## Som de manobra tocado quando a câmera inicia o giro orbital (parafuso).
+const ManeuverSound := preload("res://assets/audio/maneuver1.ogg")
+
 @export_category("Componentes")
 @export var path_follower: PathFollower = null
 @export var player: Node3D = null
@@ -23,6 +26,9 @@ var _timer: float = 0.0
 var _default_camera_pos: Vector3 = Vector3(-0.0112, 0.0, 33.85669)
 var _default_camera_rot: Vector3 = Vector3.ZERO
 
+# Player de áudio da manobra (não posicional, pois a câmera gira pela cena).
+var _maneuver_player: AudioStreamPlayer = null
+
 
 func _ready() -> void:
 	# Busca automática de referências caso não estejam explicitamente atribuídas no Inspector
@@ -33,6 +39,13 @@ func _ready() -> void:
 		player = path_follower.get_node_or_null("Player") as Node3D
 	if not camera and path_follower:
 		camera = path_follower.get_node_or_null("Camera3D") as Camera3D
+
+	# Prepara o player de áudio da manobra (giro orbital da câmera).
+	_maneuver_player = AudioStreamPlayer.new()
+	_maneuver_player.stream = ManeuverSound
+	_maneuver_player.bus = "Master"
+	_maneuver_player.volume_db = 0.0
+	add_child(_maneuver_player)
 
 	if enabled and camera and player and path_follower:
 		start()
@@ -54,6 +67,11 @@ func _process(delta: float) -> void:
 func start() -> void:
 	_active = true
 	_timer = 0.0
+
+	# Toca a manobra assim que a câmera começa o giro orbital (parafuso).
+	if _maneuver_player:
+		_maneuver_player.pitch_scale = randf_range(0.97, 1.03)
+		_maneuver_player.play()
 
 	if path_follower:
 		path_follower.set_paused(false)
