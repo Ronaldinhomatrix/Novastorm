@@ -222,16 +222,16 @@ func _apply_platform_graphics_settings() -> void:
 		# --- CONFIGURAÇÃO MOBILE (Alta Performance - 60 FPS) ---
 		Engine.max_fps = 60
 		get_viewport().scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR
-		get_viewport().scaling_3d_scale = 0.80
-		get_viewport().fsr_sharpness = 0.2
+		get_viewport().scaling_3d_scale = 0.75
+		get_viewport().fsr_sharpness = 0.3
 		
-		# Câmera: corte de distância em 1200m (descarta 60% dos triângulos distantes)
+		# Câmera no Mobile: alcance amplo até o horizonte (3500m)
 		if camera:
-			camera.far = 1200.0
+			camera.far = 3500.0
 		
-		# Sol e Sombras no Mobile: 250m de alcance, 1 passe ortogonal leve
+		# Sol e Sombras no Mobile: sombra focal de 100m focada na nave (leve e ultra nítida)
 		if sun:
-			sun.directional_shadow_max_distance = 250.0
+			sun.directional_shadow_max_distance = 100.0
 			sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
 			sun.directional_shadow_blend_splits = false
 		
