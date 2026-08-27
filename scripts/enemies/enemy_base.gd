@@ -17,7 +17,7 @@ const LaserSound := preload("res://assets/audio/laser1.ogg")
 @export var target_ship_node_name: String = ""  ## Nome do nó da nave a exibir do GLB (ex: Starship.002, Starship.v2, Starship.v3)
 
 @export_category("Armas")
-@export var bullet_scene: PackedScene = preload("res://scenes/enemies/enemy_bullet.tscn")
+@export var bullet_scene: PackedScene = null
 @export var laser_volume_db: float = -4.0
 
 var current_hp: int = 1
@@ -29,6 +29,9 @@ var _laser_audio_player: AudioStreamPlayer = null
 
 
 func _ready() -> void:
+	if not bullet_scene:
+		bullet_scene = load("res://scenes/enemies/enemy_bullet.tscn")
+
 	current_hp = max_hp
 	collision_layer = 2
 	collision_mask = 2

@@ -1,5 +1,5 @@
 class_name EnemyFighter
-extends EnemyBase
+extends "res://scripts/enemies/enemy_base.gd"
 
 ## Inimigo Caça Tático / Fighter (Starship.v2)
 ## Entra em alta velocidade, estabiliza em distância de combate, realiza manobras

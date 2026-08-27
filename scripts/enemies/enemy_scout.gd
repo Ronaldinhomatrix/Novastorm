@@ -1,5 +1,5 @@
 class_name EnemyScout
-extends EnemyBase
+extends "res://scripts/enemies/enemy_base.gd"
 
 ## Inimigo Caça Leve / Reconhecimento (Starship.002)
 ## Movimentação rápida em esquadrilha com curva senoidal e disparo frontal.

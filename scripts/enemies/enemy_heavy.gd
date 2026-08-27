@@ -1,5 +1,5 @@
 class_name EnemyHeavy
-extends EnemyBase
+extends "res://scripts/enemies/enemy_base.gd"
 
 ## Inimigo Cruzador Pesado / Mini-Boss (Starship.v3)
 ## Nave pesada com padrão de voo em infinito (figura-8), disparos em leque triplo
