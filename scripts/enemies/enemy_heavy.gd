@@ -17,7 +17,7 @@ var _dying_sequence: bool = false
 
 
 func _ready() -> void:
-	max_hp = 12
+	max_hp = 1
 	score_value = 1000
 	super._ready()
 

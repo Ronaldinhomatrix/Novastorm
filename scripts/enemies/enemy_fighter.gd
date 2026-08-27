@@ -24,7 +24,7 @@ var _wing_offset: float = 3.5
 
 
 func _ready() -> void:
-	max_hp = 3
+	max_hp = 1
 	score_value = 300
 	super._ready()
 
