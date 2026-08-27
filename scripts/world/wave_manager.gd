@@ -3,7 +3,7 @@ extends Node
 
 ## Gerenciador de ondas de inimigos (Waves) para o Astro Striker.
 ## Monitora o progresso do PathFollower ao longo do nível e dispara
-## as waves de inimigos em momentos cinematográficos estratégicos.
+## as waves de inimigos nos pontos exatos da curva do Path3D.
 
 signal wave_started(wave_index: int, wave_name: String)
 signal wave_cleared(wave_index: int)
@@ -16,15 +16,18 @@ signal wave_cleared(wave_index: int)
 @export var fighter_scene: PackedScene = preload("res://scenes/enemies/enemy_fighter.tscn")
 @export var heavy_scene: PackedScene = preload("res://scenes/enemies/enemy_heavy.tscn")
 
-# Definições de progresso para disparo das ondas (0.0 a 1.0)
-@export_category("Gatilhos de Progresso")
-@export var wave_1_progress: float = 0.14  ## Esquadrilha de Scouts (caças leves)
-@export var wave_2_progress: float = 0.40  ## Caças táticos Fighters (manobras e rajadas)
-@export var wave_3_progress: float = 0.65  ## Cruzador Pesado Heavy Gunship + escolta
+@export_category("Gatilhos por Ponto do Path3D")
+@export var wave_1_point: int = 6   ## Número do ponto da curva Path3D onde a Wave 1 é disparada (Esquadrilha de Scouts)
+@export var wave_2_point: int = 17  ## Número do ponto da curva Path3D onde a Wave 2 é disparada (Fighters)
+@export var wave_3_point: int = 28  ## Número do ponto da curva Path3D onde a Wave 3 é disparada (Heavy Mini-Boss)
 
 var _wave_1_triggered: bool = false
 var _wave_2_triggered: bool = false
 var _wave_3_triggered: bool = false
+
+var _target_ratio_1: float = 0.14
+var _target_ratio_2: float = 0.40
+var _target_ratio_3: float = 0.65
 
 var _active_enemies: Array[Node] = []
 
@@ -35,6 +38,30 @@ func _ready() -> void:
 	if not path_follower:
 		path_follower = get_parent().get_node_or_null("FlightPath/PathFollower") as PathFollower
 
+	_update_target_ratios()
+
+
+func _update_target_ratios() -> void:
+	if not path_follower:
+		return
+	var path3d := path_follower.get_parent() as Path3D
+	if not path3d or not path3d.curve or path3d.curve.point_count == 0:
+		return
+
+	var curve := path3d.curve
+	var total_len := maxf(1.0, curve.get_baked_length())
+
+	_target_ratio_1 = _get_point_ratio(curve, wave_1_point, total_len)
+	_target_ratio_2 = _get_point_ratio(curve, wave_2_point, total_len)
+	_target_ratio_3 = _get_point_ratio(curve, wave_3_point, total_len)
+
+
+func _get_point_ratio(curve: Curve3D, point_index: int, total_length: float) -> float:
+	var clamped_index := clampi(point_index, 0, curve.point_count - 1)
+	var pos := curve.get_point_position(clamped_index)
+	var offset := curve.get_closest_offset(pos)
+	return offset / total_length
+
 
 func _process(_delta: float) -> void:
 	if not path_follower:
@@ -42,15 +69,15 @@ func _process(_delta: float) -> void:
 
 	var current_progress: float = path_follower.progress_ratio
 
-	if not _wave_1_triggered and current_progress >= wave_1_progress:
+	if not _wave_1_triggered and current_progress >= _target_ratio_1:
 		_wave_1_triggered = true
 		_spawn_wave_1()
 
-	if not _wave_2_triggered and current_progress >= wave_2_progress:
+	if not _wave_2_triggered and current_progress >= _target_ratio_2:
 		_wave_2_triggered = true
 		_spawn_wave_2()
 
-	if not _wave_3_triggered and current_progress >= wave_3_progress:
+	if not _wave_3_triggered and current_progress >= _target_ratio_3:
 		_wave_3_triggered = true
 		_spawn_wave_3()
 
