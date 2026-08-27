@@ -7,8 +7,9 @@
 [ext_resource type="PackedScene" uid="uid://dx2mq7wge8xy2" path="res://assets/models/levels/small_bridge.glb" id="7_small_bridge"]
 [ext_resource type="PackedScene" path="res://scenes/world/mothership.tscn" id="8_o4vue"]
 [ext_resource type="PackedScene" uid="uid://c82me1yjjw0i2" path="res://assets/models/levels/castle.glb" id="9_6cw15"]
-[ext_resource type="PackedScene" uid="uid://d0s6loxu6uluo" path="res://assets/models/levels/grand_canyon_normalized.tscn" id="10_normalized"]
+[ext_resource type="PackedScene" uid="uid://bxnw7noy0gpft" path="res://assets/models/levels/grand_canyon_normalized.scn" id="10_normalized"]
 [ext_resource type="PackedScene" path="res://scenes/world/big_rock.tscn" id="11_big_rock"]
+[ext_resource type="Script" path="res://scripts/world/wave_manager.gd" id="12_wave_mgr"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_desert"]
 sky_top_color = Color(0.85, 0.55, 0.3, 1)
@@ -36,13 +37,16 @@ _data = {
 }
 point_count = 43
 
-[node name="Game" type="Node3D" unique_id=246272061 node_paths=PackedStringArray("path_follower", "camera")]
+[node name="Game" type="Node3D" unique_id=246272061 node_paths=PackedStringArray("path_follower", "camera", "wave_manager")]
 script = ExtResource("1_game")
 path_follower = NodePath("FlightPath/PathFollower")
 camera = NodePath("FlightPath/PathFollower/Camera3D")
+wave_manager = NodePath("WaveManager")
 mothership_rotation_deg = 30.0
 enable_cinematic_intro = true
 intro_start_distance_fraction = 0.15000000000000002
+custom_camera_far_pc = 6000.0
+custom_camera_far_mobile = 5000.0
 next_level_path = "res://scenes/stages/level_2.tscn"
 
 [node name="ProceduralCloudSky" type="Node" parent="." unique_id=950873757]
@@ -77,7 +81,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8049.7285, 139.74136, -8274.
 curve = SubResource("Curve3D_6cw15")
 
 [node name="PathFollower" type="PathFollow3D" parent="FlightPath" unique_id=1708290487]
-transform = Transform3D(-0.8547794, -0.03744041, -0.51763505, -3.725285e-09, 0.9973836, -0.07214147, 0.5189887, -0.06166471, -0.85255, 263.2085, 26.139328, 368.41406)
+transform = Transform3D(-0.8547794, -0.037440408, -0.51763505, -3.725285e-09, 0.99738353, -0.07214147, 0.5189887, -0.061664708, -0.85255, 263.2085, 26.139328, 368.41406)
 script = ExtResource("3_path_follower")
 forward_speed = 300.0
 roll_start_point = 32
@@ -89,10 +93,15 @@ current = true
 fov = 56.25
 
 [node name="Mothership" parent="." unique_id=1920165867 instance=ExtResource("8_o4vue")]
-transform = Transform3D(1.4401197, 0, -44.976948, 0, 45, 0, 44.976948, 0, 1.4401197, 4245.986, 733.6441, -2190.2405)
+transform = Transform3D(1.7601464, 0, -54.97183, 0, 55, 0, 54.97183, 0, 1.7601464, 4245.986, 733.6441, -2190.2405)
 
 [node name="Castle" parent="." unique_id=1560527075 instance=ExtResource("9_6cw15")]
 transform = Transform3D(25.887053, 0, 15.161147, 0, 29.999998, 0, -15.161147, 0, 25.887053, 2832.8882, -21.202759, -611.6739)
 
 [node name="BigRock" parent="." unique_id=1987654321 instance=ExtResource("11_big_rock")]
 transform = Transform3D(5, 0, 0, 0, 5, 0, 0, 0, 5, 5554.0557, 169.11105, -1285.1483)
+
+[node name="WaveManager" type="Node" parent="." unique_id=147258369 node_paths=PackedStringArray("path_follower")]
+script = ExtResource("12_wave_mgr")
+path_follower = NodePath("FlightPath/PathFollower")
+

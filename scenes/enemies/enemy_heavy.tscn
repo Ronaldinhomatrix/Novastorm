@@ -1,0 +1,21 @@
+[gd_scene format=3 uid="uid://dmv789k3heavy"]
+
+[ext_resource type="Script" path="res://scripts/enemies/enemy_heavy.gd" id="1_heavy"]
+[ext_resource type="PackedScene" path="res://assets/models/Enemys/3_enemy_red_starships.glb" id="2_glb"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_heavy"]
+size = Vector3(14.0, 5.0, 14.0)
+
+[node name="EnemyHeavy" type="Area3D"]
+collision_layer = 2
+collision_mask = 2
+script = ExtResource("1_heavy")
+target_ship_node_name = "Starship.v3"
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+shape = SubResource("BoxShape3D_heavy")
+
+[node name="ShipModel" type="Node3D" parent="."]
+
+[node name="3_enemy_red_starships" parent="ShipModel" instance=ExtResource("2_glb")]
+transform = Transform3D(-4.5, 0, 3.93403e-07, 0, 4.5, 0, -3.93403e-07, 0, -4.5, 0, 0, 1.87)

@@ -1,0 +1,21 @@
+[gd_scene format=3 uid="uid://dmv789k1scout"]
+
+[ext_resource type="Script" path="res://scripts/enemies/enemy_scout.gd" id="1_scout"]
+[ext_resource type="PackedScene" path="res://assets/models/Enemys/3_enemy_red_starships.glb" id="2_glb"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_scout"]
+size = Vector3(6.0, 3.0, 7.0)
+
+[node name="EnemyScout" type="Area3D"]
+collision_layer = 2
+collision_mask = 2
+script = ExtResource("1_scout")
+target_ship_node_name = "Starship.002"
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+shape = SubResource("BoxShape3D_scout")
+
+[node name="ShipModel" type="Node3D" parent="."]
+
+[node name="3_enemy_red_starships" parent="ShipModel" instance=ExtResource("2_glb")]
+transform = Transform3D(-4, 0, 3.49691e-07, 0, 4, 0, -3.49691e-07, 0, -4, 6.75, -0.3, 0.75)

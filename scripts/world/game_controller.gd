@@ -13,7 +13,7 @@ extends Node3D
 # ---------------------------------------------------------------------------
 
 # Trilha sonora do nível 1.
-const MUSIC_LEVEL_1 := preload("res://assets/audio/music_1_Aphelion.mp3")
+const MUSIC_LEVEL_1 := preload("res://assets/audio/music_1_Aphelion.ogg")
 
 # Som da nave mãe (Mothership) - efeito posicional tocado ao se aproximar dela.
 const MOTHERSHIP_SOUND := preload("res://assets/audio/mothership1.ogg")
@@ -40,11 +40,18 @@ const MOTHERSHIP_SOUND := preload("res://assets/audio/mothership1.ogg")
 @export_category("Cenario")
 @export var enable_cloud_sky: bool = true  ## Gera nuvens estáticas no céu do nível
 @export var terrain_detail_material: Material = preload("res://assets/materials/terrain_detailed.tres")
+@export var custom_camera_far_pc: float = 4000.0  ## Alcance da câmera no PC em metros (6000m no Nível 1)
+@export var custom_camera_far_mobile: float = 3500.0  ## Alcance da câmera no Mobile em metros (5000m no Nível 1)
+@export var enable_depth_fog: bool = true  ## Névoa de profundidade automática (sem pop-in)
 
 @export_category("Progressão de Nível")
 @export var level_complete_scene: PackedScene = preload("res://scenes/level_complete.tscn")
 @export var next_level_path: String = ""  ## Caminho para próximo nível (vazio = não transiciona)
 @export var show_level_complete: bool = true  ## Mostrar tela ao terminar o nível
+
+@export_category("Inimigos e Ondas")
+@export var wave_manager: WaveManager = null
+@export var enable_enemy_waves: bool = true
 
 # ---------------------------------------------------------------------------
 # Estado Interno
@@ -98,6 +105,9 @@ func _ready() -> void:
 	if not camera and path_follower:
 		camera = path_follower.get_node_or_null("Camera3D") as Camera3D
 
+	# Aplica o padrão oficial global de enquadramento de câmera e posição do player
+	CameraConfig.apply_standard_setup(camera, player)
+
 	# Configura o ouvinte de áudio 3D na câmera e o som da Mothership.
 	_setup_audio_listener()
 	_setup_mothership_sound()
@@ -130,6 +140,18 @@ func _ready() -> void:
 		var cloud_sky := ProceduralCloudSky.new()
 		cloud_sky.name = "ProceduralCloudSky"
 		add_child(cloud_sky)
+
+	# Configura e inicializa o gerenciador de ondas de inimigos (Waves)
+	if enable_enemy_waves:
+		if not wave_manager:
+			wave_manager = get_node_or_null("WaveManager") as WaveManager
+		if not wave_manager:
+			wave_manager = WaveManager.new()
+			wave_manager.name = "WaveManager"
+			wave_manager.path_follower = path_follower
+			add_child(wave_manager)
+		elif not wave_manager.path_follower:
+			wave_manager.path_follower = path_follower
 
 	# Cria a cortina preta de pré-carregamento
 	var canvas_layer := CanvasLayer.new()
@@ -222,16 +244,16 @@ func _apply_platform_graphics_settings() -> void:
 	var is_mobile := OS.has_feature("mobile") or OS.has_feature("android") or OS.has_feature("ios")
 	var sun := get_node_or_null("DirectionalLight3D") as DirectionalLight3D
 	
+	var target_far := custom_camera_far_mobile if is_mobile else custom_camera_far_pc
+	if camera:
+		camera.far = target_far
+
 	if is_mobile:
 		# --- CONFIGURAÇÃO MOBILE (Alta Performance - 60 FPS) ---
 		Engine.max_fps = 60
 		get_viewport().scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR
 		get_viewport().scaling_3d_scale = 0.75
 		get_viewport().fsr_sharpness = 0.3
-		
-		# Câmera no Mobile: alcance amplo até o horizonte (3500m)
-		if camera:
-			camera.far = 3500.0
 		
 		# Sol e Sombras no Mobile: sombra focal de 100m focada na nave (leve e ultra nítida)
 		if sun:
@@ -247,10 +269,6 @@ func _apply_platform_graphics_settings() -> void:
 		get_viewport().scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR
 		get_viewport().scaling_3d_scale = 1.0
 		
-		# Câmera: alcance total até o horizonte (4000m)
-		if camera:
-			camera.far = 4000.0
-		
 		# Sol e Sombras no PC: 800m de alcance, 4 divisões ultra suaves
 		if sun:
 			sun.directional_shadow_max_distance = 800.0
@@ -259,6 +277,12 @@ func _apply_platform_graphics_settings() -> void:
 		
 		# Terreno no PC: material ultra detalhado com Triplanar e sombras ativas
 		_apply_scenery_materials_and_shadows(terrain_detail_material, GeometryInstance3D.SHADOW_CASTING_SETTING_ON)
+
+	# Aplica a névoa suave de profundidade automática no WorldEnvironment (Opção A)
+	if enable_depth_fog:
+		var world_env := get_node_or_null("WorldEnvironment") as WorldEnvironment
+		if world_env and world_env.environment:
+			CameraConfig.apply_depth_fog(world_env.environment, target_far)
 
 
 func _apply_scenery_materials_and_shadows(mat: Material, shadow_setting: GeometryInstance3D.ShadowCastingSetting) -> void:
@@ -351,6 +375,7 @@ func _generate_all_world_collision_sync() -> void:
 				existing_body.collision_mask = 0
 				continue
 
+			# Cria colisão simplificada/trimesh com camada 4 isolada
 			mesh_instance.create_trimesh_collision()
 			var body := mesh_instance.get_node_or_null("StaticBody3D") as StaticBody3D
 			if not body:
@@ -369,6 +394,7 @@ func _generate_all_world_collision_sync() -> void:
 	_collision_generated = true
 
 
+
 # ---------------------------------------------------------------------------
 # Áudio (Trilha Sonora)
 # ---------------------------------------------------------------------------
@@ -379,7 +405,7 @@ func _start_background_music() -> void:
 	_music_player = AudioStreamPlayer.new()
 	_music_player.stream = MUSIC_LEVEL_1
 	_music_player.bus = "Master"
-	_music_player.volume_db = -12.0  # Música um pouco abaixo dos efeitos sonoros
+	_music_player.volume_db = -9.7  # Música ~30% mais alta e ainda abaixo dos efeitos sonoros
 	_music_player.finished.connect(_on_music_finished)
 	add_child(_music_player)
 	_music_player.play()
@@ -404,6 +430,7 @@ func _setup_audio_listener() -> void:
 	if camera.get_node_or_null("AudioListener3D") == null:
 		var listener := AudioListener3D.new()
 		listener.name = "AudioListener3D"
+		listener.current = true  # Ativa este ouvinte 3D como referência do AudioServer
 		camera.add_child(listener)
 
 

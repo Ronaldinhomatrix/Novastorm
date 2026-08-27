@@ -45,21 +45,32 @@ extends CharacterBody3D
 ## permitem mirar em outras regiões da tela.
 @export_range(0.0, 1.0) var aim_convergence: float = 0.4
 
+@export_category("Áudio")
+## Volume do tiro laser em dB. 0 = 100% (padrão Godot), -6 ≈ 50%, -12 ≈ 25%.
 @export_category("Colisao")
 ## Velocidade inicial do "pulo" ao ricochetear (local, unidades/segundo).
 @export var bounce_strength: float = 320.0
 ## Rapidez com que o ricochete decai (maior = some mais rápido).
 @export var bounce_damping: float = 15.0
 
+@export_category("Vida e Escudo")
+@export var max_health: int = 5
+@export var invulnerability_duration: float = 1.0
+
 # Script da faísca de atrito (procedural, sem assets externos).
 const SparkScript := preload("res://scripts/effects/spark.gd")
+const ExplosionScript := preload("res://scripts/effects/explosion.gd")
 
 # Som de disparo do laser (Efeito Sonoro).
-const LaserSound := preload("res://assets/audio/laser1.ogg")
+const LaserSound := preload("res://assets/audio/laser0.ogg")
 
 # ---------------------------------------------------------------------------
 # Estado Interno
 # ---------------------------------------------------------------------------
+
+var current_health: int = 5
+var _is_invulnerable: bool = false
+var _invulnerability_timer: float = 0.0
 
 var _is_firing: bool = false
 var _fire_timer: float = 0.0
@@ -83,8 +94,11 @@ var _target_local_pos: Vector3 = Vector3.ZERO
 var _bounce_vel: Vector3 = Vector3.ZERO  # Velocidade de ricochete (espaço local)
 var _controls_enabled: bool = true
 
-# Player de áudio do disparo (posicional, ancorado na nave).
-var _laser_player: AudioStreamPlayer3D = null
+# Player de áudio do disparo. A nave fica fixa na câmera (rail-shooter),
+# logo a nave e o ouvinte estão sempre co-localizados: cálculos 3D de
+# atenuação/panning por distância são dispensáveis e só gastam CPU.
+# Por isso usa-se um player 2D (não-posicional) com volume fixo padrão.
+var _laser_player: AudioStreamPlayer = null
 
 @onready var ship_model: Node3D = $ShipModel
 
@@ -93,13 +107,15 @@ var _laser_player: AudioStreamPlayer3D = null
 # ---------------------------------------------------------------------------
 
 func _ready() -> void:
+	add_to_group("player")
+	current_health = max_health
 	_is_mobile = OS.has_feature("android") or OS.has_feature("ios")
 
-	# Áudio de disparo: som posicional ancorado no corpo da nave.
-	_laser_player = AudioStreamPlayer3D.new()
+	# Áudio de disparo: som 2D com volume fixo padrão (nave sempre na câmera).
+	_laser_player = AudioStreamPlayer.new()
 	_laser_player.stream = LaserSound
-	_laser_player.max_distance = 120.0
-	_laser_player.volume_db = 0.0
+	_laser_player.bus = "Master"
+	_laser_player.volume_db = laser_volume_db  # ajustável via export "Laser Volume Db" (-6 dB = 50%)
 	add_child(_laser_player)
 
 	var col_shape := $CollisionShape3D as CollisionShape3D
@@ -179,6 +195,16 @@ func _physics_process(delta: float) -> void:
 	# (nave filha de um PathFollow3D).
 	if not (get_parent() is PathFollow3D):
 		return
+
+	# Atualiza o temporizador de invulnerabilidade e efeito de piscar
+	if _is_invulnerable:
+		_invulnerability_timer -= delta
+		if _invulnerability_timer <= 0.0:
+			_is_invulnerable = false
+			if ship_model:
+				ship_model.visible = true
+		elif ship_model:
+			ship_model.visible = fmod(_invulnerability_timer, 0.12) > 0.06
 
 	if not _controls_enabled:
 		_is_firing = false
@@ -451,3 +477,47 @@ func _spawn_spark(point: Vector3, normal: Vector3) -> void:
 func stop_firing() -> void:
 	_is_firing = false
 	_fire_timer = 0.0
+
+
+# ---------------------------------------------------------------------------
+# Sistema de Dano e Invulnerabilidade
+# ---------------------------------------------------------------------------
+
+func take_damage(amount: int) -> void:
+	if not _controls_enabled or _is_invulnerable:
+		return
+
+	current_health = maxi(0, current_health - amount)
+	_trigger_damage_feedback()
+
+	if current_health <= 0:
+		_on_player_destroyed()
+	else:
+		_start_invulnerability()
+
+
+func _start_invulnerability() -> void:
+	_is_invulnerable = true
+	_invulnerability_timer = invulnerability_duration
+
+
+func _trigger_damage_feedback() -> void:
+	# Cria faíscas no corpo da nave indicando impacto
+	_spawn_spark(global_position, -global_basis.z)
+	# Ricochete de impacto para trás
+	_bounce_vel = Vector3(randf_range(-60.0, 60.0), randf_range(-40.0, 40.0), 0.0)
+
+
+func _on_player_destroyed() -> void:
+	# Efeito de explosão dramática
+	var explosion: Node3D = ExplosionScript.new()
+	get_tree().current_scene.add_child(explosion)
+	explosion.global_position = global_position
+	if explosion.has_method("set"):
+		explosion.set("size_scale", 2.0)
+
+	# Recupera vida e reinicia temporizador de invulnerabilidade (respawn gracioso)
+	current_health = max_health
+	_start_invulnerability()
+	_invulnerability_timer = invulnerability_duration * 1.5
+
