@@ -23,7 +23,6 @@ const LaserSound := preload("res://assets/audio/laser1.ogg")
 var current_hp: int = 1
 var _is_dead: bool = false
 var _mesh_instances: Array[MeshInstance3D] = []
-var _original_materials: Dictionary = {}
 var _flash_tween: Tween = null
 var _laser_audio_player: AudioStreamPlayer = null
 
@@ -44,18 +43,18 @@ func _ready() -> void:
 
 
 func _isolate_target_ship() -> void:
-	var glb_root := get_node_or_null("ShipModel/3_enemy_red_starships")
+	var glb_root: Node = get_node_or_null("ShipModel/3_enemy_red_starships")
 	if not glb_root:
 		glb_root = find_child("3_enemy_red_starships", true, false)
 	if not glb_root:
 		return
 
-	var known_ships := ["Starship.002", "Starship.v2", "Starship.v3", "Starship_002", "Starship_v2", "Starship_v3"]
-	for ship_name in known_ships:
-		var node := glb_root.find_child(ship_name, true, false)
+	var known_ships: Array[String] = ["Starship.002", "Starship.v2", "Starship.v3", "Starship_002", "Starship_v2", "Starship_v3"]
+	for ship_name: String in known_ships:
+		var node: Node = glb_root.find_child(ship_name, true, false)
 		if node and node is Node3D:
-			var match_name := ship_name.replace("_", ".")
-			var target_clean := target_ship_node_name.replace("_", ".")
+			var match_name: String = String(ship_name).replace("_", ".")
+			var target_clean: String = String(target_ship_node_name).replace("_", ".")
 			if match_name == target_clean:
 				(node as Node3D).visible = true
 			else:
@@ -72,7 +71,7 @@ func _setup_audio() -> void:
 
 func _collect_mesh_instances(node: Node) -> void:
 	if node is MeshInstance3D:
-		var mi := node as MeshInstance3D
+		var mi: MeshInstance3D = node as MeshInstance3D
 		if mi.is_visible_in_tree():
 			_mesh_instances.append(mi)
 	for child in node.get_children():
@@ -94,22 +93,21 @@ func _play_hit_flash() -> void:
 	if _flash_tween and _flash_tween.is_valid():
 		_flash_tween.kill()
 
-	# Se não coletou malhas antes, coleta agora
 	if _mesh_instances.is_empty():
 		_collect_mesh_instances(self)
 
-	var flash_mat := StandardMaterial3D.new()
+	var flash_mat: StandardMaterial3D = StandardMaterial3D.new()
 	flash_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	flash_mat.albedo_color = Color(2.5, 0.4, 0.4, 1.0)
 
-	for mi in _mesh_instances:
+	for mi: MeshInstance3D in _mesh_instances:
 		if is_instance_valid(mi):
 			mi.material_override = flash_mat
 
 	_flash_tween = create_tween()
 	_flash_tween.tween_interval(0.06)
 	_flash_tween.tween_callback(func():
-		for mi in _mesh_instances:
+		for mi: MeshInstance3D in _mesh_instances:
 			if is_instance_valid(mi):
 				mi.material_override = null
 	)
@@ -133,17 +131,17 @@ func fire_bullet(from_pos: Vector3, dir: Vector3) -> void:
 
 
 func fire_towards_player(from_pos: Vector3, aim_convergence: float = 0.8) -> void:
-	var target_pos := _get_player_position()
-	var dir := (target_pos - from_pos).normalized()
+	var target_pos: Vector3 = _get_player_position()
+	var dir: Vector3 = (target_pos - from_pos).normalized()
 	
-	var forward := -global_basis.z.normalized()
-	var final_dir := forward.slerp(dir, aim_convergence).normalized()
+	var forward: Vector3 = -global_basis.z.normalized()
+	var final_dir: Vector3 = forward.slerp(dir, aim_convergence).normalized()
 	
 	fire_bullet(from_pos, final_dir)
 
 
 func _get_player_position() -> Vector3:
-	var player := get_tree().get_first_node_in_group("player") as Node3D
+	var player: Node3D = get_tree().get_first_node_in_group("player") as Node3D
 	if not player:
 		player = get_node_or_null("/root/Game/FlightPath/PathFollower/Player")
 	if player:
