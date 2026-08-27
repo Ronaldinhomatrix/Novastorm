@@ -26,7 +26,7 @@ var _wave_1_triggered: bool = false
 var _wave_2_triggered: bool = false
 var _wave_3_triggered: bool = false
 
-var _active_enemies: Array[EnemyBase] = []
+var _active_enemies: Array[Node] = []
 
 
 func _ready() -> void:
@@ -150,13 +150,14 @@ func _spawn_wave_3() -> void:
 # Gerenciamento e Rastreamento de Inimigos
 # ---------------------------------------------------------------------------
 
-func _register_enemy(enemy: EnemyBase) -> void:
+func _register_enemy(enemy: Node) -> void:
 	_active_enemies.append(enemy)
-	enemy.enemy_destroyed.connect(_on_enemy_destroyed)
+	if enemy.has_signal("enemy_destroyed"):
+		enemy.connect("enemy_destroyed", _on_enemy_destroyed)
 	enemy.tree_exiting.connect(func():
 		_active_enemies.erase(enemy)
 	)
 
 
-func _on_enemy_destroyed(enemy: EnemyBase, _score: int) -> void:
+func _on_enemy_destroyed(enemy: Node, _score: int) -> void:
 	_active_enemies.erase(enemy)

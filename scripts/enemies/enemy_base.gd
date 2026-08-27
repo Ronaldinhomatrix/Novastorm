@@ -5,7 +5,7 @@ extends Area3D
 ## Gerencia vida (HP), detecção de dano do jogador, efeito visual de hit-flash,
 ## disparo de projéteis, isolamento de malha e explosão de destruição.
 
-signal enemy_destroyed(enemy: EnemyBase, score: int)
+signal enemy_destroyed(enemy: Node, score: int)
 
 const ExplosionScript := preload("res://scripts/effects/explosion.gd")
 const LaserSound := preload("res://assets/audio/laser1.ogg")
