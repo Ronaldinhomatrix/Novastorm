@@ -140,10 +140,15 @@ func fire_towards_player(from_pos: Vector3, aim_convergence: float = 0.8) -> voi
 	fire_bullet(from_pos, final_dir)
 
 
-func _get_player_position() -> Vector3:
+func _get_player_node() -> Node3D:
 	var player: Node3D = get_tree().get_first_node_in_group("player") as Node3D
 	if not player:
 		player = get_node_or_null("/root/Game/FlightPath/PathFollower/Player")
+	return player
+
+
+func _get_player_position() -> Vector3:
+	var player: Node3D = _get_player_node()
 	if player:
 		return player.global_position
 	return global_position + Vector3(0, 0, 40)
