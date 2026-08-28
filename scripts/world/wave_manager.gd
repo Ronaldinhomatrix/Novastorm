@@ -140,7 +140,7 @@ func _spawn_wave_1() -> void:
 	var right: Vector3 = info["right"]
 	var up: Vector3 = info["up"]
 
-	# Subwave 1A: 3 scouts pela direita cruzando o cânion
+	# Subwave 1A: 3 scouts pela direita cruzando o cânion à frente do jogador
 	_spawn_world_scout_squadron(3, base_pos, fwd, right, up, 1.0, 0.0)
 
 	# Subwave 1B: 3 scouts pela esquerda após 2.5s
@@ -159,11 +159,10 @@ func _spawn_world_scout_squadron(count: int, base_pos: Vector3, fwd: Vector3, ri
 			if not scout:
 				return
 
-			var spawn_pos: Vector3 = base_pos + (fwd * (180.0 + i * 25.0)) + (right * (side * (25.0 + i * 6.0))) + (up * (15.0 + i * 3.0))
-			var fly_dir: Vector3 = -fwd  # Voa em direção de aproximação ao jogador
+			var spawn_pos: Vector3 = base_pos + (fwd * (240.0 + i * 28.0)) + (right * (side * (25.0 + i * 5.0))) + (up * (14.0 + i * 2.0))
 
 			_add_enemy_to_world(scout)
-			scout.setup_flight(spawn_pos, fly_dir, side, 120.0)
+			scout.setup_flight(spawn_pos, fwd, side, 240.0)
 			_register_enemy(scout)
 		)
 
@@ -183,17 +182,17 @@ func _spawn_wave_2() -> void:
 
 	var configs: Array[Dictionary] = [
 		{
-			"pos": base_pos + (fwd * 220.0) + (up * 25.0),
+			"pos": base_pos + (fwd * 300.0) + (up * 22.0),
 			"b_type": 0,  # Quebra subindo
 			"delay": 0.0
 		},
 		{
-			"pos": base_pos + (fwd * 190.0) - (right * 30.0) + (up * 14.0),
+			"pos": base_pos + (fwd * 270.0) - (right * 32.0) + (up * 14.0),
 			"b_type": 1,  # Quebra para a esquerda
 			"delay": 0.3
 		},
 		{
-			"pos": base_pos + (fwd * 190.0) + (right * 30.0) + (up * 14.0),
+			"pos": base_pos + (fwd * 270.0) + (right * 32.0) + (up * 14.0),
 			"b_type": 2,  # Quebra para a direita
 			"delay": 0.6
 		}
@@ -206,9 +205,8 @@ func _spawn_wave_2() -> void:
 			if not fighter:
 				return
 
-			var fly_dir: Vector3 = -fwd
 			_add_enemy_to_world(fighter)
-			fighter.setup_fighter(cfg["pos"], fly_dir, cfg["b_type"])
+			fighter.setup_fighter(cfg["pos"], fwd, cfg["b_type"])
 			_register_enemy(fighter)
 		)
 
@@ -226,23 +224,23 @@ func _spawn_wave_3() -> void:
 	var right: Vector3 = info["right"]
 	var up: Vector3 = info["up"]
 
-	# Heavy Mini-Boss em órbita aérea sobre a bacia do cânion
+	# Heavy Mini-Boss navegando à frente na bacia do cânion
 	var heavy: EnemyHeavy = heavy_scene.instantiate() as EnemyHeavy
 	if heavy:
-		var center_orbit: Vector3 = base_pos + (fwd * 60.0) + (up * 35.0)
+		var start_heavy_pos: Vector3 = base_pos + (fwd * 340.0) + (up * 35.0)
 		_add_enemy_to_world(heavy)
-		heavy.setup_heavy(center_orbit)
+		heavy.setup_heavy(start_heavy_pos, fwd)
 		_register_enemy(heavy)
 
 	# 2 Escoltas Scouts voando pelo espaço aéreo
-	var escort_timer: SceneTreeTimer = get_tree().create_timer(1.0)
+	var escort_timer: SceneTreeTimer = get_tree().create_timer(0.8)
 	escort_timer.timeout.connect(func():
 		for side: float in [-1.0, 1.0]:
 			var scout: EnemyScout = scout_scene.instantiate() as EnemyScout
 			if scout:
-				var spawn_pos: Vector3 = base_pos + (fwd * 160.0) + (right * (side * 35.0)) + (up * 20.0)
+				var spawn_pos: Vector3 = base_pos + (fwd * 260.0) + (right * (side * 36.0)) + (up * 18.0)
 				_add_enemy_to_world(scout)
-				scout.setup_flight(spawn_pos, -fwd, side, 130.0)
+				scout.setup_flight(spawn_pos, fwd, side, 245.0)
 				_register_enemy(scout)
 	)
 
