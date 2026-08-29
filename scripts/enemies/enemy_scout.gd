@@ -1,96 +1,156 @@
 class_name EnemyScout
 extends "res://scripts/enemies/enemy_base.gd"
 
-## Inimigo Caça Leve / Reconhecimento (Starship.002) no Mundo 3D Real.
-## Voa à frente do jogador ao longo do cânion, realizando manobras e curvas
-## senoidais em ritmo suave de percurso para permitir combate ideal.
+## Inimigo Caça Leve / Reconhecimento (Starship.002).
+##
+## Padrão de Voo Rail-Shooter:
+## - 1 HP (morre com 1 tiro).
+## - Permanece na frente do jogador durante 7.0s em uma travessia suave de ponta a ponta.
+## - Se o jogador ultrapassar ou a nave fugir, é liberada imediatamente.
 
-@export var flight_speed: float = 240.0  ## Velocidade de voo no mundo 3D (m/s)
-@export var swoop_frequency: float = 1.8  ## Frequência da oscilação de voo
-@export var swoop_amplitude: float = 22.0  ## Amplitude lateral do voo
-@export var vertical_amplitude: float = 8.0  ## Amplitude vertical
-@export var start_side: float = 1.0  ## 1.0 = curva pela direita, -1.0 = esquerda
+enum Phase { ENTER, ENGAGE, EXIT }
+
+@export_category("Padrão de Voo")
+@export var enter_duration: float = 1.5
+@export var engage_duration: float = 7.0
+@export var exit_duration: float = 2.0
+
+@export var start_distance_ahead: float = 90.0   ## Distância de spawn à frente da câmera
+@export var combat_distance_ahead: float = 65.0  ## Distância durante o combate
+@export var lateral_span: float = 30.0           ## Extensão lateral da travessia (±30m)
+@export var base_height: float = 6.0             ## Altura média de voo
 
 var flight_direction: Vector3 = Vector3.FORWARD
-var _time_alive: float = 0.0
-var _has_fired: bool = false
-var _initial_global_origin: Vector3 = Vector3.ZERO
-var _right_vec: Vector3 = Vector3.RIGHT
-var _up_vec: Vector3 = Vector3.UP
+var _phase: Phase = Phase.ENTER
+var _phase_timer: float = 0.0
+var _shots_fired: int = 0
+var _side: float = 1.0
+var _current_distance: float = 90.0
+var _current_lateral: float = 0.0
+var _current_vertical: float = 6.0
 
 
 func _ready() -> void:
 	max_hp = 1
+	current_hp = 1
 	score_value = 100
 	super._ready()
-	_initial_global_origin = global_position
 
 	if flight_direction.length_squared() < 0.001:
 		flight_direction = -global_basis.z.normalized()
 	else:
 		flight_direction = flight_direction.normalized()
 
-	_right_vec = flight_direction.cross(Vector3.UP).normalized()
-	if _right_vec.length_squared() < 0.001:
-		_right_vec = Vector3.RIGHT
-	_up_vec = _right_vec.cross(flight_direction).normalized()
 
-
-func setup_flight(start_pos: Vector3, dir: Vector3, side: float = 1.0, speed: float = 240.0) -> void:
-	global_position = start_pos
-	_initial_global_origin = start_pos
+func setup_flight(_start_pos: Vector3, dir: Vector3, side: float = 1.0, _speed: float = 60.0) -> void:
 	flight_direction = dir.normalized()
-	start_side = side
-	flight_speed = speed
+	_side = 1.0 if side >= 0.0 else -1.0
+	_current_distance = start_distance_ahead
+	_current_lateral = -42.0 * _side
+	_current_vertical = base_height + 4.0
 
-	_right_vec = flight_direction.cross(Vector3.UP).normalized()
-	if _right_vec.length_squared() < 0.001:
-		_right_vec = Vector3.RIGHT
-	_up_vec = _right_vec.cross(flight_direction).normalized()
+	_phase = Phase.ENTER
+	_phase_timer = 0.0
+	_shots_fired = 0
 
-	look_at(global_position + flight_direction, _up_vec)
+	_curve_offset = _get_player_progress() + _current_distance
+	var frame := _sample_curve_frame(_curve_offset, _current_lateral, _current_vertical)
+	global_position = frame["position"]
+	_orient_ship(frame["forward"], frame["up"], -_side * 0.3, true)
 
 
 func _physics_process(delta: float) -> void:
-	_time_alive += delta
+	_phase_timer += delta
 
-	# Posição ao longo da rota do cânion à frente do jogador
-	var forward_travel: Vector3 = flight_direction * (flight_speed * _time_alive)
-	var lateral_offset: Vector3 = _right_vec * (sin(_time_alive * swoop_frequency) * swoop_amplitude * start_side)
-	var vertical_offset: Vector3 = _up_vec * (cos(_time_alive * swoop_frequency * 0.7) * vertical_amplitude)
+	match _phase:
+		Phase.ENTER:
+			_process_enter(delta)
+		Phase.ENGAGE:
+			_process_engage(delta)
+		Phase.EXIT:
+			_process_exit(delta)
 
-	global_position = _initial_global_origin + forward_travel + lateral_offset + vertical_offset
+	# Se a nave ficou para trás do jogador, descarta imediatamente
+	if _current_distance < -15.0:
+		queue_free()
 
-	# Rotação suave no sentido do voo
-	var next_pos: Vector3 = global_position + flight_direction * 2.0 + (_right_vec * cos(_time_alive * swoop_frequency) * swoop_amplitude * start_side * 0.2)
-	look_at(next_pos, _up_vec)
 
-	# Banking roll nas curvas
-	var bank_angle: float = -cos(_time_alive * swoop_frequency) * 0.4 * start_side
-	rotate_object_local(Vector3(0, 0, 1), bank_angle)
+func _process_enter(_delta: float) -> void:
+	var t := clampf(_phase_timer / maxf(enter_duration, 0.01), 0.0, 1.0)
+	var eased := t * t * (3.0 - 2.0 * t)
 
-	var player: Node3D = _get_player_node()
-	if player:
-		var to_scout: Vector3 = global_position - player.global_position
-		var dist_to_player: float = global_position.distance_to(player.global_position)
+	var start_lat := -42.0 * _side
+	var target_lat := -lateral_span * _side
+	_current_lateral = lerpf(start_lat, target_lat, eased)
+	_current_distance = lerpf(start_distance_ahead, combat_distance_ahead, eased)
+	_current_vertical = lerpf(base_height + 4.0, base_height, eased)
 
-		# Dispara quando o jogador estiver a uma distância de combate visível
-		if not _has_fired and dist_to_player <= 220.0 and to_scout.dot(flight_direction) > 0.0:
-			_has_fired = true
-			_shoot()
+	_curve_offset = _get_player_progress() + _current_distance
+	var frame := _sample_curve_frame(_curve_offset, _current_lateral, _current_vertical)
+	global_position = frame["position"]
 
-		# Despawna quando o jogador ultrapassa a nave e fica na frente dela (sem perseguição)
-		if to_scout.dot(flight_direction) < -40.0 or _time_alive > 12.0:
-			queue_free()
-	elif _time_alive > 14.0:
+	var bank := -_side * lerpf(0.4, 0.2, eased)
+	_orient_ship(frame["forward"], frame["up"], bank)
+
+	if t >= 1.0:
+		_phase = Phase.ENGAGE
+		_phase_timer = 0.0
+
+
+func _process_engage(_delta: float) -> void:
+	var u := clampf(_phase_timer / maxf(engage_duration, 0.01), 0.0, 1.0)
+
+	# Travessia suave em arco único de um lado ao outro da tela (sem círculos)
+	var angle := (u * 1.5 - 0.5) * PI
+	_current_lateral = sin(angle) * lateral_span * _side
+	_current_vertical = base_height + sin(u * PI) * 2.5
+	_current_distance = lerpf(combat_distance_ahead, combat_distance_ahead - 10.0, u)
+
+	_curve_offset = _get_player_progress() + _current_distance
+	var frame := _sample_curve_frame(_curve_offset, _current_lateral, _current_vertical)
+	global_position = frame["position"]
+
+	var lateral_dir := cos(angle) * _side
+	var bank := -clampf(lateral_dir * 0.35, -0.4, 0.4)
+	_orient_ship(frame["forward"], frame["up"], bank)
+
+	# Disparos pontuais aos 30% e 70% da travessia
+	if _shots_fired == 0 and u >= 0.30:
+		_shots_fired += 1
+		_shoot()
+	elif _shots_fired == 1 and u >= 0.70:
+		_shots_fired += 1
+		_shoot()
+
+	if u >= 1.0:
+		_phase = Phase.EXIT
+		_phase_timer = 0.0
+
+
+func _process_exit(delta: float) -> void:
+	var t := clampf(_phase_timer / maxf(exit_duration, 0.01), 0.0, 1.0)
+
+	_current_lateral += (_side * 20.0) * delta
+	_current_vertical += (15.0 + _phase_timer * 25.0) * delta
+	_current_distance += (60.0 + _phase_timer * 100.0) * delta
+
+	_curve_offset = _get_player_progress() + _current_distance
+	var frame := _sample_curve_frame(_curve_offset, _current_lateral, _current_vertical)
+	global_position = frame["position"]
+
+	var bank := _side * lerpf(0.2, 0.6, t)
+	_orient_ship(frame["forward"], frame["up"], bank)
+
+	if t >= 1.0:
 		queue_free()
 
 
 func _shoot() -> void:
-	# Dispara projétil para trás na direção do jogador que está se aproximando
-	var shoot_pos: Vector3 = global_position + (-flight_direction * 2.0)
+	if _is_dead:
+		return
+	var shoot_pos := global_position + (-global_basis.z * 2.0)
 	var player: Node3D = _get_player_node()
-	var dir_to_player: Vector3 = -flight_direction
+	var dir_to_player := -global_basis.z
 	if player:
 		dir_to_player = (player.global_position - global_position).normalized()
 	fire_bullet(shoot_pos, dir_to_player)

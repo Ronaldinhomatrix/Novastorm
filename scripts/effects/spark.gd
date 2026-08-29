@@ -33,7 +33,6 @@ func _ready() -> void:
 	scale = Vector3.ONE * size_scale
 	_build_particles()
 	_build_flash()
-	_build_shockwave()
 
 
 func _process(delta: float) -> void:
@@ -46,13 +45,6 @@ func _process(delta: float) -> void:
 			0.0,
 			clampf(_age / FLASH_DECAY, 0.0, 1.0)
 		)
-
-	# Expande a onda de choque e desvanece.
-	if _shockwave:
-		var t := clampf(_age / MAX_LIFETIME, 0.0, 1.0)
-		_shockwave.scale = Vector3.ONE * (0.3 + t * SHOCKWAVE_MAX_RADIUS) * size_scale
-		if _shockwave_mat:
-			_shockwave_mat.albedo_color.a = lerpf(0.95, 0.0, t)
 
 	if _age >= MAX_LIFETIME:
 		queue_free()

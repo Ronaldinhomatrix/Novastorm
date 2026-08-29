@@ -38,15 +38,11 @@ extends CharacterBody3D
 @export_category("Combate")
 @export var fire_rate: float = 0.5
 @export var bullet_scene: PackedScene = null
-## Quanto o tiro "mira" acompanhando a nave em vez de ir reto ao centro.
-## 0.0 = sempre reto (centro da tela, sem mira).
-## 1.0 = convergência total (tiro acompanha exatamente onde a nave está).
-## Valores intermediários dão um meio-termo: tendem ao centro, mas ainda
-## permitem mirar em outras regiões da tela.
-@export_range(0.0, 1.0) var aim_convergence: float = 0.4
 
 @export_category("Áudio")
 ## Volume do tiro laser em dB. 0 = 100% (padrão Godot), -6 ≈ 50%, -12 ≈ 25%.
+@export var laser_volume_db: float = -6.0
+
 @export_category("Colisao")
 ## Velocidade inicial do "pulo" ao ricochetear (local, unidades/segundo).
 @export var bounce_strength: float = 320.0
@@ -57,12 +53,12 @@ extends CharacterBody3D
 @export var max_health: int = 5
 @export var invulnerability_duration: float = 1.0
 
-# Script da faísca de atrito (procedural, sem assets externos).
+# Scripts procedurais
 const SparkScript := preload("res://scripts/effects/spark.gd")
 const ExplosionScript := preload("res://scripts/effects/explosion.gd")
 
 # Som de disparo do laser (Efeito Sonoro).
-const LaserSound := preload("res://assets/audio/laser0.ogg")
+const LaserSound := preload("res://assets/audio/laser1_player.ogg")
 
 # ---------------------------------------------------------------------------
 # Estado Interno
@@ -97,7 +93,6 @@ var _controls_enabled: bool = true
 # Player de áudio do disparo. A nave fica fixa na câmera (rail-shooter),
 # logo a nave e o ouvinte estão sempre co-localizados: cálculos 3D de
 # atenuação/panning por distância são dispensáveis e só gastam CPU.
-# Por isso usa-se um player 2D (não-posicional) com volume fixo padrão.
 var _laser_player: AudioStreamPlayer = null
 
 @onready var ship_model: Node3D = $ShipModel
@@ -371,8 +366,13 @@ func _spawn_bullet() -> void:
 	if not bullet_scene:
 		return
 
-	var spawn_offset := Vector3(0.0, 0.0, -4.0)
-	var spawn_pos := global_position + global_basis * spawn_offset
+	# O tiro sai exatamente na direção em que a nave (ShipModel) está apontando naquele momento.
+	var aim_dir := _get_ship_aim_direction()
+	var spawn_pos: Vector3
+	if ship_model:
+		spawn_pos = ship_model.global_position + aim_dir * 4.0
+	else:
+		spawn_pos = global_position + aim_dir * 4.0
 
 	var bullet: Bullet = bullet_scene.instantiate() as Bullet
 	if not bullet:
@@ -380,7 +380,7 @@ func _spawn_bullet() -> void:
 
 	get_tree().current_scene.add_child(bullet)
 	bullet.global_position = spawn_pos
-	bullet.setup(_aim_direction(spawn_pos))
+	bullet.setup(aim_dir)
 
 	# Reproduz o som do disparo do laser.
 	if _laser_player:
@@ -388,39 +388,19 @@ func _spawn_bullet() -> void:
 		_laser_player.play()
 
 
-## Calcula a direção de tiro no estilo "a nave é o cursor" (rail shooter).
-##
-## Em vez de atirar sempre reto para frente (centro da tela, -Z da câmera),
-## o tiro percorre o RAIO da câmera que passa pela posição atual da nave na
-## tela. Isso faz o tiro:
-##   - Sair da nave alinhado ao ponto da tela onde ela está;
-##   - Manter-se sobre esse mesmo ponto de tela em QUALQUER profundidade;
-##   - Acertar inimigos no AR (longe/acima), no CHÃO (perto/abaixo) ou à
-##     frente, desde que o jogador posicione a nave sobre eles.
-##
-## O tiro é uma MISTURA entre "reto ao centro" e "mira na nave" (rail shooter).
-##
-## - aim_convergence = 0: tiro sempre reto para frente (centro da tela).
-## - aim_convergence = 1: tiro convergente à posição da nave na tela.
-## Valores intermediários dão um meio-termo: o tiro TENDEN à região central,
-## mas ainda responde à posição da nave, permitindo mirar em outras áreas.
-## Isso também faz o tiro se separar visualmente da nave (fica visível),
-## em vez de permanecer escondido exatamente atrás dela.
-func _aim_direction(from: Vector3) -> Vector3:
+## Retorna o vetor de direção do disparo.
+## Meio-termo: 65% da direção natural (câmera → posição da nave na tela)
+## + 35% do centro da tela. Isso dá um spread perceptível sem que o tiro
+## "abra" demais para os cantos — mantém uma tendência suave ao centro.
+func _get_ship_aim_direction() -> Vector3:
 	var cam := get_viewport().get_camera_3d()
-	if not cam:
-		return -global_basis.z.normalized()
-
-	# Direção "reto para frente" = centro da tela (sem mira).
-	var forward := -cam.global_basis.z.normalized()
-
-	# Direção que mira exatamente onde a nave está na tela.
-	var to_ship := from - cam.global_position
-	if to_ship.length_squared() < 0.000001:
-		return forward
-
-	# Interpola entre "reto" e "mira na nave" conforme aim_convergence.
-	return forward.slerp(to_ship.normalized(), aim_convergence).normalized()
+	if cam:
+		var ship_screen := cam.unproject_position(global_position)
+		var center_screen := get_viewport().get_visible_rect().size / 2.0
+		var dir_natural := cam.project_ray_normal(ship_screen).normalized()
+		var dir_center := cam.project_ray_normal(center_screen).normalized()
+		return dir_natural.slerp(dir_center, 0.35).normalized()
+	return -global_basis.z.normalized()
 
 
 # ---------------------------------------------------------------------------
@@ -520,4 +500,3 @@ func _on_player_destroyed() -> void:
 	current_health = max_health
 	_start_invulnerability()
 	_invulnerability_timer = invulnerability_duration * 1.5
-

@@ -29,7 +29,6 @@ func _ready() -> void:
 	_build_sparks()
 	_build_smoke()
 	_build_flash()
-	_build_shockwave()
 
 
 func _process(delta: float) -> void:
@@ -39,13 +38,6 @@ func _process(delta: float) -> void:
 	if _flash_light:
 		var flash_t := clampf(_age / FLASH_DECAY, 0.0, 1.0)
 		_flash_light.light_energy = lerpf(70.0 * size_scale, 0.0, flash_t * flash_t)
-
-	# Expansão e fade-out da onda de choque
-	if _shockwave:
-		var t := clampf(_age / (MAX_LIFETIME * 0.7), 0.0, 1.0)
-		_shockwave.scale = Vector3.ONE * (0.8 + t * SHOCKWAVE_MAX_RADIUS) * size_scale
-		if _shockwave_mat:
-			_shockwave_mat.albedo_color.a = lerpf(0.9, 0.0, t * t)
 
 	if _age >= MAX_LIFETIME:
 		queue_free()

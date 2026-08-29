@@ -10,15 +10,15 @@ config_version=5
 
 [application]
 
-config/name="Astro Striker - Pegasus Galaxy"
+config/name="Novastorm"
 run/main_scene="res://scenes/game.tscn"
 config/features=PackedStringArray("4.7", "Mobile")
 config/icon="res://icon.svg"
 
 [autoload]
 
-MCPRuntimeProbe="*uid://bsg12huaf1u5i"
 _mcp_game_helper="*res://addons/godot_ai/runtime/game_helper.gd"
+MCPRuntimeProbe="*uid://bsg12huaf1u5i"
 
 [display]
 
@@ -45,11 +45,7 @@ common/physics_interpolation=true
 
 [rendering]
 
-renderer/rendering_method="forward_plus"
-renderer/rendering_method.mobile="mobile"
 textures/vram_compression/import_etc2_astc=true
-lights_and_shadows/directional_shadow/size=4096
 lights_and_shadows/directional_shadow/size.mobile=512
-scaling_3d/mode=0
 scaling_3d/mode.mobile=1
 scaling_3d/scale.mobile=0.75

@@ -44,9 +44,9 @@ script = ExtResource("3_path_follower")
 forward_speed = 95.0
 
 [node name="Camera3D" type="Camera3D" parent="FlightPath/PathFollower" unique_id=777425790]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.011230469, 0, 33.85669)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.0112, 0, 18)
 current = true
-fov = 56.250004
+fov = 56.25
 
 [node name="Player" parent="FlightPath/PathFollower" unique_id=1368633193 instance=ExtResource("4_player")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1.0000001, 0, 0, -40)

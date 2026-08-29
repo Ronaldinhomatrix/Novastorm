@@ -16,7 +16,18 @@ extends Node3D
 const MUSIC_LEVEL_1 := preload("res://assets/audio/music_1_Aphelion.ogg")
 
 # Som da nave mãe (Mothership) - efeito posicional tocado ao se aproximar dela.
+# Som da nave mãe (Mothership) - efeito posicional tocado ao se aproximar dela.
 const MOTHERSHIP_SOUND := preload("res://assets/audio/mothership1.ogg")
+
+# Script do retículo de mira (crosshair) desenhado na tela como overlay UI.
+const CrosshairScript := preload("res://scripts/ui/crosshair.gd")
+
+var _crosshair: Control = null  ## Instância do crosshair UI
+
+@export_category("Áudio")
+## Volume da música de fundo em dB. 0 = 100%, -6 ≈ 50%, -12 ≈ 25%.
+## Ajuste direto no Inspector para regular o volume da trilha do nível.
+@export_range(-40.0, 0.0, 0.5) var music_volume_db: float = -9.7
 
 @export_category("Componentes")
 @export var path_follower: PathFollower = null
@@ -29,6 +40,8 @@ const MOTHERSHIP_SOUND := preload("res://assets/audio/mothership1.ogg")
 @export var mothership_start_point: int = 22
 @export var mothership_end_point: int = 29
 @export var mothership_rotation_deg: float = 20.0
+## Ponto do Path3D onde fica a origem do som da Mothership.
+@export var mothership_sound_point: int = 27
 
 @export_category("Intro Cinematica")
 @export var enable_cinematic_intro: bool = false
@@ -71,8 +84,10 @@ var _start_dist: float = 0.0
 var _end_dist: float = 0.0
 var _initial_mothership_rot_y: float = 0.0
 
-# Player de áudio posicional ancorado na Mothership.
-var _mothership_sound_player: AudioStreamPlayer3D = null
+# Player de áudio simplificado da Mothership (2D, sem posição/distância).
+var _mothership_sound_player: AudioStreamPlayer = null
+var _mothership_sound_played: bool = false
+var _mothership_sound_offset: float = 0.0  # offset ao longo do path para o ponto 27
 
 # Reproduz a trilha sonora do nível.
 var _music_player: AudioStreamPlayer = null
@@ -108,9 +123,16 @@ func _ready() -> void:
 	# Aplica o padrão oficial global de enquadramento de câmera e posição do player
 	CameraConfig.apply_standard_setup(camera, player)
 
-	# Configura o ouvinte de áudio 3D na câmera e o som da Mothership.
+	# Configura o ouvinte de áudio 3D na câmera.
 	_setup_audio_listener()
-	_setup_mothership_sound()
+	
+	# Player de áudio da Mothership: som 2D simples, toca ao cruzar o ponto 27.
+	_mothership_sound_player = AudioStreamPlayer.new()
+	_mothership_sound_player.stream = MOTHERSHIP_SOUND
+	_mothership_sound_player.bus = "Master"
+	_mothership_sound_player.volume_db = 0.0
+	add_child(_mothership_sound_player)
+	_mothership_sound_played = false
 
 	# Pausa o movimento imediatamente durante a fase de pré-carregamento
 	if path_follower:
@@ -132,6 +154,10 @@ func _ready() -> void:
 			var clamped_end := clampi(mothership_end_point, 0, point_count - 1)
 			_start_dist = curve.get_closest_offset(curve.get_point_position(clamped_start))
 			_end_dist = curve.get_closest_offset(curve.get_point_position(clamped_end))
+			
+			# Offset do ponto de som da Mothership.
+			var sound_idx := clampi(mothership_sound_point, 0, point_count - 1)
+			_mothership_sound_offset = curve.get_closest_offset(curve.get_point_position(sound_idx))
 
 	# Configuração gráfica dinâmica: PC Ultra vs Mobile Otimizado
 	_apply_platform_graphics_settings()
@@ -178,6 +204,12 @@ func _ready() -> void:
 		intro.start_distance_fraction = intro_start_distance_fraction
 		add_child(intro)
 
+	# Cria o retículo de mira (crosshair) como overlay UI.
+	# NOTA: crosshair desabilitado — em rail shooter a nave é a referência
+	# de tiro (nave segue o mouse, tiro vai pra frente). O crosshair era
+	# redundante. Código mantido para reativação futura se necessário.
+	# _setup_crosshair()
+
 	# Dispara o pré-carregamento e aquecimento de shaders/colisões
 	_run_preload_and_warmup(canvas_layer, curtain, intro)
 
@@ -191,8 +223,8 @@ func _process(_delta: float) -> void:
 	# Animação de rotação da Mothership entre os pontos do Path3D
 	_update_mothership_rotation()
 
-	# Aciona/para o som da Mothership conforme a proximidade do jogador
-	_update_mothership_sound()
+	# Toca o som da Mothership ao cruzar o ponto definido.
+	_trigger_mothership_sound()
 
 
 func _update_mothership_rotation() -> void:
@@ -331,11 +363,19 @@ func _run_preload_and_warmup(canvas_layer: CanvasLayer, curtain: ColorRect, intr
 	if intro:
 		intro.enabled = true
 		intro.start()
+		# A mira só aparece quando a intro terminar.
+		if _crosshair and intro.has_signal("intro_completed"):
+			# Conecta apenas uma vez para evitar leaks.
+			if not intro.intro_completed.is_connected(_show_crosshair):
+				intro.intro_completed.connect(_show_crosshair)
 	else:
 		if path_follower:
 			path_follower.set_paused(false)
 		if player and player.has_method("set_controls_enabled"):
 			player.set_controls_enabled(true)
+		# Sem intro → mostra a mira imediatamente.
+		if _crosshair:
+			_crosshair.visible = true
 
 	# 5. Transição suave (fade-out) da cortina preta para revelar o jogo rodando 100% fluido
 	var tween := create_tween()
@@ -405,7 +445,7 @@ func _start_background_music() -> void:
 	_music_player = AudioStreamPlayer.new()
 	_music_player.stream = MUSIC_LEVEL_1
 	_music_player.bus = "Master"
-	_music_player.volume_db = -9.7  # Música ~30% mais alta e ainda abaixo dos efeitos sonoros
+	_music_player.volume_db = music_volume_db  # regulável no Inspector (nome: Music Volume Db)
 	_music_player.finished.connect(_on_music_finished)
 	add_child(_music_player)
 	_music_player.play()
@@ -418,12 +458,10 @@ func _on_music_finished() -> void:
 
 
 # ---------------------------------------------------------------------------
-# Áudio 3D (Ouvinte + Nave Mãe)
+# Áudio 3D (Ouvinte) + Som simplificado da Mothership
 # ---------------------------------------------------------------------------
 
 ## Garante que a câmera tenha um AudioListener3D (o "ouvido" do jogo).
-## Sem ele, o áudio posicional 3D não tem ponto de escuta e não atenua por
-## distância — essencial para que o som da Mothership se comporte.
 func _setup_audio_listener() -> void:
 	if not camera:
 		return
@@ -434,54 +472,48 @@ func _setup_audio_listener() -> void:
 		camera.add_child(listener)
 
 
-## Cria o player de áudio posicional ancorado na Mothership.
-## O som toca em loop enquanto a nave do jogador estiver perto dela e a
-## distância é calculada automaticamente pelo motor (com atenuação por unit_size).
-func _setup_mothership_sound() -> void:
-	if _mothership_sound_player or not mothership or MOTHERSHIP_SOUND == null:
+## Toca o som da Mothership uma única vez quando o progresso cruza o ponto
+## definido (mothership_sound_point, padrão = 27).
+func _trigger_mothership_sound() -> void:
+	if _mothership_sound_player == null or _mothership_sound_played:
 		return
-	_mothership_sound_player = AudioStreamPlayer3D.new()
-	_mothership_sound_player.name = "MothershipSound"
-	_mothership_sound_player.stream = MOTHERSHIP_SOUND
-	if _mothership_sound_player.stream and "loop" in _mothership_sound_player.stream:
-		_mothership_sound_player.stream.loop = true
-	_mothership_sound_player.bus = "Master"
-	# Modelo logarítmico: no afastamento o volume decai bem mais devagar que
-	# o padrão (INVERSE_DISTANCE), evitando que o som "suma" cedo demais.
-	_mothership_sound_player.attenuation_model = AudioStreamPlayer3D.ATTENUATION_LOGARITHMIC
-	_mothership_sound_player.unit_size = 900.0   # Volume pleno até ~900 unid.
-	_mothership_sound_player.max_distance = 5200.0  # Borda real de audibilidade (fade até aqui)
-	_mothership_sound_player.volume_db = 0.0
-	mothership.add_child(_mothership_sound_player)
-	# Começa silencioso; só dispara quando o jogador se aproxima.
-	_mothership_sound_player.playing = false
-
-
-## Liga/desliga a reprodução conforme a distância do jogador à Mothership.
-## Combina o gatilho (play/stop por proximidade) com a atenuação automática
-## por distância que o AudioStreamPlayer3D já aplica.
-func _update_mothership_sound() -> void:
-	if _mothership_sound_player == null or not mothership:
+	if _mothership_sound_offset <= 0.0 or not path_follower:
 		return
-
-	# Ponto de escuta: usa a nave do jogador se disponível, senão a câmera.
-	var listener_pos := _mothership_listener_pos()
-
-	var dist := listener_pos.distance_to(mothership.global_position)
-	var activation_radius := 3600.0  # A partir de qual distância começa a tocar (aproximação)
-	# No afastamento, só para na borda real do fade (max_distance) para não
-	# cortar o som antes do esperado (histérese: evita liga/desliga perto da borda).
-	var stop_radius := _mothership_sound_player.max_distance
-
-	if dist <= activation_radius and not _mothership_sound_player.playing:
+	if path_follower.progress >= _mothership_sound_offset:
 		_mothership_sound_player.play()
-	elif dist > stop_radius and _mothership_sound_player.playing:
-		_mothership_sound_player.stop()
+		_mothership_sound_played = true
 
 
-func _mothership_listener_pos() -> Vector3:
-	# Prefere a posição do jogador (a nave que percorre o caminho).
-	var ref: Node3D = player if player else camera
-	if ref:
-		return ref.global_position
-	return mothership.global_position if mothership else Vector3.ZERO
+# ---------------------------------------------------------------------------
+# Crosshair (Retículo de Mira)
+# ---------------------------------------------------------------------------
+
+## Cria e posiciona o retículo procedural como overlay UI na tela,
+## acoplado ao mouse. A própria classe Crosshair detecta inimigos.
+## O crosshair começa OCULTO e só é revelado quando a intro termina
+## (ou imediatamente se não houver intro).
+func _setup_crosshair() -> void:
+	if not CrosshairScript:
+		return
+	var cl := CanvasLayer.new()
+	cl.name = "CrosshairLayer"
+	cl.layer = 90
+	add_child(cl)
+
+	_crosshair = CrosshairScript.new()
+	_crosshair.name = "Crosshair"
+	var is_mobile := OS.has_feature("android") or OS.has_feature("ios")
+	if _crosshair.has_method("set_mobile_mode"):
+		_crosshair.set_mobile_mode(is_mobile)
+	if _crosshair.has_method("set_camera"):
+		_crosshair.set_camera(camera)
+	# No mobile a mira é desnecessária — a nave serve como referência visual.
+	# Em ambos os casos começa oculta; no desktop aparece ao fim da intro.
+	_crosshair.visible = false
+	cl.add_child(_crosshair)
+## Revela a mira (crosshair) ao fim da introdução cinemática.
+## No mobile a mira nunca aparece — a nave é a referência de tiro.
+func _show_crosshair() -> void:
+	if _crosshair:
+		var is_mobile := OS.has_feature("android") or OS.has_feature("ios")
+		_crosshair.visible = not is_mobile

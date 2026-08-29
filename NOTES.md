@@ -1,4 +1,4 @@
-# Astro Striker: Pegasus Galaxy - Documentação de Criação de Níveis
+# Novastorm - Documentação de Criação de Níveis
 
 ## Visão Geral
 

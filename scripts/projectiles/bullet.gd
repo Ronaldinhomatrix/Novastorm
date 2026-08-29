@@ -15,7 +15,7 @@ extends Area3D
 # Constantes
 # ---------------------------------------------------------------------------
 
-const SPEED: float = 800.0
+@export var speed: float = 800.0  ## Velocidade do projétil (unidades/segundo)
 
 # Camada de colisão do cenário/terreno ("world", layer 4).
 const WORLD_LAYER_MASK: int = 1 << 3
@@ -91,7 +91,7 @@ func _physics_process(delta: float) -> void:
 	# Salvamos a posição atual antes de avançar para o raycast cobrir o
 	# deslocamento deste frame (evita "tunelamento" através de malha fina).
 	_prev_position = global_position
-	global_position += _direction * SPEED * delta
+	global_position += _direction * speed * delta
 
 	_check_world_hit()
 

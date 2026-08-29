@@ -1,21 +1,21 @@
-[gd_scene format=3 uid="uid://dmv789k2fighter"]
+[gd_scene format=3 uid="uid://cd10x5vk5nljx"]
 
-[ext_resource type="Script" path="res://scripts/enemies/enemy_fighter.gd" id="1_fighter"]
-[ext_resource type="PackedScene" path="res://assets/models/Enemys/3_enemy_red_starships.glb" id="2_glb"]
+[ext_resource type="Script" uid="uid://dfgssuy26i2s1" path="res://scripts/enemies/enemy_fighter.gd" id="1_fighter"]
+[ext_resource type="PackedScene" uid="uid://dd51ya4bvyw2t" path="res://assets/models/Enemys/3_enemy_red_starships.glb" id="2_glb"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_fighter"]
-size = Vector3(9.0, 3.5, 9.0)
+size = Vector3(18, 7, 14)
 
-[node name="EnemyFighter" type="Area3D"]
+[node name="EnemyFighter" type="Area3D" unique_id=93010484]
 collision_layer = 2
 collision_mask = 2
 script = ExtResource("1_fighter")
 target_ship_node_name = "Starship.v2"
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+[node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=1100935438]
 shape = SubResource("BoxShape3D_fighter")
 
-[node name="ShipModel" type="Node3D" parent="."]
+[node name="ShipModel" type="Node3D" parent="." unique_id=1360252636]
 
-[node name="3_enemy_red_starships" parent="ShipModel" instance=ExtResource("2_glb")]
-transform = Transform3D(-3.5, 0, 3.0598e-07, 0, 3.5, 0, -3.0598e-07, 0, -3.5, -7.0, 0, -1.68)
+[node name="3_enemy_red_starships" parent="ShipModel" unique_id=858927572 instance=ExtResource("2_glb")]
+transform = Transform3D(-5, 0, 7.54979e-07, 0, 5, 0, -7.54979e-07, 0, -5, -7, 0, -1.68)

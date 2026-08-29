@@ -68,6 +68,9 @@ func start() -> void:
 	_active = true
 	_timer = 0.0
 
+	# Esconde o cursor do mouse durante a cinemática.
+	Input.mouse_mode = Input.MOUSE_MODE_HIDDEN
+
 	# Toca a manobra assim que a câmera começa o giro orbital (parafuso).
 	if _maneuver_player:
 		_maneuver_player.pitch_scale = randf_range(0.97, 1.03)
@@ -75,7 +78,7 @@ func start() -> void:
 
 	if path_follower:
 		path_follower.set_paused(false)
-		path_follower.set_speed_multiplier(0.0)
+		path_follower.set_speed_multiplier(0.5)
 
 	if player and player.has_method("set_controls_enabled"):
 		player.set_controls_enabled(false)
@@ -93,7 +96,7 @@ func _update_camera_and_speed(raw_progress: float) -> void:
 	var s := _ease_in_out_cubic(raw_progress)
 
 	if path_follower:
-		path_follower.set_speed_multiplier(s)
+		path_follower.set_speed_multiplier(lerpf(0.5, 1.0, s))
 
 	var ship_pos := player.position
 	var final_offset := _default_camera_pos - ship_pos
@@ -151,6 +154,9 @@ func _end() -> void:
 
 	if player and player.has_method("set_controls_enabled"):
 		player.set_controls_enabled(true)
+
+	# Revela o cursor do mouse somente ao fim da introdução cinemática.
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 	intro_completed.emit()
 

@@ -5,6 +5,13 @@ var _capture_registered: bool = false
 var _probe_ready_sent: bool = false
 
 func _ready() -> void:
+	# Godot AI owns the shared debugger capture when both integrations are enabled.
+	call_deferred("_start_probe_if_needed")
+
+func _start_probe_if_needed() -> void:
+	if get_node_or_null("/root/_mcp_game_helper") != null:
+		set_process(false)
+		return
 	_ensure_debugger_capture_registered()
 	set_process(not _capture_registered)
 

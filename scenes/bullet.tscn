@@ -3,21 +3,33 @@
 [ext_resource type="Script" uid="uid://b3jrjk5vl57p3" path="res://scripts/projectiles/bullet.gd" id="1_bullet"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_bullet"]
-size = Vector3(3.1445313, 5, 12.804138)
+size = Vector3(6.0, 5.0, 18.0)
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_laser"]
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_glow"]
 transparency = 1
 blend_mode = 1
 cull_mode = 2
 shading_mode = 0
-albedo_color = Color(0, 0.8, 1, 1)
-use_particle_trails = true
-proximity_fade_enabled = true
+albedo_color = Color(0, 0.7, 1, 0.75)
 
-[sub_resource type="CapsuleMesh" id="CapsuleMesh_laser"]
-material = SubResource("StandardMaterial3D_laser")
-radius = 0.75
-height = 12.5
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_glow"]
+material = SubResource("StandardMaterial3D_glow")
+radius = 1.4
+height = 18.0
+radial_segments = 12
+rings = 4
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_core"]
+transparency = 1
+blend_mode = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(0.85, 0.98, 1, 1)
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_core"]
+material = SubResource("StandardMaterial3D_core")
+radius = 0.65
+height = 16.0
 radial_segments = 8
 rings = 4
 
@@ -26,49 +38,55 @@ transparency = 1
 blend_mode = 1
 shading_mode = 0
 vertex_color_use_as_albedo = true
-albedo_color = Color(0, 0.8, 1, 1)
+albedo_color = Color(0.2, 0.85, 1, 1)
 
 [sub_resource type="BoxMesh" id="BoxMesh_spark"]
 material = SubResource("StandardMaterial3D_sparks")
-size = Vector3(0.5, 0.5, 0.5)
+size = Vector3(0.6, 0.6, 0.6)
 
 [sub_resource type="Curve" id="Curve_trail"]
 _data = [Vector2(0, 1), 0.0, 0.0, 0, 0, Vector2(1, 0), -1.4, 0.0, 0, 0]
 point_count = 2
 
 [sub_resource type="Gradient" id="Gradient_trail"]
-colors = PackedColorArray(0, 0.9, 1, 1, 0, 0.2, 1, 0)
+offsets = PackedFloat32Array(0, 0.4, 1)
+colors = PackedColorArray(0.8, 0.95, 1, 1, 0, 0.75, 1, 0.8, 0, 0.2, 1, 0)
 
 [node name="Bullet" type="Area3D" unique_id=894304534]
 collision_layer = 2
 collision_mask = 2
 script = ExtResource("1_bullet")
+speed = 1200.0
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=180904811]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.28189945, -0.63121986, 0.27927065)
 shape = SubResource("BoxShape3D_bullet")
 
-[node name="MeshInstance3D" type="MeshInstance3D" parent="." unique_id=2057396924]
+[node name="GlowOuterMesh" type="MeshInstance3D" parent="." unique_id=2057396924]
 transform = Transform3D(1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0)
-mesh = SubResource("CapsuleMesh_laser")
+mesh = SubResource("CapsuleMesh_glow")
+
+[node name="CoreInnerMesh" type="MeshInstance3D" parent="." unique_id=2057396925]
+transform = Transform3D(1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0)
+mesh = SubResource("CapsuleMesh_core")
 
 [node name="OmniLight3D" type="OmniLight3D" parent="." unique_id=192464557]
-light_color = Color(0, 0.8, 1, 1)
-light_energy = 5.0
-omni_range = 15.0
+light_color = Color(0.1, 0.85, 1, 1)
+light_energy = 8.0
+omni_range = 22.0
 
 [node name="TrailParticles" type="CPUParticles3D" parent="." unique_id=1987876024]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 6)
-amount = 10
-lifetime = 0.3
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 8)
+amount = 18
+lifetime = 0.25
 preprocess = 0.05
-randomness = 0.5
+randomness = 0.6
 mesh = SubResource("BoxMesh_spark")
 direction = Vector3(0, 0, 1)
-spread = 15.0
+spread = 25.0
 gravity = Vector3(0, 0, 0)
-initial_velocity_min = 50.0
+initial_velocity_min = 40.0
 initial_velocity_max = 120.0
-scale_amount_max = 3.0
+scale_amount_min = 1.0
+scale_amount_max = 3.5
 scale_amount_curve = SubResource("Curve_trail")
 color_ramp = SubResource("Gradient_trail")

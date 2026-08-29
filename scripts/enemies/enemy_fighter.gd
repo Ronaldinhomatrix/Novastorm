@@ -1,156 +1,172 @@
 class_name EnemyFighter
 extends "res://scripts/enemies/enemy_base.gd"
 
-## Inimigo Caça Tático / Fighter (Starship.v2) no Mundo 3D Real.
-## Voa à frente do jogador ao longo do cânion, realizando manobra evasiva
-## de barrel roll 360°, disparos de lasers e quebra de asa na passagem do jogador.
+## Inimigo Caça Tático / Fighter (Starship.v2).
+##
+## Padrão de Voo Rail-Shooter:
+## - 1 HP (morre com 1 tiro).
+## - Permanece na frente do jogador durante 8.0s em uma travessia suave com barrel roll na metade.
+## - Se o jogador ultrapassar ou a nave fugir, é liberada imediatamente.
 
-enum State { PATROL, COMBAT_ROLL, BREAKAWAY }
+enum Phase { ENTER, ENGAGE, EXIT }
 
-@export var patrol_speed: float = 245.0  ## Velocidade à frente do jogador (m/s)
-@export var breakaway_speed: float = 340.0  ## Velocidade de fuga após o jogador passar (m/s)
-@export var breakaway_type: int = 0  ## 0 = Sobe pelo topo do cânion, 1 = Quebra para a esquerda, 2 = Quebra para a direita
+@export_category("Padrão de Voo")
+@export var enter_duration: float = 1.8
+@export var engage_duration: float = 8.0
+@export var exit_duration: float = 2.5
 
-var flight_direction: Vector3 = Vector3.FORWARD
-var _state: State = State.PATROL
-var _time_in_state: float = 0.0
-var _fire_timer: float = 0.4
-var _barrel_roll_progress: float = 0.0
+@export var start_distance_ahead: float = 95.0   ## Distância de spawn à frente
+@export var combat_distance_ahead: float = 68.0  ## Distância média de combate
+@export var lateral_span: float = 32.0           ## Extensão lateral da travessia (±32m)
+@export var base_height: float = 8.0             ## Altura média de combate
+@export var roll_duration: float = 1.0           ## Duração do giro 360°
+
+var _phase: Phase = Phase.ENTER
+var _phase_timer: float = 0.0
+var _fire_timer: float = 1.2
+var _side: float = 1.0
+
 var _is_rolling: bool = false
+var _roll_timer: float = 0.0
+var _roll_done: bool = false
 var _wing_offset: float = 4.0
-var _up_vec: Vector3 = Vector3.UP
-var _right_vec: Vector3 = Vector3.RIGHT
+
+var _current_distance: float = 95.0
+var _current_lateral: float = 0.0
+var _current_vertical: float = 18.0
 
 
 func _ready() -> void:
 	max_hp = 1
+	current_hp = 1
 	score_value = 300
 	super._ready()
 
-	if flight_direction.length_squared() < 0.001:
-		flight_direction = -global_basis.z.normalized()
-	else:
-		flight_direction = flight_direction.normalized()
 
-	_right_vec = flight_direction.cross(Vector3.UP).normalized()
-	if _right_vec.length_squared() < 0.001:
-		_right_vec = Vector3.RIGHT
-	_up_vec = _right_vec.cross(flight_direction).normalized()
+func setup_fighter(_start_pos: Vector3, _dir: Vector3, b_type: int = 0) -> void:
+	_side = 1.0 if b_type == 2 else -1.0
+	_current_distance = start_distance_ahead
+	_current_lateral = -40.0 * _side
+	_current_vertical = 20.0
 
+	_phase = Phase.ENTER
+	_phase_timer = 0.0
+	_fire_timer = 1.2
+	_roll_done = false
+	_is_rolling = false
 
-func setup_fighter(start_pos: Vector3, dir: Vector3, b_type: int = 0) -> void:
-	global_position = start_pos
-	flight_direction = dir.normalized()
-	breakaway_type = b_type
-
-	_right_vec = flight_direction.cross(Vector3.UP).normalized()
-	if _right_vec.length_squared() < 0.001:
-		_right_vec = Vector3.RIGHT
-	_up_vec = _right_vec.cross(flight_direction).normalized()
-
-	look_at(global_position + flight_direction, _up_vec)
+	_curve_offset = _get_player_progress() + _current_distance
+	var frame := _sample_curve_frame(_curve_offset, _current_lateral, _current_vertical)
+	global_position = frame["position"]
+	_orient_ship(frame["forward"], frame["up"], -_side * 0.25, true)
 
 
 func _physics_process(delta: float) -> void:
-	_time_in_state += delta
+	_phase_timer += delta
 
-	match _state:
-		State.PATROL:
-			_process_patrol(delta)
-		State.COMBAT_ROLL:
-			_process_combat_roll(delta)
-		State.BREAKAWAY:
-			_process_breakaway(delta)
+	match _phase:
+		Phase.ENTER:
+			_process_enter(delta)
+		Phase.ENGAGE:
+			_process_engage(delta)
+		Phase.EXIT:
+			_process_exit(delta)
 
-
-func _process_patrol(delta: float) -> void:
-	# Voo suave à frente do jogador ao longo do desfiladeiro
-	global_position += flight_direction * patrol_speed * delta
-
-	var weave: Vector3 = _right_vec * sin(_time_in_state * 2.2) * 12.0 * delta
-	global_position += weave
-
-	look_at(global_position + flight_direction, _up_vec)
-
-	var player: Node3D = _get_player_node()
-	if player:
-		var dist: float = global_position.distance_to(player.global_position)
-		var to_fighter: Vector3 = global_position - player.global_position
-
-		# Inicia a manobra de combate ao se aproximar
-		if dist <= 240.0 and to_fighter.dot(flight_direction) > 0.0:
-			_state = State.COMBAT_ROLL
-			_time_in_state = 0.0
-			_is_rolling = true
-			_barrel_roll_progress = 0.0
-
-		# Se o jogador já ultrapassou, entra imediatamente em breakaway (sem perseguição)
-		if to_fighter.dot(flight_direction) < -20.0:
-			_state = State.BREAKAWAY
-			_time_in_state = 0.0
+	if _current_distance < -15.0:
+		queue_free()
 
 
-func _process_combat_roll(delta: float) -> void:
-	global_position += flight_direction * patrol_speed * delta
+func _process_enter(_delta: float) -> void:
+	var t := clampf(_phase_timer / maxf(enter_duration, 0.01), 0.0, 1.0)
+	var eased := t * t * (3.0 - 2.0 * t)
 
-	# Movimento lateral evasivo durante o roll
-	var side_dir: float = 1.0 if breakaway_type == 2 else (-1.0 if breakaway_type == 1 else sin(_time_in_state * 3.0))
-	global_position += _right_vec * side_dir * 18.0 * delta
+	var start_lat := -40.0 * _side
+	var target_lat := -lateral_span * _side
+	_current_lateral = lerpf(start_lat, target_lat, eased)
+	_current_distance = lerpf(start_distance_ahead, combat_distance_ahead, eased)
+	_current_vertical = lerpf(20.0, base_height, eased)
 
-	look_at(global_position + flight_direction, Vector3.UP)
+	_curve_offset = _get_player_progress() + _current_distance
+	var frame := _sample_curve_frame(_curve_offset, _current_lateral, _current_vertical)
+	global_position = frame["position"]
 
-	# Manobra de Barrel Roll 360° em voo
+	var bank := -_side * lerpf(0.35, 0.15, eased)
+	_orient_ship(frame["forward"], frame["up"], bank)
+
+	if t >= 1.0:
+		_phase = Phase.ENGAGE
+		_phase_timer = 0.0
+
+
+func _process_engage(delta: float) -> void:
+	var u := clampf(_phase_timer / maxf(engage_duration, 0.01), 0.0, 1.0)
+
+	# Travessia lateral suave de um lado ao outro da tela ao longo de 8 segundos
+	var smooth_u := u * u * (3.0 - 2.0 * u)
+	_current_lateral = lerpf(-lateral_span * _side, lateral_span * _side, smooth_u)
+	_current_vertical = base_height + sin(u * PI) * 3.0
+	_current_distance = lerpf(combat_distance_ahead, combat_distance_ahead - 14.0, u)
+
+	_curve_offset = _get_player_progress() + _current_distance
+	var frame := _sample_curve_frame(_curve_offset, _current_lateral, _current_vertical)
+	global_position = frame["position"]
+
+	var base_bank := -_side * 0.25
+
+	# Único Barrel Roll pontual aos 45% da travessia (na metade do voo)
+	if not _roll_done and u >= 0.45:
+		_is_rolling = true
+		_roll_timer = 0.0
+		_roll_done = true
+
+	var extra_roll := 0.0
 	if _is_rolling:
-		_barrel_roll_progress += delta * 3.2
-		rotate_object_local(Vector3(0, 0, 1), _barrel_roll_progress * TAU)
-		if _barrel_roll_progress >= 1.0:
+		_roll_timer += delta
+		var roll_t := clampf(_roll_timer / maxf(roll_duration, 0.01), 0.0, 1.0)
+		var smooth_roll := roll_t * roll_t * (3.0 - 2.0 * roll_t)
+		extra_roll = smooth_roll * TAU * -_side
+		if roll_t >= 1.0:
 			_is_rolling = false
 
-	# Disparo de lasers duplos em direção ao jogador
+	_orient_ship(frame["forward"], frame["up"], base_bank + extra_roll)
+
+	# Disparo periódico de lasers duplos a cada 2.0s
 	_fire_timer -= delta
 	if _fire_timer <= 0.0:
-		_fire_timer = 1.0
+		_fire_timer = 2.0
 		_shoot_twin_lasers()
 
-	var player: Node3D = _get_player_node()
-	if player:
-		var to_fighter: Vector3 = global_position - player.global_position
-		# Quando o jogador passa pela nave, quebra a formação
-		if to_fighter.dot(flight_direction) < -20.0 or _time_in_state > 4.5:
-			_state = State.BREAKAWAY
-			_time_in_state = 0.0
+	if u >= 1.0:
+		_phase = Phase.EXIT
+		_phase_timer = 0.0
 
 
-func _process_breakaway(delta: float) -> void:
-	# Direção de fuga no espaço 3D (para fora do campo de visão)
-	var break_vector: Vector3 = flight_direction
-	match breakaway_type:
-		0:  # Sobe pelo cânion
-			break_vector = (flight_direction + Vector3.UP * 0.9).normalized()
-		1:  # Quebra para a esquerda
-			break_vector = (flight_direction - _right_vec * 0.8 + Vector3.UP * 0.2).normalized()
-		2:  # Quebra para a direita
-			break_vector = (flight_direction + _right_vec * 0.8 + Vector3.UP * 0.2).normalized()
+func _process_exit(delta: float) -> void:
+	var t := clampf(_phase_timer / maxf(exit_duration, 0.01), 0.0, 1.0)
 
-	flight_direction = flight_direction.slerp(break_vector, 3.5 * delta).normalized()
-	global_position += flight_direction * breakaway_speed * delta
+	_current_lateral += (_side * 25.0) * delta
+	_current_vertical += (20.0 + _phase_timer * 30.0) * delta
+	_current_distance += (70.0 + _phase_timer * 110.0) * delta
 
-	look_at(global_position + flight_direction, Vector3.UP)
+	_curve_offset = _get_player_progress() + _current_distance
+	var frame := _sample_curve_frame(_curve_offset, _current_lateral, _current_vertical)
+	global_position = frame["position"]
 
-	var bank_dir: float = 0.9 if breakaway_type == 2 else (-0.9 if breakaway_type == 1 else 0.0)
-	rotate_object_local(Vector3(0, 0, 1), bank_dir)
+	var bank := _side * lerpf(0.3, 0.7, t)
+	_orient_ship(frame["forward"], frame["up"], bank)
 
-	# Auto-remoção rápida após sair do campo visual
-	if _time_in_state > 3.0:
+	if t >= 1.0:
 		queue_free()
 
 
 func _shoot_twin_lasers() -> void:
-	var left_pos: Vector3 = global_position + (global_basis.x * -_wing_offset) + (-global_basis.z * 1.5)
-	var right_pos: Vector3 = global_position + (global_basis.x * _wing_offset) + (-global_basis.z * 1.5)
+	if _is_dead:
+		return
+	var left_pos := global_position + (global_basis.x * -_wing_offset) + (-global_basis.z * 1.5)
+	var right_pos := global_position + (global_basis.x * _wing_offset) + (-global_basis.z * 1.5)
 
 	var player: Node3D = _get_player_node()
-	var dir_to_player: Vector3 = -flight_direction
+	var dir_to_player := -global_basis.z
 	if player:
 		dir_to_player = (player.global_position - global_position).normalized()
 
