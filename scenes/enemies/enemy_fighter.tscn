@@ -4,7 +4,7 @@
 [ext_resource type="PackedScene" uid="uid://dd51ya4bvyw2t" path="res://assets/models/Enemys/3_enemy_red_starships.glb" id="2_glb"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_fighter"]
-size = Vector3(18, 7, 14)
+size = Vector3(27, 11, 21)
 
 [node name="EnemyFighter" type="Area3D" unique_id=93010484]
 collision_layer = 2
@@ -16,6 +16,7 @@ target_ship_node_name = "Starship.v2"
 shape = SubResource("BoxShape3D_fighter")
 
 [node name="ShipModel" type="Node3D" parent="." unique_id=1360252636]
+transform = Transform3D(1.5, 0, 0, 0, 1.5, 0, 0, 0, 1.5, 0, 0, 0)
 
 [node name="3_enemy_red_starships" parent="ShipModel" unique_id=858927572 instance=ExtResource("2_glb")]
-transform = Transform3D(-5, 0, 7.54979e-07, 0, 5, 0, -7.54979e-07, 0, -5, -7, 0, -1.68)
+transform = Transform3D(-5, 0, 7.54979e-07, 0, 5, 0, -7.54979e-07, 0, -5, 9.99, 0, 2.401)

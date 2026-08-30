@@ -1,0 +1,106 @@
+[gd_scene format=3 uid="uid://c8n8energyballtscn"]
+
+[ext_resource type="Script" uid="uid://cc6mgpdffx2mj" path="res://scripts/projectiles/energy_ball.gd" id="1_energyball"]
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_ball"]
+radius = 12.0
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_outer_glow"]
+transparency = 1
+blend_mode = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1.0, 0.12, 0.04, 0.85)
+
+[sub_resource type="SphereMesh" id="SphereMesh_outer_glow"]
+material = SubResource("StandardMaterial3D_outer_glow")
+radius = 14.0
+height = 28.0
+radial_segments = 20
+rings = 10
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_mid_glow"]
+transparency = 1
+blend_mode = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1.0, 0.35, 0.08, 0.95)
+
+[sub_resource type="SphereMesh" id="SphereMesh_mid_glow"]
+material = SubResource("StandardMaterial3D_mid_glow")
+radius = 9.0
+height = 18.0
+radial_segments = 16
+rings = 8
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_core"]
+shading_mode = 0
+albedo_color = Color(1.0, 0.92, 0.82, 1.0)
+
+[sub_resource type="SphereMesh" id="SphereMesh_core"]
+material = SubResource("StandardMaterial3D_core")
+radius = 5.0
+height = 10.0
+radial_segments = 16
+rings = 8
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_spark"]
+transparency = 1
+blend_mode = 1
+shading_mode = 0
+vertex_color_use_as_albedo = true
+albedo_color = Color(1.0, 0.3, 0.05, 1.0)
+
+[sub_resource type="BoxMesh" id="BoxMesh_spark"]
+material = SubResource("StandardMaterial3D_spark")
+size = Vector3(2.0, 2.0, 2.0)
+
+[sub_resource type="Curve" id="Curve_trail"]
+_data = [Vector2(0, 1), 0.0, 0.0, 0, 0, Vector2(1, 0), -1.4, 0.0, 0, 0]
+point_count = 2
+
+[sub_resource type="Gradient" id="Gradient_trail"]
+offsets = PackedFloat32Array(0, 0.35, 0.75, 1)
+colors = PackedColorArray(1, 0.9, 0.6, 1, 1, 0.3, 0.05, 0.95, 0.85, 0.05, 0.02, 0.7, 0.4, 0, 0, 0)
+
+[node name="EnergyBall" type="Area3D"]
+collision_layer = 4
+collision_mask = 1
+script = ExtResource("1_energyball")
+speed = 420.0
+damage = 1
+max_distance = 7000.0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+shape = SubResource("SphereShape3D_ball")
+
+[node name="OuterGlowMesh" type="MeshInstance3D" parent="."]
+mesh = SubResource("SphereMesh_outer_glow")
+
+[node name="MidGlowMesh" type="MeshInstance3D" parent="."]
+mesh = SubResource("SphereMesh_mid_glow")
+
+[node name="CoreMesh" type="MeshInstance3D" parent="."]
+mesh = SubResource("SphereMesh_core")
+
+[node name="OmniLight3D" type="OmniLight3D" parent="."]
+light_color = Color(1.0, 0.18, 0.05, 1.0)
+light_energy = 28.0
+omni_range = 90.0
+
+[node name="TrailParticles" type="CPUParticles3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 6)
+amount = 26
+lifetime = 0.5
+preprocess = 0.05
+randomness = 0.6
+mesh = SubResource("BoxMesh_spark")
+direction = Vector3(0, 0, 1)
+spread = 22.0
+gravity = Vector3(0, 0, 0)
+initial_velocity_min = 30.0
+initial_velocity_max = 90.0
+scale_amount_min = 2.0
+scale_amount_max = 5.0
+scale_amount_curve = SubResource("Curve_trail")
+color_ramp = SubResource("Gradient_trail")

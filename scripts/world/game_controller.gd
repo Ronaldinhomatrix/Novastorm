@@ -16,11 +16,16 @@ extends Node3D
 const MUSIC_LEVEL_1 := preload("res://assets/audio/music_1_Aphelion.ogg")
 
 # Som da nave mãe (Mothership) - efeito posicional tocado ao se aproximar dela.
-# Som da nave mãe (Mothership) - efeito posicional tocado ao se aproximar dela.
 const MOTHERSHIP_SOUND := preload("res://assets/audio/mothership1.ogg")
+
+# Som de disparo do torpedo da Mothership.
+const MOTHERSHIP_TORPEDO_SOUND := preload("res://assets/audio/mothership1_torpedo.ogg")
 
 # Script do retículo de mira (crosshair) desenhado na tela como overlay UI.
 const CrosshairScript := preload("res://scripts/ui/crosshair.gd")
+
+# Efeito cinematográfico de clarão de disparo da Mothership.
+const MothershipMuzzleFlashScript := preload("res://scripts/effects/mothership_muzzle_flash.gd")
 
 var _crosshair: Control = null  ## Instância do crosshair UI
 
@@ -42,6 +47,9 @@ var _crosshair: Control = null  ## Instância do crosshair UI
 @export var mothership_rotation_deg: float = 20.0
 ## Ponto do Path3D onde fica a origem do som da Mothership.
 @export var mothership_sound_point: int = 27
+## Pontos do Path3D onde a Mothership dispara seus 2 torpedos de energia.
+@export var mothership_fire_point_1: int = 25
+@export var mothership_fire_point_2: int = 27
 
 @export_category("Intro Cinematica")
 @export var enable_cinematic_intro: bool = false
@@ -88,6 +96,17 @@ var _initial_mothership_rot_y: float = 0.0
 var _mothership_sound_player: AudioStreamPlayer = null
 var _mothership_sound_played: bool = false
 var _mothership_sound_offset: float = 0.0  # offset ao longo do path para o ponto 27
+# Torpedo (energy ball) firing state
+var _fire_dist_1: float = 0.0
+var _fire_dist_2: float = 0.0
+var _fire_shot_1_done: bool = false
+var _fire_shot_2_done: bool = false
+var _energy_ball_scene: PackedScene = preload("res://scenes/projectiles/energy_ball.tscn")
+
+# Sistema de tremor de câmera (Screen Shake)
+var _shake_time: float = 0.0
+var _shake_duration: float = 0.0
+var _shake_intensity: float = 0.0
 
 # Reproduz a trilha sonora do nível.
 var _music_player: AudioStreamPlayer = null
@@ -96,8 +115,13 @@ var _music_player: AudioStreamPlayer = null
 # Ciclo de Vida
 # ---------------------------------------------------------------------------
 
-func _ready() -> void:
+func _ready():
 	_start_background_music()
+
+	if not get_node_or_null("ReplaySystem"):
+		var replay_sys := ReplaySystem.new()
+		replay_sys.name = "ReplaySystem"
+		add_child(replay_sys)
 
 	if not path_follower:
 		path_follower = get_node_or_null("FlightPath/PathFollower") as PathFollower
@@ -154,7 +178,13 @@ func _ready() -> void:
 			var clamped_end := clampi(mothership_end_point, 0, point_count - 1)
 			_start_dist = curve.get_closest_offset(curve.get_point_position(clamped_start))
 			_end_dist = curve.get_closest_offset(curve.get_point_position(clamped_end))
-			
+
+			# Offsets exatos de disparo dos 2 torpedos da Mothership (pontos 25 e 27)
+			var fire_idx_1 := clampi(mothership_fire_point_1, 0, point_count - 1)
+			var fire_idx_2 := clampi(mothership_fire_point_2, 0, point_count - 1)
+			_fire_dist_1 = curve.get_closest_offset(curve.get_point_position(fire_idx_1))
+			_fire_dist_2 = curve.get_closest_offset(curve.get_point_position(fire_idx_2))
+
 			# Offset do ponto de som da Mothership.
 			var sound_idx := clampi(mothership_sound_point, 0, point_count - 1)
 			_mothership_sound_offset = curve.get_closest_offset(curve.get_point_position(sound_idx))
@@ -210,11 +240,46 @@ func _ready() -> void:
 	# redundante. Código mantido para reativação futura se necessário.
 	# _setup_crosshair()
 
+	_setup_dev_ui()
+
 	# Dispara o pré-carregamento e aquecimento de shaders/colisões
 	_run_preload_and_warmup(canvas_layer, curtain, intro)
 
 
-func _process(_delta: float) -> void:
+
+func _setup_dev_ui() -> void:
+	var dev_layer := CanvasLayer.new()
+	dev_layer.layer = 50
+	add_child(dev_layer)
+
+	var dev_btn := Button.new()
+	dev_btn.text = "🔄 DEV: Olhar para Trás (F / B)"
+	dev_btn.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	dev_btn.position = Vector2(20, 20)
+	dev_btn.focus_mode = Control.FOCUS_NONE
+	
+	# Estilização sutil do botão Dev
+	var override_style := StyleBoxFlat.new()
+	override_style.bg_color = Color(0.1, 0.1, 0.15, 0.75)
+	override_style.corner_radius_top_left = 6
+	override_style.corner_radius_top_right = 6
+	override_style.corner_radius_bottom_left = 6
+	override_style.corner_radius_bottom_right = 6
+	override_style.content_margin_left = 12
+	override_style.content_margin_top = 8
+	override_style.content_margin_right = 12
+	override_style.content_margin_bottom = 8
+	dev_btn.add_theme_stylebox_override("normal", override_style)
+
+	dev_btn.pressed.connect(func():
+		if player and player.has_method("toggle_look_back"):
+			player.toggle_look_back()
+	)
+
+	dev_layer.add_child(dev_btn)
+
+
+func _process(delta: float) -> void:
 	# Detectar fim do nível (baseado em ratio >= 0.99 ou progresso a menos de 5 unidades do fim)
 	if not _level_completed and show_level_complete and path_follower:
 		if path_follower.progress_ratio >= 0.99 or path_follower.progress >= _path_length - 5.0:
@@ -225,6 +290,161 @@ func _process(_delta: float) -> void:
 
 	# Toca o som da Mothership ao cruzar o ponto definido.
 	_trigger_mothership_sound()
+	_handle_mothership_firing()
+
+	# Processa tremor de câmera ativo
+	_process_camera_shake(delta)
+
+
+func _handle_mothership_firing() -> void:
+	if not path_follower or not mothership or not _energy_ball_scene:
+		return
+
+	# Garantia de inicialização das distâncias caso não tenham sido calculadas em _ready()
+	if _fire_dist_1 <= 0.0 or _fire_dist_2 <= 0.0:
+		var flight_path := get_node_or_null("FlightPath") as Path3D
+		if flight_path and flight_path.curve and flight_path.curve.point_count > 0:
+			var idx1 := clampi(mothership_fire_point_1, 0, flight_path.curve.point_count - 1)
+			var idx2 := clampi(mothership_fire_point_2, 0, flight_path.curve.point_count - 1)
+			_fire_dist_1 = flight_path.curve.get_closest_offset(flight_path.curve.get_point_position(idx1))
+			_fire_dist_2 = flight_path.curve.get_closest_offset(flight_path.curve.get_point_position(idx2))
+
+	var prog: float = path_follower.progress
+
+	# 1º Torpedo: inicia sequência de disparo no ponto 25
+	if not _fire_shot_1_done and _fire_dist_1 > 0.0 and prog >= _fire_dist_1:
+		_fire_shot_1_done = true
+		_trigger_mothership_torpedo_sequence()
+
+	# 2º Torpedo: inicia sequência de disparo no ponto 27
+	if not _fire_shot_2_done and _fire_dist_2 > 0.0 and prog >= _fire_dist_2:
+		_fire_shot_2_done = true
+		_trigger_mothership_torpedo_sequence()
+
+
+func _trigger_mothership_torpedo_sequence() -> void:
+	# 1. Toca imediatamente o som do torpedo da Mothership
+	_play_torpedo_sound()
+
+	# 2. Aguarda exatamente 1 segundo antes de disparar o torpedo e o clarão
+	await get_tree().create_timer(1.0).timeout
+
+	# 3. Lança o torpedo e o clarão com mira recalculada em tempo real
+	_spawn_mothership_torpedo()
+
+
+func _play_torpedo_sound() -> void:
+	if MOTHERSHIP_TORPEDO_SOUND:
+		var audio_player := AudioStreamPlayer.new()
+		audio_player.stream = MOTHERSHIP_TORPEDO_SOUND
+		audio_player.bus = "Master"
+		add_child(audio_player)
+		audio_player.play()
+		audio_player.finished.connect(audio_player.queue_free)
+
+
+func _get_mothership_muzzle_position() -> Vector3:
+	if mothership:
+		var muzzle := mothership.get_node_or_null("TorpedoMuzzle") as Node3D
+		if muzzle:
+			return muzzle.global_position
+		# Offset local preciso derivado da câmera do editor 3D na frente da nave
+		return mothership.to_global(Vector3(0.4126, -1.8468, 12.2879))
+	return Vector3(3571.202, 632.072, -2145.927)
+
+
+func _spawn_mothership_torpedo() -> void:
+	var instance := _energy_ball_scene.instantiate() as Area3D
+	if not instance:
+		return
+
+	var spawn_pos := _get_mothership_muzzle_position()
+	var flight_path: Path3D = (path_follower.get_parent() as Path3D) if path_follower else (get_node_or_null("FlightPath") as Path3D)
+	var torpedo_speed: float = 420.0
+	if instance.get("speed") != null and float(instance.get("speed")) > 0.0:
+		torpedo_speed = float(instance.get("speed"))
+
+	var target_pos: Vector3 = Vector3.ZERO
+
+	# Estima a posição futura do jogador considerando o trajeto e curvas reais do Path3D a partir do canhão
+	if flight_path and flight_path.curve and path_follower:
+		var curve: Curve3D = flight_path.curve
+		var current_prog: float = path_follower.progress
+		var fwd_speed: float = path_follower.forward_speed
+
+		# 1ª estimativa de tempo com base na distância do canhão até o player
+		var cur_player_pos: Vector3 = player.global_position if player else path_follower.global_position
+		var t: float = spawn_pos.distance_to(cur_player_pos) / torpedo_speed
+
+		# Refinamento iterativo ao longo do Path3D (amostragem da curva futura)
+		for _i in range(3):
+			var future_prog: float = clampf(current_prog + fwd_speed * t, 0.0, curve.get_baked_length())
+			var local_curve_pos: Vector3 = curve.sample_baked(future_prog)
+			var future_path_pos: Vector3 = flight_path.global_transform * local_curve_pos
+			t = spawn_pos.distance_to(future_path_pos) / torpedo_speed
+			target_pos = future_path_pos
+
+		# Ajusta para a altura/posição do player em relação ao trilho
+		if player:
+			target_pos.y += player.position.y
+	else:
+		target_pos = player.global_position if player else (spawn_pos + Vector3(0.0, -100.0, 500.0))
+
+	var fire_dir: Vector3 = (target_pos - spawn_pos).normalized()
+	if fire_dir.length_squared() < 0.001:
+		fire_dir = -mothership.global_transform.basis.z.normalized() if mothership else Vector3.FORWARD
+
+	# Clarão cinematográfico exatamente no canhão frontal da Mothership
+	if MothershipMuzzleFlashScript:
+		var flash: Node3D = MothershipMuzzleFlashScript.new()
+		add_child(flash)
+		flash.global_position = spawn_pos
+		if flash.has_method("setup"):
+			flash.setup(fire_dir)
+
+	add_child(instance)
+	instance.global_position = spawn_pos
+
+	if instance.has_method("setup"):
+		instance.setup(fire_dir)
+
+	# Tremor de tela no momento do disparo do torpedo da Mothership
+	trigger_camera_shake(0.75, 0.48)
+
+
+## Dispara um tremor na câmera com intensidade e duração configuráveis
+func trigger_camera_shake(intensity: float = 0.75, duration: float = 0.48) -> void:
+	_shake_intensity = intensity
+	_shake_duration = maxf(duration, 0.01)
+	_shake_time = _shake_duration
+
+
+func _process_camera_shake(delta: float) -> void:
+	if not camera:
+		return
+
+	if _shake_time > 0.0:
+		_shake_time -= delta
+		if _shake_time <= 0.0:
+			_shake_time = 0.0
+			camera.h_offset = 0.0
+			camera.v_offset = 0.0
+			camera.rotation.z = _default_camera_rot.z
+		else:
+			var progress := _shake_time / _shake_duration
+			var current_power := _shake_intensity * progress * progress
+			camera.h_offset = randf_range(-1.0, 1.0) * current_power
+			camera.v_offset = randf_range(-1.0, 1.0) * (current_power * 0.85)
+			camera.rotation.z = _default_camera_rot.z + deg_to_rad(randf_range(-1.0, 1.0) * current_power * 2.4)
+
+
+
+
+
+
+
+
+
 
 
 func _update_mothership_rotation() -> void:
@@ -250,6 +470,7 @@ func _on_level_finished() -> void:
 	
 	# Mostrar tela de level complete
 	if level_complete_scene:
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 		var target_next_level := next_level_path
 		if target_next_level == "":
 			target_next_level = "res://scenes/stages/level_2.tscn"
@@ -310,11 +531,14 @@ func _apply_platform_graphics_settings() -> void:
 		# Terreno no PC: material ultra detalhado com Triplanar e sombras ativas
 		_apply_scenery_materials_and_shadows(terrain_detail_material, GeometryInstance3D.SHADOW_CASTING_SETTING_ON)
 
-	# Aplica a névoa suave de profundidade automática no WorldEnvironment (Opção A)
-	if enable_depth_fog:
-		var world_env := get_node_or_null("WorldEnvironment") as WorldEnvironment
-		if world_env and world_env.environment:
+	# Aplica a névoa suave de profundidade automática e perfil de Glow no WorldEnvironment
+	var world_env := get_node_or_null("WorldEnvironment") as WorldEnvironment
+	if world_env and world_env.environment:
+		if enable_depth_fog:
 			CameraConfig.apply_depth_fog(world_env.environment, target_far)
+		# No Mobile: desativa pós-processamento pesado de Glow para economizar bateria e garantir 60 FPS
+		# No PC: ativa Glow com alta fidelidade
+		world_env.environment.glow_enabled = not is_mobile
 
 
 func _apply_scenery_materials_and_shadows(mat: Material, shadow_setting: GeometryInstance3D.ShadowCastingSetting) -> void:
@@ -373,7 +597,10 @@ func _run_preload_and_warmup(canvas_layer: CanvasLayer, curtain: ColorRect, intr
 			path_follower.set_paused(false)
 		if player and player.has_method("set_controls_enabled"):
 			player.set_controls_enabled(true)
-		# Sem intro → mostra a mira imediatamente.
+		# Sem intro → oculta o cursor imediatamente durante gameplay no PC
+		var is_mobile := OS.has_feature("android") or OS.has_feature("ios")
+		if not is_mobile:
+			Input.mouse_mode = Input.MOUSE_MODE_HIDDEN
 		if _crosshair:
 			_crosshair.visible = true
 

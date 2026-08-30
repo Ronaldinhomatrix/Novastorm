@@ -1,0 +1,91 @@
+[gd_scene format=3 uid="uid://c8n8q5r1xen1b"]
+
+[ext_resource type="Script" path="res://scripts/enemies/enemy_bullet_1.gd" id="1_bullet1"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_bullet"]
+size = Vector3(3.5, 3.5, 5.0)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_plasma_glow"]
+transparency = 1
+blend_mode = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.25, 0.05, 0.85)
+
+[sub_resource type="SphereMesh" id="SphereMesh_glow"]
+material = SubResource("StandardMaterial3D_plasma_glow")
+radius = 1.2
+height = 2.8
+radial_segments = 12
+rings = 6
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_plasma_core"]
+transparency = 1
+blend_mode = 1
+cull_mode = 2
+shading_mode = 0
+albedo_color = Color(1, 0.95, 0.5, 1)
+
+[sub_resource type="SphereMesh" id="SphereMesh_core"]
+material = SubResource("StandardMaterial3D_plasma_core")
+radius = 0.6
+height = 1.4
+radial_segments = 8
+rings = 4
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_sparks"]
+transparency = 1
+blend_mode = 1
+shading_mode = 0
+vertex_color_use_as_albedo = true
+albedo_color = Color(1, 0.4, 0.1, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_spark"]
+material = SubResource("StandardMaterial3D_sparks")
+size = Vector3(0.45, 0.45, 0.45)
+
+[sub_resource type="Curve" id="Curve_trail"]
+_data = [Vector2(0, 1), 0.0, 0.0, 0, 0, Vector2(1, 0), -1.4, 0.0, 0, 0]
+point_count = 2
+
+[sub_resource type="Gradient" id="Gradient_trail"]
+offsets = PackedFloat32Array(0, 0.3, 1)
+colors = PackedColorArray(1, 0.9, 0.3, 1, 1, 0.3, 0.05, 0.8, 0.8, 0.05, 0, 0)
+
+[node name="EnemyBullet1" type="Area3D"]
+collision_layer = 4
+collision_mask = 1
+script = ExtResource("1_bullet1")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+shape = SubResource("BoxShape3D_bullet")
+
+[node name="PlasmaGlowMesh" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0)
+mesh = SubResource("SphereMesh_glow")
+
+[node name="PlasmaCoreMesh" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0)
+mesh = SubResource("SphereMesh_core")
+
+[node name="OmniLight3D" type="OmniLight3D" parent="."]
+light_color = Color(1, 0.3, 0.05, 1)
+light_energy = 5.0
+omni_range = 14.0
+
+[node name="TrailParticles" type="CPUParticles3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 2)
+amount = 12
+lifetime = 0.3
+preprocess = 0.05
+randomness = 0.5
+mesh = SubResource("BoxMesh_spark")
+direction = Vector3(0, 0, 1)
+spread = 20.0
+gravity = Vector3(0, 0, 0)
+initial_velocity_min = 20.0
+initial_velocity_max = 60.0
+scale_amount_min = 1.0
+scale_amount_max = 2.5
+scale_amount_curve = SubResource("Curve_trail")
+color_ramp = SubResource("Gradient_trail")

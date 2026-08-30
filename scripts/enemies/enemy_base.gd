@@ -8,7 +8,10 @@ extends Area3D
 signal enemy_destroyed(enemy: Node, score: int)
 
 const ExplosionScript := preload("res://scripts/effects/explosion.gd")
+const EnemyWreckageScript := preload("res://scripts/effects/enemy_wreckage.gd")
 const LaserSound := preload("res://assets/audio/laser1.ogg")
+const EngineSound := preload("res://assets/audio/3_enemy_red_starships_engine.ogg")
+const WORLD_LAYER_MASK: int = 1 << 3  # Layer 4: "World" (paredes do canyon e terreno)
 const ExplosionSounds: Array[AudioStream] = [
 	preload("res://assets/audio/explosion1.ogg"),
 	preload("res://assets/audio/explosion2.ogg"),
@@ -20,25 +23,34 @@ const ExplosionSounds: Array[AudioStream] = [
 @export var is_invulnerable: bool = false
 @export var target_ship_node_name: String = ""  ## Nome do nó da nave a exibir do GLB (ex: Starship.002, Starship.v2, Starship.v3)
 
-@export_category("Armas")
+@export_category("Armas e Áudio")
 @export var bullet_scene: PackedScene = null
 @export var laser_volume_db: float = -4.0
-@export var explosion_volume_db: float = 0.0
+@export var explosion_volume_db: float = -2.5
+@export var engine_volume_db: float = -0.5
 
 var current_hp: int = 1
 var _is_dead: bool = false
 var _mesh_instances: Array[MeshInstance3D] = []
 var _flash_tween: Tween = null
 var _laser_audio_player: AudioStreamPlayer = null
+var _engine_audio_player: AudioStreamPlayer3D = null
+var _prev_global_pos: Vector3 = Vector3.ZERO
+var _has_prev_pos: bool = false
+var _linear_velocity: Vector3 = Vector3.ZERO
 
 
 func _ready() -> void:
 	if not bullet_scene:
-		bullet_scene = load("res://scenes/enemies/enemy_bullet.tscn")
+		bullet_scene = load("res://scenes/enemies/enemy_bullet_1.tscn")
 
 	current_hp = max_hp
 	collision_layer = 2
 	collision_mask = 2
+	monitoring = true
+	monitorable = true
+
+	add_to_group("enemies")
 
 	area_entered.connect(_on_area_entered)
 	body_entered.connect(_on_body_entered)
@@ -47,13 +59,18 @@ func _ready() -> void:
 		_isolate_target_ship()
 
 	_setup_audio()
+	_setup_engine_sound()
 	_collect_mesh_instances(self)
 
 
 func _on_area_entered(area: Area3D) -> void:
 	if _is_dead or is_invulnerable:
 		return
-	if area is Bullet or area.name.begins_with("Bullet") or area.has_method("setup"):
+	# Ignora completamente projéteis disparados por inimigos
+	if area.is_in_group("enemy_bullets") or area is EnemyBullet1 or area is EnemyBullet:
+		return
+	# Apenas projéteis do JOGADOR causam dano
+	if area.is_in_group("player_bullets") or area is Bullet or (area.name.begins_with("Bullet") and not area.name.begins_with("EnemyBullet")):
 		take_damage(1)
 		if is_instance_valid(area) and not area.is_queued_for_deletion():
 			area.queue_free()
@@ -62,7 +79,9 @@ func _on_area_entered(area: Area3D) -> void:
 func _on_body_entered(body: Node3D) -> void:
 	if _is_dead or is_invulnerable:
 		return
-	if body is Bullet or body.name.begins_with("Bullet"):
+	if body.is_in_group("enemy_bullets"):
+		return
+	if body.is_in_group("player_bullets") or body is Bullet:
 		take_damage(1)
 		if is_instance_valid(body) and not body.is_queued_for_deletion():
 			body.queue_free()
@@ -93,6 +112,39 @@ func _setup_audio() -> void:
 	_laser_audio_player.bus = "Master"
 	_laser_audio_player.volume_db = laser_volume_db
 	add_child(_laser_audio_player)
+
+
+func _setup_engine_sound() -> void:
+	if not EngineSound:
+		return
+	_engine_audio_player = AudioStreamPlayer3D.new()
+	_engine_audio_player.name = "EngineSound3D"
+
+	var stream_copy: AudioStream = EngineSound.duplicate()
+	if stream_copy is AudioStreamOggVorbis:
+		(stream_copy as AudioStreamOggVorbis).loop = true
+	_engine_audio_player.stream = stream_copy
+
+	_engine_audio_player.bus = "Master"
+	_engine_audio_player.volume_db = engine_volume_db
+	_engine_audio_player.unit_size = 16.0
+	_engine_audio_player.max_distance = 380.0
+	_engine_audio_player.attenuation_model = AudioStreamPlayer3D.ATTENUATION_INVERSE_DISTANCE
+	_engine_audio_player.doppler_tracking = AudioStreamPlayer3D.DOPPLER_TRACKING_DISABLED
+	_engine_audio_player.pitch_scale = randf_range(0.97, 1.03)
+	add_child(_engine_audio_player)
+	_engine_audio_player.play()
+	_engine_audio_player.finished.connect(_on_engine_sound_finished)
+
+
+func set_engine_pitch(pitch: float) -> void:
+	if _engine_audio_player and is_instance_valid(_engine_audio_player):
+		_engine_audio_player.pitch_scale = pitch
+
+
+func _on_engine_sound_finished() -> void:
+	if not _is_dead and is_instance_valid(_engine_audio_player) and is_inside_tree():
+		_engine_audio_player.play()
 
 
 func _collect_mesh_instances(node: Node) -> void:
@@ -184,7 +236,8 @@ func _get_player_progress() -> float:
 	return 0.0
 
 
-## Retorna o referencial local (posição, forward, right, up) em um offset específico com deslocamentos.
+## Retorna o referencial local (posição, forward, right, up) em um offset específico com deslocamentos
+## e prevenção ativa de colisão/penetração com as paredes e terreno do canyon.
 func _sample_curve_frame(offset: float, lateral: float = 0.0, vertical: float = 0.0) -> Dictionary:
 	var path := _get_flight_path()
 	if path and path.curve and path.curve.point_count > 1:
@@ -193,13 +246,45 @@ func _sample_curve_frame(offset: float, lateral: float = 0.0, vertical: float = 
 		if right.length_squared() < 0.001:
 			right = Vector3.RIGHT
 		var up := right.cross(fwd).normalized()
-		var pos := _sample_curve_position(offset) + right * lateral + up * vertical
-		return {"position": pos, "forward": fwd, "right": right, "up": up}
+		var center := _sample_curve_position(offset)
+		var desired_pos := center + right * lateral + up * vertical
+
+		# Clampa a posição desejada para nunca penetrar paredes do canyon (custo computacional < 0.001ms)
+		var safe_pos := _clamp_to_canyon_bounds(center, desired_pos)
+		return {"position": safe_pos, "forward": fwd, "right": right, "up": up}
 
 	# Fallback: voo em linha reta (sem curva disponível).
 	var fwd_fallback := Vector3.FORWARD
 	var pos_fallback := global_position + Vector3.RIGHT * lateral + Vector3.UP * vertical
 	return {"position": pos_fallback, "forward": fwd_fallback, "right": Vector3.RIGHT, "up": Vector3.UP}
+
+
+## Detecta paredes do canyon via raycast direto da linha central do Path3D até a posição desejada.
+## Se houver rocha ou parede no caminho, recua a nave com margem de segurança de 2.2m.
+func _clamp_to_canyon_bounds(center: Vector3, desired_pos: Vector3) -> Vector3:
+	var delta_vec := desired_pos - center
+	var dist := delta_vec.length()
+	if dist < 0.5:
+		return desired_pos
+
+	var space_state := get_world_3d().direct_space_state if is_inside_tree() and get_world_3d() else null
+	if not space_state:
+		return desired_pos
+
+	var dir := delta_vec / dist
+	var target_with_margin := center + dir * (dist + 2.2)
+
+	var query := PhysicsRayQueryParameters3D.create(center, target_with_margin, WORLD_LAYER_MASK)
+	query.collide_with_areas = false
+	query.collide_with_bodies = true
+
+	var hit := space_state.intersect_ray(query)
+	if hit and not hit.is_empty():
+		var hit_dist: float = center.distance_to(hit.position)
+		var safe_dist := maxf(0.0, hit_dist - 2.2)
+		return center + dir * safe_dist
+
+	return desired_pos
 
 
 ## Avança o inimigo ao longo da curva e devolve posição/orientação com offsets
@@ -282,17 +367,21 @@ func fire_bullet(from_pos: Vector3, dir: Vector3) -> void:
 	if not bullet_scene:
 		return
 
-	var bullet: EnemyBullet = bullet_scene.instantiate() as EnemyBullet
-	if not bullet:
+	var bullet: Node = bullet_scene.instantiate()
+	if not bullet or not bullet is Node3D:
 		return
 
 	get_tree().current_scene.add_child(bullet)
-	bullet.global_position = from_pos
-	bullet.setup(dir)
+	(bullet as Node3D).global_position = from_pos
+	if bullet.has_method("setup"):
+		bullet.setup(dir)
 
-	if _laser_audio_player and not _is_dead:
-		_laser_audio_player.pitch_scale = randf_range(0.9, 1.1)
-		_laser_audio_player.play()
+	if not _is_dead:
+		if has_node("/root/SoundManager"):
+			get_node("/root/SoundManager").play_laser_enemy(laser_volume_db)
+		elif _laser_audio_player:
+			_laser_audio_player.pitch_scale = randf_range(0.9, 1.1)
+			_laser_audio_player.play()
 
 
 func fire_towards_player(from_pos: Vector3, aim_convergence: float = 0.8) -> void:
@@ -349,13 +438,46 @@ func _check_off_screen() -> void:
 		queue_free()
 
 
+func _physics_process(delta: float) -> void:
+	if _has_prev_pos and delta > 0.0001:
+		_linear_velocity = (global_position - _prev_global_pos) / delta
+	_prev_global_pos = global_position
+	_has_prev_pos = true
+
+
+## Retorna a velocidade linear atual do inimigo (usada para transferir momento aos destroços)
+func get_linear_velocity() -> Vector3:
+	if _linear_velocity.length_squared() > 10.0:
+		return _linear_velocity
+	var path_speed: float = 65.0
+	var pf := _get_path_follower()
+	if pf and pf.has_method("_current_speed"):
+		path_speed = pf._current_speed()
+	return -global_basis.z.normalized() * path_speed
+
+
 func die() -> void:
 	if _is_dead:
 		return
 	_is_dead = true
 
+	# Desativa colisões imediatamente para evitar múltiplos hits no mesmo frame
+	set_deferred("monitoring", false)
+	set_deferred("monitorable", false)
+
+	if _engine_audio_player and is_instance_valid(_engine_audio_player):
+		if _engine_audio_player.finished.is_connected(_on_engine_sound_finished):
+			_engine_audio_player.finished.disconnect(_on_engine_sound_finished)
+		_engine_audio_player.stop()
+
+	# Desmonte do asset 3D em 3 partes mantendo o movimento de vôo da nave
+	var vel := get_linear_velocity()
+	EnemyWreckageScript.spawn_from_enemy(self, 1.0, vel)
+
 	var explosion: Node3D = ExplosionScript.new()
-	get_tree().current_scene.add_child(explosion)
+	var spawn_parent: Node = get_tree().current_scene if (get_tree() and get_tree().current_scene) else get_parent()
+	if spawn_parent:
+		spawn_parent.add_child(explosion)
 	explosion.global_position = global_position
 	if explosion.has_method("set"):
 		explosion.set("size_scale", 1.5)
@@ -366,10 +488,12 @@ func die() -> void:
 	queue_free()
 
 
-## Toca explosion1 ou explosion2 aleatoriamente. O player é anexado à cena
-## atual (não ao inimigo, que é liberado imediatamente) e se auto-destrói
-## quando o som termina.
+## Toca explosion1 ou explosion2 aleatoriamente via SoundManager (zero latency).
 func _play_explosion_sound() -> void:
+	if has_node("/root/SoundManager"):
+		get_node("/root/SoundManager").play_explosion(explosion_volume_db)
+		return
+
 	if ExplosionSounds.is_empty():
 		return
 	var scene: Node = get_tree().current_scene if get_tree() else null

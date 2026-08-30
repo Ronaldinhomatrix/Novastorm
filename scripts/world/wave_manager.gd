@@ -17,17 +17,23 @@ signal wave_cleared(wave_index: int)
 @export var heavy_scene: PackedScene = preload("res://scenes/enemies/enemy_heavy.tscn")
 
 @export_category("Gatilhos por Ponto do Path3D")
-@export var wave_1_point: int = 6   ## Ponto da curva Path3D onde a Wave 1 é disparada (Scouts)
-@export var wave_2_point: int = 17  ## Ponto da curva Path3D onde a Wave 2 é disparada (Fighters nas pontes)
-@export var wave_3_point: int = 28  ## Ponto da curva Path3D onde a Wave 3 é disparada (Heavy na bacia)
+@export var wave_1_point: int = 8   ## Ponto da curva Path3D onde a Wave 1 é disparada (Scouts)
+@export var wave_2_point: int = 15  ## Ponto da curva Path3D onde a Wave 2 é disparada (Fighters)
+@export var wave_3_point: int = 37  ## Ponto da curva Path3D onde a Wave 3 é disparada (2 pontos antes do 39)
 
 var _wave_1_triggered: bool = false
 var _wave_2_triggered: bool = false
 var _wave_3_triggered: bool = false
+var _penultimate_exit_triggered: bool = false
 
 var _target_ratio_1: float = 0.14
-var _target_ratio_2: float = 0.40
-var _target_ratio_3: float = 0.65
+var _target_ratio_2: float = 0.35
+var _target_ratio_3: float = 0.88
+var _penultimate_ratio: float = 0.96
+
+var _quiet_zone_start_ratio: float = 0.48
+var _quiet_zone_end_ratio: float = 0.82
+var _quiet_zone_cleared: bool = false
 
 var _active_enemies: Array[Node] = []
 var _enemies_container: Node3D = null
@@ -62,6 +68,14 @@ func _update_target_ratios() -> void:
 	_target_ratio_1 = _get_point_ratio(curve, wave_1_point, total_len)
 	_target_ratio_2 = _get_point_ratio(curve, wave_2_point, total_len)
 	_target_ratio_3 = _get_point_ratio(curve, wave_3_point, total_len)
+
+	# Zona livre de inimigos do ponto 22 ao 36
+	_quiet_zone_start_ratio = _get_point_ratio(curve, 22, total_len)
+	_quiet_zone_end_ratio = _get_point_ratio(curve, 36, total_len)
+
+	# Penúltimo ponto do nível para debandada dos inimigos restantes
+	var penultimate_idx: int = maxi(0, curve.point_count - 2)
+	_penultimate_ratio = _get_point_ratio(curve, penultimate_idx, total_len)
 
 
 func _get_point_ratio(curve: Curve3D, point_index: int, total_length: float) -> float:
@@ -114,6 +128,20 @@ func _process(_delta: float) -> void:
 
 	var current_progress: float = path_follower.progress_ratio
 
+	# 1. Garantir que do ponto 22 ao 38 não exista NENHUM inimigo em cena
+	if current_progress >= _quiet_zone_start_ratio and current_progress < _quiet_zone_end_ratio:
+		if not _quiet_zone_cleared:
+			_quiet_zone_cleared = true
+			_clear_all_active_enemies()
+		return
+
+	# 2. Penúltimo ponto: os inimigos que restarem aceleram para fora do nível
+	if current_progress >= _penultimate_ratio:
+		if not _penultimate_exit_triggered:
+			_penultimate_exit_triggered = true
+			_dismiss_all_active_enemies()
+
+	# 3. Gatilhos de ondas
 	if not _wave_1_triggered and current_progress >= _target_ratio_1:
 		_wave_1_triggered = true
 		_spawn_wave_1()
@@ -127,8 +155,22 @@ func _process(_delta: float) -> void:
 		_spawn_wave_3()
 
 
+func _clear_all_active_enemies() -> void:
+	for enemy in _active_enemies.duplicate():
+		if is_instance_valid(enemy):
+			enemy.queue_free()
+	_active_enemies.clear()
+
+
+func _dismiss_all_active_enemies() -> void:
+	for enemy in _active_enemies:
+		if is_instance_valid(enemy):
+			if enemy.has_method("force_exit"):
+				enemy.force_exit()
+
+
 # ---------------------------------------------------------------------------
-# Wave 1: Esquadrilha de Scouts (Starship.002) no Mundo 3D
+# Wave 1: 5 Scouts (Starship.002) no Mundo 3D (3 Líderes com rasante Direita/Esquerda/Cima)
 # ---------------------------------------------------------------------------
 
 func _spawn_wave_1() -> void:
@@ -137,36 +179,33 @@ func _spawn_wave_1() -> void:
 	var info: Dictionary = _get_point_info(wave_1_point)
 	var base_pos: Vector3 = info["position"]
 	var fwd: Vector3 = info["forward"]
-	var right: Vector3 = info["right"]
-	var up: Vector3 = info["up"]
 
-	# Subwave 1A: 3 scouts pela direita deslizando em formação
-	_spawn_world_scout_squadron(3, base_pos, fwd, right, up, 1.0, 0.0)
+	var configs: Array[Dictionary] = [
+		{ "side": 1.0, "delay": 0.0, "cinematic_lead": true, "lane": 0 },   # Líder 1: Rasante Direita
+		{ "side": -1.0, "delay": 0.45, "cinematic_lead": true, "lane": 1 }, # Líder 2: Rasante Esquerda
+		{ "side": 1.0, "delay": 0.90, "cinematic_lead": true, "lane": 2 },  # Líder 3: Rasante por Cima
+		{ "side": -1.0, "delay": 2.8, "cinematic_lead": false, "lane": 0 }, # Flanco Esquerdo
+		{ "side": 1.0, "delay": 4.2, "cinematic_lead": false, "lane": 0 },  # Flanco Direito
+	]
 
-	# Subwave 1B: 3 scouts pela esquerda após 4.0s (quando a primeira esquadrilha está no meio do engajamento)
-	var timer: SceneTreeTimer = get_tree().create_timer(4.0)
-	timer.timeout.connect(func():
-		_spawn_world_scout_squadron(3, base_pos, fwd, right, up, -1.0, 0.0)
-	)
-
-
-func _spawn_world_scout_squadron(count: int, base_pos: Vector3, fwd: Vector3, _right: Vector3, _up: Vector3, side: float, base_delay: float) -> void:
-	for i: int in range(count):
-		var delay: float = base_delay + (i * 0.5)
-		var timer: SceneTreeTimer = get_tree().create_timer(delay)
+	for cfg: Dictionary in configs:
+		var timer: SceneTreeTimer = get_tree().create_timer(cfg["delay"])
 		timer.timeout.connect(func():
 			var scout: EnemyScout = scout_scene.instantiate() as EnemyScout
 			if not scout:
 				return
 
+			if cfg["cinematic_lead"]:
+				scout.is_cinematic_entrance = true
+
 			_add_enemy_to_world(scout)
-			scout.setup_flight(base_pos, fwd, side, 55.0)
+			scout.setup_flight(base_pos, fwd, cfg["side"], 55.0, cfg["lane"])
 			_register_enemy(scout)
 		)
 
 
 # ---------------------------------------------------------------------------
-# Wave 2: Caças Táticos Fighters (Starship.v2) no Mundo 3D
+# Wave 2: 5 Caças Táticos Fighters (Starship.v2) no Mundo 3D (3 Líderes com rasante)
 # ---------------------------------------------------------------------------
 
 func _spawn_wave_2() -> void:
@@ -178,16 +217,39 @@ func _spawn_wave_2() -> void:
 
 	var configs: Array[Dictionary] = [
 		{
-			"b_type": 0,  # Centro / Mergulho
-			"delay": 0.0
+			"b_type": 0,
+			"delay": 0.0,
+			"cinematic_lead": true,
+			"lane": 0, # Líder 1: Rasante Direita
+			"cinematic_exit": false
 		},
 		{
-			"b_type": 1,  # Flanco Esquerdo
-			"delay": 1.2
+			"b_type": 0,
+			"delay": 0.45,
+			"cinematic_lead": true,
+			"lane": 1, # Líder 2: Rasante Esquerda
+			"cinematic_exit": false
 		},
 		{
-			"b_type": 2,  # Flanco Direito
-			"delay": 2.4
+			"b_type": 0,
+			"delay": 0.90,
+			"cinematic_lead": true,
+			"lane": 2, # Líder 3: Rasante por Cima
+			"cinematic_exit": false
+		},
+		{
+			"b_type": 1, # Flanco Esquerdo
+			"delay": 2.8,
+			"cinematic_lead": false,
+			"lane": 0,
+			"cinematic_exit": false
+		},
+		{
+			"b_type": 2, # Flanco Direito com rasante de saída
+			"delay": 4.8,
+			"cinematic_lead": false,
+			"lane": 0,
+			"cinematic_exit": true
 		}
 	]
 
@@ -198,40 +260,45 @@ func _spawn_wave_2() -> void:
 			if not fighter:
 				return
 
+			if cfg["cinematic_lead"]:
+				fighter.is_cinematic_entrance = true
+			if cfg["cinematic_exit"]:
+				fighter.is_cinematic_exit = true
+
 			_add_enemy_to_world(fighter)
-			fighter.setup_fighter(base_pos, fwd, cfg["b_type"])
+			fighter.setup_fighter(base_pos, fwd, cfg["b_type"], cfg["lane"])
 			_register_enemy(fighter)
 		)
 
 
 # ---------------------------------------------------------------------------
-# Wave 3: Cruzador Pesado Heavy Gunship (Starship.v3) no Mundo 3D
+# Wave 3: 3 Cruzadores Heavy (Starship.v3) no Mundo 3D (ponto 37)
 # ---------------------------------------------------------------------------
 
 func _spawn_wave_3() -> void:
-	wave_started.emit(3, "Wave 3: Heavy Cruiser Mini-Boss")
+	wave_started.emit(3, "Wave 3: Heavy Gunships")
 
 	var info: Dictionary = _get_point_info(wave_3_point)
 	var base_pos: Vector3 = info["position"]
 	var fwd: Vector3 = info["forward"]
 
-	# Heavy Mini-Boss navegando à frente na bacia do cânion
-	var heavy: EnemyHeavy = heavy_scene.instantiate() as EnemyHeavy
-	if heavy:
-		_add_enemy_to_world(heavy)
-		heavy.setup_heavy(base_pos, fwd)
-		_register_enemy(heavy)
+	var configs: Array[Dictionary] = [
+		{ "side": 1.0, "delay": 0.0 },
+		{ "side": -1.0, "delay": 1.8 },
+		{ "side": 1.0, "delay": 3.6 },
+	]
 
-	# 2 Escoltas Scouts voando em suporte
-	var escort_timer: SceneTreeTimer = get_tree().create_timer(2.0)
-	escort_timer.timeout.connect(func():
-		for side: float in [-1.0, 1.0]:
-			var scout: EnemyScout = scout_scene.instantiate() as EnemyScout
-			if scout:
-				_add_enemy_to_world(scout)
-				scout.setup_flight(base_pos, fwd, side, 55.0)
-				_register_enemy(scout)
-	)
+	for cfg: Dictionary in configs:
+		var timer: SceneTreeTimer = get_tree().create_timer(cfg["delay"])
+		timer.timeout.connect(func():
+			var heavy: EnemyHeavy = heavy_scene.instantiate() as EnemyHeavy
+			if not heavy:
+				return
+
+			_add_enemy_to_world(heavy)
+			heavy.setup_heavy(base_pos, fwd, cfg["side"])
+			_register_enemy(heavy)
+		)
 
 
 # ---------------------------------------------------------------------------

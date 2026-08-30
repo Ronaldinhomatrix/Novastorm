@@ -17,8 +17,9 @@ config/icon="res://icon.svg"
 
 [autoload]
 
-_mcp_game_helper="*res://addons/godot_ai/runtime/game_helper.gd"
+SoundManager="*res://scripts/audio/sound_manager.gd"
 MCPRuntimeProbe="*uid://bsg12huaf1u5i"
+_mcp_game_helper="*res://addons/godot_ai/runtime/game_helper.gd"
 
 [display]
 

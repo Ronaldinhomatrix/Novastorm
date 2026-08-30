@@ -95,6 +95,9 @@ var _controls_enabled: bool = true
 # atenuação/panning por distância são dispensáveis e só gastam CPU.
 var _laser_player: AudioStreamPlayer = null
 
+# Estado Dev / Look Back (Olhar para trás)
+var _is_looking_back: bool = false
+
 @onready var ship_model: Node3D = $ShipModel
 
 # ---------------------------------------------------------------------------
@@ -154,6 +157,10 @@ func _unhandled_input(event: InputEvent) -> void:
 # ---------------------------------------------------------------------------
 
 func _handle_desktop_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.is_echo():
+		if event.keycode == KEY_F or event.keycode == KEY_B:
+			toggle_look_back()
+
 	if event is InputEventMouseMotion:
 		_pointer_pos = event.position
 		_pointer_active = true
@@ -244,6 +251,7 @@ func _physics_process(delta: float) -> void:
 	_apply_movement(follow)
 
 	_handle_ship_rotation(delta)
+	_update_camera_look_back(delta)
 
 	if _is_firing or Input.is_action_pressed("ui_select"):
 		_fire_timer -= delta
@@ -359,7 +367,27 @@ func _handle_ship_rotation(delta: float) -> void:
 
 
 # ---------------------------------------------------------------------------
+# Modo Dev - Olhar para Trás (Camera 180 Flip)
+# ---------------------------------------------------------------------------
+
+func toggle_look_back() -> void:
+	_is_looking_back = not _is_looking_back
+
+
+func _update_camera_look_back(delta: float) -> void:
+	var cam := get_viewport().get_camera_3d()
+	if not cam:
+		return
+	var target_rot_y := PI if _is_looking_back else 0.0
+	cam.rotation.y = lerp_angle(cam.rotation.y, target_rot_y, 10.0 * delta)
+
+
+
+# ---------------------------------------------------------------------------
 # Sistema de Armas
+# ---------------------------------------------------------------------------
+# NOTA CRÍTICA: A mecânica dos tiros NUNCA deve ser alterada, a menos
+# que explicitamente instruído pelo usuário. Preservar este comportamento.
 # ---------------------------------------------------------------------------
 
 func _spawn_bullet() -> void:
@@ -383,7 +411,9 @@ func _spawn_bullet() -> void:
 	bullet.setup(aim_dir)
 
 	# Reproduz o som do disparo do laser.
-	if _laser_player:
+	if has_node("/root/SoundManager"):
+		get_node("/root/SoundManager").play_laser_player(laser_volume_db)
+	elif _laser_player:
 		_laser_player.pitch_scale = randf_range(0.95, 1.08)
 		_laser_player.play()
 

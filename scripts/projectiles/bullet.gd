@@ -41,11 +41,14 @@ var _spawn_position: Vector3 = Vector3.ZERO
 var _prev_position: Vector3 = Vector3.ZERO
 var _ray: RayCast3D = null
 
-# ---------------------------------------------------------------------------
-# Ciclo de vida
-# ---------------------------------------------------------------------------
-
 func _ready() -> void:
+	collision_layer = 2
+	collision_mask = 2
+	monitoring = true
+	monitorable = true
+
+	add_to_group("player_bullets")
+
 	body_entered.connect(_on_body_entered)
 	area_entered.connect(_on_area_entered)
 
@@ -66,16 +69,9 @@ func _ready() -> void:
 func setup(dir: Vector3) -> void:
 	## Define a direção de viagem.
 	_direction = dir.normalized()
-	# Captura a posição de spawn AQUI (após o global_position já ter sido
-	# atribuído pelo spawner). Em _ready() o global_position ainda é (0,0,0),
-	# o que fazia o projétil ser destruído já no primeiro frame por exceder a
-	# distância máxima ao nascer a ~2000 unidades da origem.
 	_spawn_position = global_position
 	_prev_position = global_position
 
-	# Alinha o comprimento do projétil com a direção de viagem.
-	# look_at() aponta o eixo -Z para o alvo; usando (posição - direção) fazemos
-	# o eixo +Z (comprimento da cápsula) apontar na direção de viagem.
 	if _direction.length_squared() > 0.000001:
 		var up := Vector3.UP
 		if absf(_direction.dot(up)) > 0.99:
@@ -88,68 +84,95 @@ func setup(dir: Vector3) -> void:
 # ---------------------------------------------------------------------------
 
 func _physics_process(delta: float) -> void:
-	# Salvamos a posição atual antes de avançar para o raycast cobrir o
-	# deslocamento deste frame (evita "tunelamento" através de malha fina).
 	_prev_position = global_position
-	global_position += _direction * speed * delta
+	var next_pos := global_position + _direction * speed * delta
 
-	_check_world_hit()
+	# Varredura contínua rápida entre _prev_position e next_pos
+	# Garante acerto sem tunelamento (CCD) contra inimigos e cenário
+	if _check_sweep_hit(_prev_position, next_pos):
+		return
 
-	# Auto-destrói se ultrapassar a distância máxima percorrida (relativa
-	# ao ponto de spawn).
+	global_position = next_pos
+
+	# Auto-destrói se ultrapassar a distância máxima percorrida
 	if global_position.distance_squared_to(_spawn_position) > max_distance * max_distance:
 		queue_free()
 
 
-func _check_world_hit() -> void:
-	## Dispara um raycast do ponto anterior ao atual para detectar acerto no
-	## cenário. Ao acertar, gera a explosão procedural no ponto de impacto e
-	## destrói o projétil.
-	if not _ray:
-		return
+func _check_sweep_hit(from_pos: Vector3, to_pos: Vector3) -> bool:
+	var space := get_world_3d().direct_space_state
+	if not space:
+		return false
 
-	var travel := global_position - _prev_position
-	if travel.length_squared() < 0.000001:
-		return
+	# =========================================================================
+	# 1. Detecção precisa contra INIMIGOS (Layer 2)
+	# Utiliza raycast no trajeto percorrido no frame
+	# =========================================================================
+	var ray_enemy := PhysicsRayQueryParameters3D.create(from_pos, to_pos)
+	ray_enemy.collision_mask = 2
+	ray_enemy.collide_with_areas = true
+	ray_enemy.collide_with_bodies = true
+	ray_enemy.exclude = [self.get_rid()]
 
-	_ray.global_position = _prev_position
-	_ray.target_position = travel
-	_ray.force_raycast_update()
+	var hit_enemy := space.intersect_ray(ray_enemy)
+	if not hit_enemy.is_empty():
+		var collider: Object = hit_enemy.collider
+		if collider and collider != self:
+			if collider.has_method("take_damage"):
+				collider.take_damage(damage)
+				queue_free()
+				return true
+			elif collider.get_parent() and collider.get_parent().has_method("take_damage"):
+				collider.get_parent().take_damage(damage)
+				queue_free()
+				return true
 
-	if _ray.is_colliding():
-		var hit_point := _ray.get_collision_point()
-		var hit_normal := _ray.get_collision_normal()
-		_spawn_explosion(hit_point, hit_normal)
-		queue_free()
+	# =========================================================================
+	# 2. Detecção contra CENÁRIO / TERRENO (Layer 8)
+	# =========================================================================
+	var ray_world := PhysicsRayQueryParameters3D.create(from_pos, to_pos)
+	ray_world.collision_mask = WORLD_LAYER_MASK
+	ray_world.collide_with_areas = false
+	ray_world.collide_with_bodies = true
+	ray_world.exclude = [self.get_rid()]
+
+	var hit_world := space.intersect_ray(ray_world)
+	if not hit_world.is_empty():
+		if hit_world.has("position") and not hit_world.collider is CharacterBody3D:
+			var normal: Vector3 = hit_world.normal if hit_world.has("normal") else Vector3.UP
+			_spawn_explosion(hit_world.position, normal)
+			queue_free()
+			return true
+
+	return false
 
 
 func _spawn_explosion(point: Vector3, normal: Vector3) -> void:
-	## Cria a explosão procedural no ponto de impacto.
+	## Cria uma pequena faísca/puff no ponto de impacto na rocha (sem tocar som de explosão de nave)
 	var explosion: Node3D = ExplosionScript.new()
 	get_tree().current_scene.add_child(explosion)
-	# Desloca levemente para fora da superfície para o efeito não ficar
-	# enterrado/clipado dentro do terreno.
 	explosion.global_position = point + normal * 0.5
+	if explosion.has_method("set"):
+		explosion.set("size_scale", 0.25)
 
 
 # ---------------------------------------------------------------------------
-# Colisões
+# Colisões de Fallback (Sinais nativos de Area3D)
 # ---------------------------------------------------------------------------
 
 func _on_body_entered(body: Node3D) -> void:
-	## Colisão com corpo físico (ex: inimigo).
+	if is_queued_for_deletion():
+		return
 	if body.has_method("take_damage"):
 		body.take_damage(damage)
 		queue_free()
-		return
-
-	# Colisão com paredes/obstáculos: apenas destrói o projétil
-	if not body is CharacterBody3D:  # Não destrói ao colidir com CharacterBody (nave)
+	elif not body is CharacterBody3D:
 		queue_free()
 
 
 func _on_area_entered(area: Area3D) -> void:
-	## Colisão com outra área (ex: área de dano, escudo).
+	if is_queued_for_deletion():
+		return
 	if area.has_method("take_damage"):
 		area.take_damage(damage)
 		queue_free()

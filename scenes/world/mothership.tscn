@@ -5,3 +5,6 @@
 [node name="Mothership" type="Node3D" unique_id=1991164365]
 
 [node name="MothershipModel" type="Node3D" parent="." unique_id=1920165867 instance=ExtResource("1_cbkfp")]
+
+[node name="TorpedoMuzzle" type="Marker3D" parent="." unique_id=1991164366]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.4126, -1.8468, 12.2879)

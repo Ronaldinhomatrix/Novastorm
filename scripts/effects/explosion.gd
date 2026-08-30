@@ -14,12 +14,9 @@ extends Node3D
 
 const MAX_LIFETIME: float = 1.6
 const FLASH_DECAY: float = 0.3
-const SHOCKWAVE_MAX_RADIUS: float = 12.0
 
 var _age: float = 0.0
 var _flash_light: OmniLight3D = null
-var _shockwave: MeshInstance3D = null
-var _shockwave_mat: StandardMaterial3D = null
 
 
 func _ready() -> void:
@@ -81,7 +78,7 @@ func _build_fire_core() -> void:
 
 
 # ---------------------------------------------------------------------------
-# 2. Debris & Shrapnel (Estilhaços de Metal Incandescente Voando)
+# 2. Debris & Shrapnel (Brasas e Micro-Estilhaços Incandescentes)
 # ---------------------------------------------------------------------------
 
 func _build_debris() -> void:
@@ -90,17 +87,15 @@ func _build_debris() -> void:
 	p.emitting = true
 	p.one_shot = true
 	p.explosiveness = 1.0
-	p.amount = 32
-	p.lifetime = 1.1
+	p.amount = 24
+	p.lifetime = 0.8
 	p.spread = 180.0
 	p.direction = Vector3.UP
-	p.gravity = Vector3(0.0, -15.0, 0.0)
-	p.initial_velocity_min = 25.0
-	p.initial_velocity_max = 65.0
-	p.angular_velocity_min = -360.0
-	p.angular_velocity_max = 360.0
-	p.scale_amount_min = 0.8
-	p.scale_amount_max = 2.2
+	p.gravity = Vector3(0.0, -10.0, 0.0)
+	p.initial_velocity_min = 15.0
+	p.initial_velocity_max = 45.0
+	p.scale_amount_min = 0.2
+	p.scale_amount_max = 0.5
 
 	var ramp := Gradient.new()
 	ramp.offsets = PackedFloat32Array([0.0, 0.6, 1.0])
@@ -111,10 +106,7 @@ func _build_debris() -> void:
 	])
 	p.color_ramp = ramp
 
-	# Fragmentos de caixa / estilhaço
-	var box := BoxMesh.new()
-	box.size = Vector3(0.6, 0.4, 0.9)
-	p.mesh = box
+	p.mesh = _make_sphere(0.18)
 	p.material_override = _make_material(BaseMaterial3D.BLEND_MODE_ADD)
 	add_child(p)
 
@@ -202,34 +194,6 @@ func _build_flash() -> void:
 	l.omni_range = 35.0 * size_scale
 	add_child(l)
 	_flash_light = l
-
-
-# ---------------------------------------------------------------------------
-# 6. Onda de Choque (Shockwave)
-# ---------------------------------------------------------------------------
-
-func _build_shockwave() -> void:
-	var mat := StandardMaterial3D.new()
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-	mat.albedo_color = Color(1.0, 0.85, 0.4, 0.9)
-	_shockwave_mat = mat
-
-	var mesh := SphereMesh.new()
-	mesh.radius = 1.0
-	mesh.height = 2.0
-	mesh.radial_segments = 24
-	mesh.rings = 12
-
-	var mi := MeshInstance3D.new()
-	mi.name = "Shockwave"
-	mi.mesh = mesh
-	mi.material_override = mat
-	mi.scale = Vector3.ONE * 0.5
-	add_child(mi)
-	_shockwave = mi
 
 
 # ---------------------------------------------------------------------------

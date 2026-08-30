@@ -155,8 +155,10 @@ func _end() -> void:
 	if player and player.has_method("set_controls_enabled"):
 		player.set_controls_enabled(true)
 
-	# Revela o cursor do mouse somente ao fim da introdução cinemática.
-	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	# Mantém o cursor do mouse oculto durante o gameplay no PC.
+	var is_mobile := OS.has_feature("android") or OS.has_feature("ios")
+	if not is_mobile:
+		Input.mouse_mode = Input.MOUSE_MODE_HIDDEN
 
 	intro_completed.emit()
 

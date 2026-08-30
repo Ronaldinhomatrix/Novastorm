@@ -1,15 +1,15 @@
-class_name EnemyBullet
+class_name EnemyBullet1
 extends Area3D
 
-## Projétil laser disparado por naves inimigas.
-## Viaja em direção ao jogador e causa dano ao acertá-lo ou ao colidir com o cenário.
+## Projétil de plasma disparado por naves inimigas (enemy_bullet_1).
+## Viaja a uma velocidade balanceada e legível (180 u/s), com visual de plasma vermelho/laranja.
 
-const SPEED: float = 450.0
+const SPEED: float = 180.0
 const WORLD_LAYER_MASK: int = 1 << 3  # layer 4 ("world")
 const ExplosionScript := preload("res://scripts/effects/explosion.gd")
 
 @export var damage: int = 1
-@export var max_distance: float = 1200.0
+@export var max_distance: float = 1000.0
 
 var _direction: Vector3 = Vector3.FORWARD
 var _spawn_position: Vector3 = Vector3.ZERO
@@ -19,6 +19,11 @@ var _ray: RayCast3D = null
 
 func _ready() -> void:
 	add_to_group("enemy_bullets")
+	collision_layer = 4  # Layer 3: enemy_projectiles
+	collision_mask = 1   # Layer 1: player
+	monitoring = true
+	monitorable = true
+
 	body_entered.connect(_on_body_entered)
 	area_entered.connect(_on_area_entered)
 

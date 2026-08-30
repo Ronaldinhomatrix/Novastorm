@@ -25,8 +25,6 @@ const SHOCKWAVE_MAX_RADIUS: float = 7.0
 
 var _age: float = 0.0
 var _flash_light: OmniLight3D = null
-var _shockwave: MeshInstance3D = null
-var _shockwave_mat: StandardMaterial3D = null
 
 
 func _ready() -> void:
@@ -116,34 +114,6 @@ func _build_flash() -> void:
 	l.omni_range = 24.0 * size_scale
 	add_child(l)
 	_flash_light = l
-
-
-# ---------------------------------------------------------------------------
-# 3. Onda de choque (esfera emissiva que se expande)
-# ---------------------------------------------------------------------------
-
-func _build_shockwave() -> void:
-	var mat := StandardMaterial3D.new()
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-	mat.albedo_color = Color(1.0, 0.8, 0.4, 0.95)
-	_shockwave_mat = mat
-
-	var mesh := SphereMesh.new()
-	mesh.radius = 1.0
-	mesh.height = 2.0
-	mesh.radial_segments = 24
-	mesh.rings = 12
-
-	var mi := MeshInstance3D.new()
-	mi.name = "Shockwave"
-	mi.mesh = mesh
-	mi.material_override = mat
-	mi.scale = Vector3.ONE * 0.3
-	add_child(mi)
-	_shockwave = mi
 
 
 # ---------------------------------------------------------------------------
