@@ -14,6 +14,9 @@ extends CharacterBody3D
 ## Os limites de movimento são calculados DINAMICAMENTE a partir do frustum
 ## da câmera, para que a nave percorra quase toda a área visível da tela.
 
+signal health_changed(current: int, max_health: int)
+signal damage_taken(amount: int)
+
 # ---------------------------------------------------------------------------
 # Exportações e Configurações
 # ---------------------------------------------------------------------------
@@ -56,15 +59,18 @@ extends CharacterBody3D
 # Scripts procedurais
 const SparkScript := preload("res://scripts/effects/spark.gd")
 const ExplosionScript := preload("res://scripts/effects/explosion.gd")
+const ShieldBubbleScene := preload("res://scenes/effects/shield_bubble.tscn")
 
-# Som de disparo do laser (Efeito Sonoro).
+# Som de disparo do laser e alerta de escudo.
 const LaserSound := preload("res://assets/audio/laser1_player.ogg")
+const ShieldOfflineSound := preload("res://assets/audio/shield_offline.ogg")
 
 # ---------------------------------------------------------------------------
 # Estado Interno
 # ---------------------------------------------------------------------------
 
 var current_health: int = 5
+var _total_damage_hits: int = 0
 var _is_invulnerable: bool = false
 var _invulnerability_timer: float = 0.0
 
@@ -97,6 +103,7 @@ var _laser_player: AudioStreamPlayer = null
 
 # Estado Dev / Look Back (Olhar para trás)
 var _is_looking_back: bool = false
+var _shield_bubble: ShieldBubble = null
 
 @onready var ship_model: Node3D = $ShipModel
 
@@ -116,9 +123,24 @@ func _ready() -> void:
 	_laser_player.volume_db = laser_volume_db  # ajustável via export "Laser Volume Db" (-6 dB = 50%)
 	add_child(_laser_player)
 
+	# Instancia o campo de força 3D (escudo holográfico)
+	if not _shield_bubble:
+		_shield_bubble = get_node_or_null("ShieldBubble") as ShieldBubble
+		if not _shield_bubble and ship_model:
+			_shield_bubble = ship_model.get_node_or_null("ShieldBubble") as ShieldBubble
+		if not _shield_bubble and ShieldBubbleScene:
+			_shield_bubble = ShieldBubbleScene.instantiate() as ShieldBubble
+			_shield_bubble.name = "ShieldBubble"
+			if ship_model:
+				ship_model.add_child(_shield_bubble)
+			else:
+				add_child(_shield_bubble)
+
 	var col_shape := $CollisionShape3D as CollisionShape3D
 	if col_shape and col_shape.shape is BoxShape3D:
 		col_shape.shape.size = Vector3(5, 2.5, 9)
+
+	health_changed.emit(current_health, max_health)
 
 	# Só reposiciona a nave quando ela é filha de um PathFollow3D (modo rail
 	# shooter), onde a posição local deve ficar fixa à frente da câmera.
@@ -198,15 +220,13 @@ func _physics_process(delta: float) -> void:
 	if not (get_parent() is PathFollow3D):
 		return
 
-	# Atualiza o temporizador de invulnerabilidade e efeito de piscar
+	# Atualiza o temporizador de invulnerabilidade
 	if _is_invulnerable:
 		_invulnerability_timer -= delta
 		if _invulnerability_timer <= 0.0:
 			_is_invulnerable = false
-			if ship_model:
-				ship_model.visible = true
-		elif ship_model:
-			ship_model.visible = fmod(_invulnerability_timer, 0.12) > 0.06
+		if ship_model and not ship_model.visible:
+			ship_model.visible = true
 
 	if not _controls_enabled:
 		_is_firing = false
@@ -498,6 +518,13 @@ func take_damage(amount: int) -> void:
 		return
 
 	current_health = maxi(0, current_health - amount)
+	_total_damage_hits += 1
+
+	if _total_damage_hits == 3:
+		_play_shield_offline_sound()
+
+	damage_taken.emit(amount)
+	health_changed.emit(current_health, max_health)
 	_trigger_damage_feedback()
 
 	if current_health <= 0:
@@ -506,12 +533,32 @@ func take_damage(amount: int) -> void:
 		_start_invulnerability()
 
 
+func _play_shield_offline_sound() -> void:
+	if not ShieldOfflineSound:
+		return
+	var audio_player := AudioStreamPlayer.new()
+	audio_player.stream = ShieldOfflineSound
+	audio_player.bus = "Master"
+	audio_player.finished.connect(audio_player.queue_free)
+	add_child(audio_player)
+	audio_player.play()
+
+
+func heal(amount: int) -> void:
+	current_health = mini(max_health, current_health + amount)
+	health_changed.emit(current_health, max_health)
+
+
 func _start_invulnerability() -> void:
 	_is_invulnerable = true
 	_invulnerability_timer = invulnerability_duration
 
 
 func _trigger_damage_feedback() -> void:
+	# Ativa o campo de força 3D (escudo holográfico) por 1 segundo
+	if _shield_bubble:
+		_shield_bubble.activate(invulnerability_duration)
+
 	# Cria faíscas no corpo da nave indicando impacto
 	_spawn_spark(global_position, -global_basis.z)
 	# Ricochete de impacto para trás
@@ -528,5 +575,8 @@ func _on_player_destroyed() -> void:
 
 	# Recupera vida e reinicia temporizador de invulnerabilidade (respawn gracioso)
 	current_health = max_health
+	health_changed.emit(current_health, max_health)
 	_start_invulnerability()
 	_invulnerability_timer = invulnerability_duration * 1.5
+	if _shield_bubble:
+		_shield_bubble.activate(_invulnerability_timer)

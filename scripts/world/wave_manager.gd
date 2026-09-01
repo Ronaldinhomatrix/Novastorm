@@ -16,18 +16,26 @@ signal wave_cleared(wave_index: int)
 @export var fighter_scene: PackedScene = preload("res://scenes/enemies/enemy_fighter.tscn")
 @export var heavy_scene: PackedScene = preload("res://scenes/enemies/enemy_heavy.tscn")
 
+const AlertEnemyShipsSound := preload("res://assets/audio/alert_enemy_ships.wav")
+const WarningBattlecruiserSound := preload("res://assets/audio/warning_enemy_battlecruiser.mp3")
+
 @export_category("Gatilhos por Ponto do Path3D")
 @export var wave_1_point: int = 8   ## Ponto da curva Path3D onde a Wave 1 é disparada (Scouts)
 @export var wave_2_point: int = 15  ## Ponto da curva Path3D onde a Wave 2 é disparada (Fighters)
+@export var warning_battlecruiser_point: int = 21  ## Ponto 21 para o áudio warning_enemy_battlecruiser
 @export var wave_3_point: int = 37  ## Ponto da curva Path3D onde a Wave 3 é disparada (2 pontos antes do 39)
 
+var _alert_enemy_ships_triggered: bool = false
+var _warning_battlecruiser_triggered: bool = false
 var _wave_1_triggered: bool = false
 var _wave_2_triggered: bool = false
 var _wave_3_triggered: bool = false
 var _penultimate_exit_triggered: bool = false
 
+var _target_ratio_1_alert: float = 0.10
 var _target_ratio_1: float = 0.14
 var _target_ratio_2: float = 0.35
+var _target_ratio_warning_battlecruiser: float = 0.50
 var _target_ratio_3: float = 0.88
 var _penultimate_ratio: float = 0.96
 
@@ -66,7 +74,9 @@ func _update_target_ratios() -> void:
 	var total_len: float = maxf(1.0, curve.get_baked_length())
 
 	_target_ratio_1 = _get_point_ratio(curve, wave_1_point, total_len)
+	_target_ratio_1_alert = _get_point_ratio(curve, maxi(0, wave_1_point - 1), total_len)
 	_target_ratio_2 = _get_point_ratio(curve, wave_2_point, total_len)
+	_target_ratio_warning_battlecruiser = _get_point_ratio(curve, warning_battlecruiser_point, total_len)
 	_target_ratio_3 = _get_point_ratio(curve, wave_3_point, total_len)
 
 	# Zona livre de inimigos do ponto 22 ao 36
@@ -127,6 +137,16 @@ func _process(_delta: float) -> void:
 		return
 
 	var current_progress: float = path_follower.progress_ratio
+
+	# 0. Áudio: Alerta de naves inimigas (ponto anterior à Wave 1)
+	if not _alert_enemy_ships_triggered and current_progress >= _target_ratio_1_alert:
+		_alert_enemy_ships_triggered = true
+		_play_audio_alert(AlertEnemyShipsSound)
+
+	# 0.5 Áudio: Alerta de Battlecruiser no Ponto 21
+	if not _warning_battlecruiser_triggered and current_progress >= _target_ratio_warning_battlecruiser:
+		_warning_battlecruiser_triggered = true
+		_play_audio_alert(WarningBattlecruiserSound)
 
 	# 1. Garantir que do ponto 22 ao 38 não exista NENHUM inimigo em cena
 	if current_progress >= _quiet_zone_start_ratio and current_progress < _quiet_zone_end_ratio:
@@ -205,7 +225,7 @@ func _spawn_wave_1() -> void:
 
 
 # ---------------------------------------------------------------------------
-# Wave 2: 5 Caças Táticos Fighters (Starship.v2) no Mundo 3D (3 Líderes com rasante)
+# Wave 2: 5 Caças Táticos Fighters (Starship.v2) no Mundo 3D (Dupla de Líderes em rasante sincronizado)
 # ---------------------------------------------------------------------------
 
 func _spawn_wave_2() -> void:
@@ -225,28 +245,28 @@ func _spawn_wave_2() -> void:
 		},
 		{
 			"b_type": 0,
-			"delay": 0.45,
+			"delay": 0.08, # Quase ao mesmo tempo que o Líder 1
 			"cinematic_lead": true,
-			"lane": 1, # Líder 2: Rasante Esquerda
+			"lane": 1, # Líder 2: Rasante Esquerda (dupla sincronizada)
 			"cinematic_exit": false
 		},
 		{
-			"b_type": 0,
-			"delay": 0.90,
-			"cinematic_lead": true,
-			"lane": 2, # Líder 3: Rasante por Cima
-			"cinematic_exit": false
-		},
-		{
-			"b_type": 1, # Flanco Esquerdo
-			"delay": 2.8,
+			"b_type": 0, # Caça 3: Mergulho frontal tático à frente
+			"delay": 2.5,
 			"cinematic_lead": false,
 			"lane": 0,
 			"cinematic_exit": false
 		},
 		{
-			"b_type": 2, # Flanco Direito com rasante de saída
-			"delay": 4.8,
+			"b_type": 1, # Caça 4: Flanco Esquerdo
+			"delay": 4.0,
+			"cinematic_lead": false,
+			"lane": 0,
+			"cinematic_exit": false
+		},
+		{
+			"b_type": 2, # Caça 5: Flanco Direito com rasante de saída
+			"delay": 5.5,
 			"cinematic_lead": false,
 			"lane": 0,
 			"cinematic_exit": true
@@ -323,3 +343,14 @@ func _register_enemy(enemy: Node) -> void:
 
 func _on_enemy_destroyed(enemy: Node, _score: int) -> void:
 	_active_enemies.erase(enemy)
+
+
+func _play_audio_alert(stream: AudioStream) -> void:
+	if not stream:
+		return
+	var audio_player := AudioStreamPlayer.new()
+	audio_player.stream = stream
+	audio_player.bus = "Master"
+	audio_player.finished.connect(audio_player.queue_free)
+	add_child(audio_player)
+	audio_player.play()
