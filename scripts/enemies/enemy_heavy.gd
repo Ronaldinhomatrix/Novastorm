@@ -17,8 +17,8 @@ enum Phase { ENTER, ENGAGE, EXIT }
 
 @export var start_distance_ahead: float = 160.0  ## Distância de spawn à frente da curva (120m à frente da nave)
 @export var combat_distance_ahead: float = 120.0 ## Distância durante o combate (80m à frente da nave)
-@export var width_amplitude: float = 32.0        ## Amplitude horizontal ampliada (±32m)
-@export var height_amplitude: float = 6.5        ## Amplitude vertical ampliada (±6.5m)
+@export var width_amplitude: float = 18.0        ## Amplitude horizontal calibrada para o canyon (±18m)
+@export var height_amplitude: float = 5.0        ## Amplitude vertical (±5.0m)
 
 var flight_direction: Vector3 = Vector3.FORWARD
 var _phase: Phase = Phase.ENTER
@@ -48,10 +48,10 @@ func setup_heavy(_start_pos: Vector3, dir: Vector3, side: float = 1.0) -> void:
 	flight_direction = dir.normalized()
 	_side = 1.0 if side >= 0.0 else -1.0
 
-	# Entrada vindo da lateral fora da tela (80m de deslocamento) e altitude superior (38m)
+	# Entrada vindo da lateral fora da tela (65m de deslocamento) e altitude superior (30m)
 	_current_distance = 135.0
-	_current_lateral = -_side * 80.0
-	_current_vertical = 38.0
+	_current_lateral = -_side * 65.0
+	_current_vertical = 30.0
 
 	_phase = Phase.ENTER
 	_phase_timer = 0.0
@@ -89,17 +89,17 @@ func _process_enter(_delta: float) -> void:
 	var t := clampf(_phase_timer / maxf(enter_duration, 0.01), 0.0, 1.0)
 	var eased := t * t * (3.0 - 2.0 * t)
 
-	var start_lat := -_side * 80.0
-	var target_lat := -_side * 14.0
+	var start_lat := -_side * 65.0
+	var target_lat := 0.0
 	_current_lateral = lerpf(start_lat, target_lat, eased)
 	_current_distance = lerpf(135.0, combat_distance_ahead, eased)
-	_current_vertical = lerpf(38.0, 12.0, eased)
+	_current_vertical = lerpf(30.0, 14.0 + height_amplitude, eased)
 
 	_curve_offset = _get_player_progress() + _current_distance
 	var frame := _sample_curve_frame(_curve_offset, _current_lateral, _current_vertical)
 	global_position = frame["position"]
 
-	var bank := -_side * lerpf(0.35, 0.05, eased)
+	var bank := -_side * lerpf(0.35, 0.25, eased)
 	_orient_ship(frame["forward"], frame["up"], bank)
 
 	if t >= 1.0:
@@ -110,22 +110,22 @@ func _process_enter(_delta: float) -> void:
 func _process_engage(delta: float) -> void:
 	var u := clampf(_phase_timer / maxf(engage_duration, 0.01), 0.0, 1.0)
 
-	# Deriva horizontal lenta e imponente com ampla oscilação de aproximação/recuo
+	# Deriva horizontal lenta e contínua
 	var angle := u * TAU
 	_current_lateral = sin(angle) * width_amplitude * _side
 	_current_vertical = 14.0 + cos(angle) * height_amplitude
 
-	# Oscilação imponente de profundidade do cruzador (aproxima-se até ~92m e recua até ~148m)
-	var depth_surge := sin(angle) * 28.0
+	# Oscilação suave de profundidade
+	var depth_surge := sin(angle) * 18.0
 	_current_distance = combat_distance_ahead + depth_surge
 
 	_curve_offset = _get_player_progress() + _current_distance
 	var frame := _sample_curve_frame(_curve_offset, _current_lateral, _current_vertical)
 	global_position = frame["position"]
 
-	# Banking suave e pesado de cruzador espacial (~16 graus)
-	var bank := -cos(angle) * 0.28 * _side
-	var pitch_adj := -cos(angle) * 0.14
+	# Banking suave e pesado de cruzador espacial
+	var bank := -cos(angle) * 0.25 * _side
+	var pitch_adj := -cos(angle) * 0.10
 	_orient_ship(frame["forward"] + Vector3(0, pitch_adj, 0), frame["up"], bank)
 
 	# Sistema de ataques alternados

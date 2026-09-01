@@ -1,0 +1,149 @@
+[gd_scene load_steps=2 format=3 uid="uid://dmv7g8w3k21x0"]
+
+[ext_resource type="Script" path="res://addons/sketchfab/Main.gd" id="1_main"]
+
+[node name="Sketchfab" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+script = ExtResource("1_main")
+
+[node name="Margin" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 12
+
+[node name="VBox" type="VBoxContainer" parent="Margin"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="TopBar" type="HBoxContainer" parent="Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="SearchInput" type="LineEdit" parent="Margin/VBox/TopBar"]
+custom_minimum_size = Vector2(240, 36)
+layout_mode = 2
+size_flags_horizontal = 3
+placeholder_text = "Search 3D models on Sketchfab (e.g. spaceship, laser, canyon)..."
+clear_button_enabled = true
+
+[node name="SearchBtn" type="Button" parent="Margin/VBox/TopBar"]
+custom_minimum_size = Vector2(100, 36)
+layout_mode = 2
+text = "🔍 Search"
+
+[node name="VSeparator1" type="VSeparator" parent="Margin/VBox/TopBar"]
+layout_mode = 2
+
+[node name="CategoryOption" type="OptionButton" parent="Margin/VBox/TopBar"]
+custom_minimum_size = Vector2(180, 36)
+layout_mode = 2
+
+[node name="SortOption" type="OptionButton" parent="Margin/VBox/TopBar"]
+custom_minimum_size = Vector2(140, 36)
+layout_mode = 2
+
+[node name="VSeparator2" type="VSeparator" parent="Margin/VBox/TopBar"]
+layout_mode = 2
+
+[node name="AnimatedCheck" type="CheckBox" parent="Margin/VBox/TopBar"]
+layout_mode = 2
+text = "Animated"
+
+[node name="StaffCheck" type="CheckBox" parent="Margin/VBox/TopBar"]
+layout_mode = 2
+text = "Staff Picked"
+
+[node name="TokenBtn" type="Button" parent="Margin/VBox/TopBar"]
+custom_minimum_size = Vector2(120, 36)
+layout_mode = 2
+text = "🔑 API Token"
+
+[node name="Scroll" type="ScrollContainer" parent="Margin/VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="Center" type="CenterContainer" parent="Margin/VBox/Scroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="GridContainer" type="GridContainer" parent="Margin/VBox/Scroll/Center"]
+layout_mode = 2
+theme_override_constants/h_separation = 16
+theme_override_constants/v_separation = 16
+columns = 4
+
+[node name="StatusHBox" type="HBoxContainer" parent="Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="StatusLabel" type="Label" parent="Margin/VBox/StatusHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.7, 0.75, 0.85, 1)
+text = "Ready to search Sketchfab"
+
+[node name="LoadMoreBtn" type="Button" parent="Margin/VBox/StatusHBox"]
+visible = false
+custom_minimum_size = Vector2(160, 32)
+layout_mode = 2
+text = "⬇ Load More Models"
+
+[node name="TokenDialog" type="ConfirmationDialog" parent="."]
+title = "Sketchfab API Token"
+initial_position = 2
+size = Vector2i(520, 180)
+ok_button_text = "Save Token"
+
+[node name="Margin" type="MarginContainer" parent="TokenDialog"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 8.0
+offset_top = 8.0
+offset_right = -8.0
+offset_bottom = -49.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="VBox" type="VBoxContainer" parent="TokenDialog/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Instructions" type="Label" parent="TokenDialog/Margin/VBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.8, 0.85, 0.9, 1)
+theme_override_font_sizes/font_size = 12
+text = "Cole seu API Token do Sketchfab abaixo (obtenha em: sketchfab.com/settings/password):"
+autowrap_mode = 2
+
+[node name="TokenInput" type="LineEdit" parent="TokenDialog/Margin/VBox"]
+custom_minimum_size = Vector2(0, 36)
+layout_mode = 2
+placeholder_text = "Paste your 32-character API Token here..."
+secret = true
+
+[connection signal="pressed" from="Margin/VBox/TopBar/SearchBtn" to="." method="_on_search_pressed"]
+[connection signal="text_submitted" from="Margin/VBox/TopBar/SearchInput" to="." method="_on_search_input_submitted"]
+[connection signal="pressed" from="Margin/VBox/TopBar/TokenBtn" to="." method="_on_token_btn_pressed"]
+[connection signal="pressed" from="Margin/VBox/StatusHBox/LoadMoreBtn" to="." method="_on_load_more_pressed"]
+[connection signal="confirmed" from="TokenDialog" to="." method="_on_token_dialog_confirmed"]

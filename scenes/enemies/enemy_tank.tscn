@@ -1,0 +1,22 @@
+[gd_scene format=3 uid="uid://b7vy8e8lar4tm"]
+
+[ext_resource type="Script" path="res://scripts/enemies/enemy_tank.gd" id="1_tank"]
+[ext_resource type="PackedScene" path="res://assets/models/Enemys/tank1.glb" id="2_tank_glb"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_tank"]
+size = Vector3(10, 8, 20)
+
+[node name="EnemyTank" type="Area3D"]
+collision_layer = 2
+collision_mask = 2
+script = ExtResource("1_tank")
+turret_node_path = NodePath("TankModel/tank1/Turret")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4, 0)
+shape = SubResource("BoxShape3D_tank")
+
+[node name="TankModel" type="Node3D" parent="."]
+transform = Transform3D(3, 0, 0, 0, 3, 0, 0, 0, 3, 0, 0, 0)
+
+[node name="tank1" parent="TankModel" instance=ExtResource("2_tank_glb")]

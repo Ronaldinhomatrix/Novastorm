@@ -17,7 +17,7 @@ enum Phase { ENTER, ENGAGE, EXIT }
 
 @export var start_distance_ahead: float = 145.0  ## Distância de spawn à frente da curva (105m à frente da nave)
 @export var combat_distance_ahead: float = 105.0 ## Distância durante o combate (65m à frente da nave)
-@export var lateral_span: float = 28.0          ## Extensão lateral da travessia ampliada (±28m)
+@export var lateral_span: float = 18.0          ## Extensão lateral de combate calibrada para o canyon (±18m)
 @export var base_height: float = 8.0            ## Altura média de combate
 @export var roll_duration: float = 1.0          ## Duração do giro 360°
 
@@ -73,9 +73,9 @@ func setup_fighter(_start_pos: Vector3, _dir: Vector3, b_type: int = 0, lane: in
 		_current_lateral = 0.0
 		_current_vertical = 45.0
 	else:
-		# Tipos 1 e 2: Entram pelas laterais fora da visão (85m de deslocamento)
+		# Tipos 1 e 2: Entram pelas laterais fora da visão (65m de deslocamento)
 		_current_distance = 115.0
-		_current_lateral = -_side * 85.0
+		_current_lateral = -_side * 65.0
 		_current_vertical = 24.0
 
 	_phase = Phase.ENTER
@@ -161,7 +161,7 @@ func _process_enter(_delta: float) -> void:
 			_current_distance = lerpf(65.0, combat_distance_ahead, eased_settle)
 
 			if cinematic_lane == 0:
-				_current_lateral = lerpf(12.0, -lateral_span * 0.6, eased_settle)
+				_current_lateral = lerpf(12.0, -lateral_span, eased_settle)
 				_current_vertical = lerpf(5.5, base_height, eased_settle)
 				var bank := -lerpf(0.55, 0.20, eased_settle)
 				_curve_offset = _get_player_progress() + _current_distance
@@ -169,7 +169,7 @@ func _process_enter(_delta: float) -> void:
 				global_position = frame["position"]
 				_orient_ship(frame["forward"], frame["up"], bank)
 			elif cinematic_lane == 1:
-				_current_lateral = lerpf(-12.0, lateral_span * 0.6, eased_settle)
+				_current_lateral = lerpf(-12.0, lateral_span, eased_settle)
 				_current_vertical = lerpf(5.5, base_height, eased_settle)
 				var bank := lerpf(0.55, 0.20, eased_settle)
 				_curve_offset = _get_player_progress() + _current_distance
@@ -177,8 +177,8 @@ func _process_enter(_delta: float) -> void:
 				global_position = frame["position"]
 				_orient_ship(frame["forward"], frame["up"], bank)
 			else:
-				_current_lateral = lerpf(0.0, 0.0, eased_settle)
-				_current_vertical = lerpf(9.0, base_height + 2.0, eased_settle)
+				_current_lateral = lerpf(0.0, -lateral_span * _side, eased_settle)
+				_current_vertical = lerpf(9.0, base_height, eased_settle)
 				_curve_offset = _get_player_progress() + _current_distance
 				var frame := _sample_curve_frame(_curve_offset, _current_lateral, _current_vertical)
 				global_position = frame["position"]
@@ -189,7 +189,7 @@ func _process_enter(_delta: float) -> void:
 	elif _b_type == 0:
 		var eased := t * t * (3.0 - 2.0 * t)
 		# Mergulho suave vindo da frente/cima
-		_current_lateral = lerpf(0.0, -lateral_span * 0.5, eased)
+		_current_lateral = lerpf(0.0, -lateral_span * _side, eased)
 		_current_distance = lerpf(230.0, combat_distance_ahead, eased)
 		_current_vertical = lerpf(45.0, base_height, eased)
 
@@ -201,8 +201,8 @@ func _process_enter(_delta: float) -> void:
 		_orient_ship(frame["forward"] + Vector3(0, pitch_down, 0), frame["up"], 0.0)
 	else:
 		var eased := t * t * (3.0 - 2.0 * t)
-		# Entrada lateral curva vindo de fora da tela (±85m)
-		var start_lat := -_side * 85.0
+		# Entrada lateral curva vindo de fora da tela (±65m)
+		var start_lat := -_side * 65.0
 		var target_lat := -lateral_span * _side
 		_current_lateral = lerpf(start_lat, target_lat, eased)
 		_current_distance = lerpf(115.0, combat_distance_ahead, eased)
@@ -212,32 +212,36 @@ func _process_enter(_delta: float) -> void:
 		var frame := _sample_curve_frame(_curve_offset, _current_lateral, _current_vertical)
 		global_position = frame["position"]
 
-		var bank := -_side * lerpf(0.55, 0.15, eased)
+		var bank := -_side * lerpf(0.45, 0.15, eased)
 		_orient_ship(frame["forward"], frame["up"], bank)
 
 	if t >= 1.0:
 		_phase = Phase.ENGAGE
 		_phase_timer = 0.0
+		if is_cinematic_entrance and cinematic_lane == 1:
+			_side = -1.0
+		else:
+			_side = 1.0 if _current_lateral < 0.0 else -1.0
 
 
 func _process_engage(delta: float) -> void:
 	var u := clampf(_phase_timer / maxf(engage_duration, 0.01), 0.0, 1.0)
 
-	# Travessia lateral agressiva com manobras de avanço e recuo tático (±28m lateral, ±35m profundidade)
+	# Travessia lateral suave com manobras de aproximação tática
 	var smooth_u := u * u * (3.0 - 2.0 * u)
 	_current_lateral = lerpf(-lateral_span * _side, lateral_span * _side, smooth_u)
-	_current_vertical = base_height + sin(u * TAU) * 6.5
+	_current_vertical = base_height + sin(u * TAU) * 4.5
 
-	# O caça avança agressivamente se aproximando do jogador (~70m) e recua (~140m)
-	var depth_wave := sin(u * 2.5 * PI) * 35.0
+	# Oscilação suave de profundidade
+	var depth_wave := sin(u * 2.0 * PI) * 22.0
 	_current_distance = combat_distance_ahead + depth_wave
 
 	_curve_offset = _get_player_progress() + _current_distance
 	var frame := _sample_curve_frame(_curve_offset, _current_lateral, _current_vertical)
 	global_position = frame["position"]
 
-	var base_bank := -_side * 0.45
-	var pitch_adj := -cos(u * 2.5 * PI) * 0.22
+	var base_bank := -_side * 0.35
+	var pitch_adj := -cos(u * 2.0 * PI) * 0.15
 
 	# Único Barrel Roll pontual aos 45% da travessia (na metade do voo)
 	if not _roll_done and u >= 0.45:

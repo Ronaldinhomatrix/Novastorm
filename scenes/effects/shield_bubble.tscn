@@ -1,0 +1,30 @@
+[gd_scene load_steps=5 format=3 uid="uid://df7b4c3e8a201"]
+
+[ext_resource type="Script" path="res://scripts/effects/shield_bubble.gd" id="1_script"]
+[ext_resource type="Shader" path="res://assets/shaders/shield_forcefield.gdshader" id="2_shader"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_shield"]
+render_priority = 10
+shader = ExtResource("2_shader")
+shader_parameter/shield_color = Color(0, 0.9, 1, 1)
+shader_parameter/impact_color = Color(1, 0.95, 0.7, 1)
+shader_parameter/fresnel_power = 2.0
+shader_parameter/hex_scale = 18.0
+shader_parameter/hex_line_width = 0.1
+shader_parameter/energy_intensity = 1.0
+shader_parameter/impact_flash = 0.0
+
+[sub_resource type="SphereMesh" id="SphereMesh_shield"]
+radius = 1.0
+height = 2.0
+radial_segments = 32
+rings = 16
+
+[node name="ShieldBubble" type="Node3D"]
+script = ExtResource("1_script")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+transform = Transform3D(4.5, 0, 0, 0, 2.5, 0, 0, 0, 6.0, 0, 0, 0)
+material_override = SubResource("ShaderMaterial_shield")
+cast_shadow = 0
+mesh = SubResource("SphereMesh_shield")

@@ -10,9 +10,9 @@ size = Vector3(5, 2.5, 9)
 [node name="Player" type="CharacterBody3D" unique_id=1368633193]
 collision_mask = 8
 script = ExtResource("1_player")
+pointer_follow_speed = 8.0
 roll_amount = 0.7
 pitch_amount = 0.5
-fire_rate = 0.25
 bullet_scene = ExtResource("2_bullet")
 laser_volume_db = -25.0
 

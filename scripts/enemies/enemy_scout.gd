@@ -17,10 +17,10 @@ enum Phase { ENTER, ENGAGE, EXIT }
 
 @export var start_distance_ahead: float = 135.0   ## Distância de spawn à frente da curva (95m à frente da nave)
 @export var combat_distance_ahead: float = 100.0  ## Distância durante o combate (60m à frente da nave)
-@export var lateral_span: float = 26.0           ## Extensão lateral da travessia ampliada (±26m)
+@export var lateral_span: float = 18.0           ## Extensão lateral de travessia calibrada para o canyon (±18m)
 @export var base_height: float = 6.0             ## Altura média de voo
 
-@export var is_cinematic_entrance: bool = false ## Se true, faz um rasante dramático a 22m da câmera na entrada
+@export var is_cinematic_entrance: bool = false ## Se true, faz um rasante dramático na entrada
 @export var cinematic_lane: int = 0          ## 0: Direita (+2.8m), 1: Esquerda (-2.8m), 2: Cima (+3.4m)
 
 var flight_direction: Vector3 = Vector3.FORWARD
@@ -63,10 +63,10 @@ func setup_flight(_start_pos: Vector3, dir: Vector3, side: float = 1.0, _speed: 
 			_current_lateral = 0.0
 			_current_vertical = 3.4
 	else:
-		# Entrada pela lateral fora da tela (85m de offset lateral)
+		# Entrada pela lateral fora da tela (65m de offset lateral)
 		_current_distance = 110.0
-		_current_lateral = -_side * 85.0
-		_current_vertical = base_height + 8.0
+		_current_lateral = -_side * 65.0
+		_current_vertical = base_height + 6.0
 
 	_phase = Phase.ENTER
 	_phase_timer = 0.0
@@ -116,18 +116,18 @@ func _process_enter(_delta: float) -> void:
 
 			if cinematic_lane == 0:
 				# 0: Rasante pela Direita
-				_current_lateral = lerpf(2.8, 5.0, surge_t)
-				_current_vertical = lerpf(1.4, 4.2, surge_t)
-				var bank := -lerpf(0.35, 0.75, surge_t)
+				_current_lateral = lerpf(2.8, 4.5, surge_t)
+				_current_vertical = lerpf(1.4, 3.8, surge_t)
+				var bank := -lerpf(0.35, 0.65, surge_t)
 				_curve_offset = _get_player_progress() + _current_distance
 				var frame := _sample_curve_frame(_curve_offset, _current_lateral, _current_vertical)
 				global_position = frame["position"]
 				_orient_ship(frame["forward"], frame["up"], bank)
 			elif cinematic_lane == 1:
 				# 1: Rasante pela Esquerda
-				_current_lateral = lerpf(-2.8, -5.0, surge_t)
-				_current_vertical = lerpf(1.4, 4.2, surge_t)
-				var bank := lerpf(0.35, 0.75, surge_t)
+				_current_lateral = lerpf(-2.8, -4.5, surge_t)
+				_current_vertical = lerpf(1.4, 3.8, surge_t)
+				var bank := lerpf(0.35, 0.65, surge_t)
 				_curve_offset = _get_player_progress() + _current_distance
 				var frame := _sample_curve_frame(_curve_offset, _current_lateral, _current_vertical)
 				global_position = frame["position"]
@@ -135,8 +135,8 @@ func _process_enter(_delta: float) -> void:
 			else:
 				# 2: Rasante por Cima (topo da tela)
 				_current_lateral = lerpf(0.0, 0.0, surge_t)
-				_current_vertical = lerpf(3.4, 5.5, surge_t)
-				var pitch_dip := -lerpf(0.12, 0.0, surge_t)
+				_current_vertical = lerpf(3.4, 5.0, surge_t)
+				var pitch_dip := -lerpf(0.10, 0.0, surge_t)
 				_curve_offset = _get_player_progress() + _current_distance
 				var frame := _sample_curve_frame(_curve_offset, _current_lateral, _current_vertical)
 				global_position = frame["position"]
@@ -150,24 +150,24 @@ func _process_enter(_delta: float) -> void:
 			_current_distance = lerpf(65.0, combat_distance_ahead, eased_settle)
 
 			if cinematic_lane == 0:
-				_current_lateral = lerpf(5.0, -lateral_span * 0.6, eased_settle)
-				_current_vertical = lerpf(4.2, base_height, eased_settle)
-				var bank := -lerpf(0.75, 0.2, eased_settle)
+				_current_lateral = lerpf(4.5, -lateral_span, eased_settle)
+				_current_vertical = lerpf(3.8, base_height, eased_settle)
+				var bank := -lerpf(0.65, 0.2, eased_settle)
 				_curve_offset = _get_player_progress() + _current_distance
 				var frame := _sample_curve_frame(_curve_offset, _current_lateral, _current_vertical)
 				global_position = frame["position"]
 				_orient_ship(frame["forward"], frame["up"], bank)
 			elif cinematic_lane == 1:
-				_current_lateral = lerpf(-5.0, lateral_span * 0.6, eased_settle)
-				_current_vertical = lerpf(4.2, base_height, eased_settle)
-				var bank := lerpf(0.75, 0.2, eased_settle)
+				_current_lateral = lerpf(-4.5, lateral_span, eased_settle)
+				_current_vertical = lerpf(3.8, base_height, eased_settle)
+				var bank := lerpf(0.65, 0.2, eased_settle)
 				_curve_offset = _get_player_progress() + _current_distance
 				var frame := _sample_curve_frame(_curve_offset, _current_lateral, _current_vertical)
 				global_position = frame["position"]
 				_orient_ship(frame["forward"], frame["up"], bank)
 			else:
-				_current_lateral = lerpf(0.0, 0.0, eased_settle)
-				_current_vertical = lerpf(5.5, base_height + 2.0, eased_settle)
+				_current_lateral = lerpf(0.0, -lateral_span * _side, eased_settle)
+				_current_vertical = lerpf(5.0, base_height, eased_settle)
 				_curve_offset = _get_player_progress() + _current_distance
 				var frame := _sample_curve_frame(_curve_offset, _current_lateral, _current_vertical)
 				global_position = frame["position"]
@@ -176,36 +176,40 @@ func _process_enter(_delta: float) -> void:
 			# Queda suave de pitch para o tom normal de voo (1.0)
 			set_engine_pitch(lerpf(1.22, 1.0, eased_settle))
 	else:
-		# Entrada lateral suave: surge de fora da visão lateral (-85m) e faz curva em direção ao centro do combate
+		# Entrada lateral suave: surge de fora da visão lateral (-65m) e faz curva em direção ao centro do combate
 		var eased := t * t * (3.0 - 2.0 * t)
-		var start_lat := -_side * 85.0
+		var start_lat := -_side * 65.0
 		var target_lat := -lateral_span * _side
 		_current_lateral = lerpf(start_lat, target_lat, eased)
 		_current_distance = lerpf(110.0, combat_distance_ahead, eased)
-		_current_vertical = lerpf(base_height + 8.0, base_height, eased)
+		_current_vertical = lerpf(base_height + 6.0, base_height, eased)
 
 		_curve_offset = _get_player_progress() + _current_distance
 		var frame := _sample_curve_frame(_curve_offset, _current_lateral, _current_vertical)
 		global_position = frame["position"]
 
-		var bank := -_side * lerpf(0.55, 0.15, eased)
+		var bank := -_side * lerpf(0.45, 0.15, eased)
 		_orient_ship(frame["forward"], frame["up"], bank)
 
 	if t >= 1.0:
 		_phase = Phase.ENGAGE
 		_phase_timer = 0.0
+		if is_cinematic_entrance and cinematic_lane == 1:
+			_side = -1.0
+		else:
+			_side = 1.0 if _current_lateral < 0.0 else -1.0
 
 
 func _process_engage(_delta: float) -> void:
 	var u := clampf(_phase_timer / maxf(engage_duration, 0.01), 0.0, 1.0)
 
-	# Travessia dinâmica e agressiva em S com grande amplitude lateral e vertical
+	# Travessia contínua e suave em S
 	var angle := (u * 2.0 - 0.5) * PI
 	_current_lateral = sin(angle) * lateral_span * _side
-	_current_vertical = base_height + sin(u * 2.0 * PI) * 6.5
+	_current_vertical = base_height + sin(u * 2.0 * PI) * 4.5
 
-	# Oscilação acentuada de profundidade: avança até ~68m e recua até ~132m
-	var depth_osc := sin(u * 3.0 * PI) * 32.0
+	# Oscilação suave de profundidade
+	var depth_osc := sin(u * 2.0 * PI) * 20.0
 	_current_distance = combat_distance_ahead + depth_osc
 
 	_curve_offset = _get_player_progress() + _current_distance
@@ -213,8 +217,8 @@ func _process_engage(_delta: float) -> void:
 	global_position = frame["position"]
 
 	var lateral_dir := cos(angle) * _side
-	var pitch_adj := -cos(u * 3.0 * PI) * 0.20
-	var bank := -clampf(lateral_dir * 0.55, -0.65, 0.65)
+	var pitch_adj := -cos(u * 2.0 * PI) * 0.15
+	var bank := -clampf(lateral_dir * 0.45, -0.55, 0.55)
 	_orient_ship(frame["forward"] + Vector3(0, pitch_adj, 0), frame["up"], bank)
 
 	# Disparos pontuais aos 30% e 70% da travessia

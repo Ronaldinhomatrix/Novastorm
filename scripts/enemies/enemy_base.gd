@@ -207,26 +207,41 @@ func _init_curve_offset(ahead_distance: float) -> void:
 		_curve_offset = 0.0
 
 
-## Retorna a posição global de um ponto ao longo da curva.
+## Retorna a posição global de um ponto ao longo da curva, extrapolando linearmente
+## de forma suave e contínua se o offset for negativo (< 0) ou ultrapassar o fim (> length).
 func _sample_curve_position(offset: float) -> Vector3:
 	var path := _get_flight_path()
-	if path and path.curve and path.curve.point_count > 0:
-		var clamped := clampf(offset, 0.0, path.curve.get_baked_length())
-		return path.global_transform * path.curve.sample_baked(clamped, true)
+	if path and path.curve and path.curve.point_count > 1:
+		var length := path.curve.get_baked_length()
+		if offset < 0.0:
+			var p0 := path.global_transform * path.curve.sample_baked(0.0, true)
+			var p1 := path.global_transform * path.curve.sample_baked(minf(4.0, length), true)
+			var fwd := (p1 - p0).normalized()
+			return p0 + fwd * offset
+		elif offset > length:
+			var pend := path.global_transform * path.curve.sample_baked(length, true)
+			var pprev := path.global_transform * path.curve.sample_baked(maxf(0.0, length - 4.0), true)
+			var fwd := (pend - pprev).normalized()
+			return pend + fwd * (offset - length)
+		else:
+			return path.global_transform * path.curve.sample_baked(offset, true)
 	return global_position
 
 
-## Retorna a tangente global (direção de voo) em um ponto ao longo da curva.
+## Retorna a tangente global (direção de voo) suave e contínua em qualquer offset.
 func _sample_curve_tangent(offset: float) -> Vector3:
 	var path := _get_flight_path()
 	if path and path.curve and path.curve.point_count > 1:
 		var length := path.curve.get_baked_length()
-		var a := clampf(offset - 2.0, 0.0, length)
-		var b := clampf(offset + 2.0, 0.0, length)
+		var sample_off := clampf(offset, 0.0, length)
+		var a := maxf(0.0, sample_off - 3.0)
+		var b := minf(length, sample_off + 3.0)
+		if b - a < 0.1:
+			b = minf(length, a + 4.0)
 		var tangent := path.curve.sample_baked(b, true) - path.curve.sample_baked(a, true)
 		if tangent.length_squared() > 0.0001:
 			return (path.global_basis * tangent).normalized()
-	return Vector3.FORWARD
+	return -global_basis.z if global_basis.z.length_squared() > 0.001 else Vector3.FORWARD
 
 
 func _get_player_progress() -> float:
@@ -236,8 +251,7 @@ func _get_player_progress() -> float:
 	return 0.0
 
 
-## Retorna o referencial local (posição, forward, right, up) em um offset específico com deslocamentos
-## e prevenção ativa de colisão/penetração com as paredes e terreno do canyon.
+## Retorna o referencial local (posição, forward, right, up) em um offset específico com deslocamentos.
 func _sample_curve_frame(offset: float, lateral: float = 0.0, vertical: float = 0.0) -> Dictionary:
 	var path := _get_flight_path()
 	if path and path.curve and path.curve.point_count > 1:
@@ -247,44 +261,13 @@ func _sample_curve_frame(offset: float, lateral: float = 0.0, vertical: float = 
 			right = Vector3.RIGHT
 		var up := right.cross(fwd).normalized()
 		var center := _sample_curve_position(offset)
-		var desired_pos := center + right * lateral + up * vertical
-
-		# Clampa a posição desejada para nunca penetrar paredes do canyon (custo computacional < 0.001ms)
-		var safe_pos := _clamp_to_canyon_bounds(center, desired_pos)
-		return {"position": safe_pos, "forward": fwd, "right": right, "up": up}
+		var pos := center + right * lateral + up * vertical
+		return {"position": pos, "forward": fwd, "right": right, "up": up}
 
 	# Fallback: voo em linha reta (sem curva disponível).
 	var fwd_fallback := Vector3.FORWARD
 	var pos_fallback := global_position + Vector3.RIGHT * lateral + Vector3.UP * vertical
 	return {"position": pos_fallback, "forward": fwd_fallback, "right": Vector3.RIGHT, "up": Vector3.UP}
-
-
-## Detecta paredes do canyon via raycast direto da linha central do Path3D até a posição desejada.
-## Se houver rocha ou parede no caminho, recua a nave com margem de segurança de 2.2m.
-func _clamp_to_canyon_bounds(center: Vector3, desired_pos: Vector3) -> Vector3:
-	var delta_vec := desired_pos - center
-	var dist := delta_vec.length()
-	if dist < 0.5:
-		return desired_pos
-
-	var space_state := get_world_3d().direct_space_state if is_inside_tree() and get_world_3d() else null
-	if not space_state:
-		return desired_pos
-
-	var dir := delta_vec / dist
-	var target_with_margin := center + dir * (dist + 2.2)
-
-	var query := PhysicsRayQueryParameters3D.create(center, target_with_margin, WORLD_LAYER_MASK)
-	query.collide_with_areas = false
-	query.collide_with_bodies = true
-
-	var hit := space_state.intersect_ray(query)
-	if hit and not hit.is_empty():
-		var hit_dist: float = center.distance_to(hit.position)
-		var safe_dist := maxf(0.0, hit_dist - 2.2)
-		return center + dir * safe_dist
-
-	return desired_pos
 
 
 ## Avança o inimigo ao longo da curva e devolve posição/orientação com offsets

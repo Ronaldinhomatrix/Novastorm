@@ -4,7 +4,7 @@
 [ext_resource type="PackedScene" uid="uid://dd51ya4bvyw2t" path="res://assets/models/Enemys/3_enemy_red_starships.glb" id="2_glb"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_scout"]
-size = Vector3(21, 9, 18)
+size = Vector3(6.5, 3.2, 7.5)
 
 [node name="EnemyScout" type="Area3D" unique_id=1074283118]
 collision_layer = 2

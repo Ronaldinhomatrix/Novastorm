@@ -50,6 +50,8 @@ var _crosshair: Control = null  ## Instância do crosshair UI
 ## Pontos do Path3D onde a Mothership dispara seus 2 torpedos de energia.
 @export var mothership_fire_point_1: int = 25
 @export var mothership_fire_point_2: int = 27
+## Volume do som da Mothership em dB (+3.0 dB ≈ +40% de volume).
+@export_range(-20.0, 10.0, 0.5) var mothership_sound_volume_db: float = 3.0
 
 @export_category("Intro Cinematica")
 @export var enable_cinematic_intro: bool = false
@@ -74,6 +76,10 @@ var _crosshair: Control = null  ## Instância do crosshair UI
 @export var wave_manager: WaveManager = null
 @export var enable_enemy_waves: bool = true
 
+@export_category("HUD de Combate")
+@export var hud_scene: PackedScene = preload("res://scenes/ui/hud.tscn")
+@export var hud: CombatHUD = null
+
 # ---------------------------------------------------------------------------
 # Estado Interno
 # ---------------------------------------------------------------------------
@@ -81,6 +87,8 @@ var _crosshair: Control = null  ## Instância do crosshair UI
 var _collision_generated: bool = false
 var _level_completed: bool = false
 var _path_length: float = 0.0
+var _initial_warning_shown: bool = false
+var _initial_warning_dist: float = 0.0
 
 var _intro_active: bool = false
 var _intro_timer: float = 0.0
@@ -150,11 +158,11 @@ func _ready():
 	# Configura o ouvinte de áudio 3D na câmera.
 	_setup_audio_listener()
 	
-	# Player de áudio da Mothership: som 2D simples, toca ao cruzar o ponto 27.
+	# Player de áudio da Mothership: som 2D simples (+40% volume padrão).
 	_mothership_sound_player = AudioStreamPlayer.new()
 	_mothership_sound_player.stream = MOTHERSHIP_SOUND
 	_mothership_sound_player.bus = "Master"
-	_mothership_sound_player.volume_db = 0.0
+	_mothership_sound_player.volume_db = mothership_sound_volume_db
 	add_child(_mothership_sound_player)
 	_mothership_sound_played = false
 
@@ -188,6 +196,10 @@ func _ready():
 			# Offset do ponto de som da Mothership.
 			var sound_idx := clampi(mothership_sound_point, 0, point_count - 1)
 			_mothership_sound_offset = curve.get_closest_offset(curve.get_point_position(sound_idx))
+
+			# Ponto 6 (pouco antes da Wave 1 no ponto 8) para o alerta cinematográfico único
+			var warning_point_idx := clampi(6, 0, point_count - 1)
+			_initial_warning_dist = curve.get_closest_offset(curve.get_point_position(warning_point_idx))
 
 	# Configuração gráfica dinâmica: PC Ultra vs Mobile Otimizado
 	_apply_platform_graphics_settings()
@@ -241,6 +253,7 @@ func _ready():
 	# _setup_crosshair()
 
 	_setup_dev_ui()
+	_setup_hud()
 
 	# Dispara o pré-carregamento e aquecimento de shaders/colisões
 	_run_preload_and_warmup(canvas_layer, curtain, intro)
@@ -279,6 +292,18 @@ func _setup_dev_ui() -> void:
 	dev_layer.add_child(dev_btn)
 
 
+func _setup_hud() -> void:
+	if not hud:
+		hud = get_node_or_null("HUD") as CombatHUD
+	if not hud and hud_scene:
+		hud = hud_scene.instantiate() as CombatHUD
+		hud.name = "HUD"
+		add_child(hud)
+
+	if hud and player:
+		hud.attach_player(player)
+
+
 func _process(delta: float) -> void:
 	# Detectar fim do nível (baseado em ratio >= 0.99 ou progresso a menos de 5 unidades do fim)
 	if not _level_completed and show_level_complete and path_follower:
@@ -287,6 +312,13 @@ func _process(delta: float) -> void:
 	
 	# Animação de rotação da Mothership entre os pontos do Path3D
 	_update_mothership_rotation()
+
+	# Alerta Cinematográfico único antes da primeira onda de inimigos
+	if not _initial_warning_shown and _initial_warning_dist > 0.0 and path_follower:
+		if path_follower.progress >= _initial_warning_dist:
+			_initial_warning_shown = true
+			if hud:
+				hud.show_cinematic_warning("WARNING // INCOMING ENEMYS", "RADAR PROXIMITY ALERT // HOSTILE SQUADRONS DETECTED", 3.5)
 
 	# Toca o som da Mothership ao cruzar o ponto definido.
 	_trigger_mothership_sound()
@@ -556,7 +588,7 @@ func _apply_scenery_materials_and_shadows(mat: Material, shadow_setting: Geometr
 				stack.append(child)
 	
 	# Ajusta projeção de sombra em outros objetos estáticos do cenário
-	var static_scenery := ["HighBridge", "SmallBridge", "Castle", "Mothership"]
+	var static_scenery := ["HighBridge", "SmallBridge", "SmallBridge2", "Castle", "Mothership"]
 	for sc_name in static_scenery:
 		var sc_node := get_node_or_null(sc_name)
 		if sc_node:
@@ -629,6 +661,10 @@ func _generate_all_world_collision_sync() -> void:
 	var small_bridge := get_node_or_null("SmallBridge")
 	if small_bridge:
 		targets.append(small_bridge)
+
+	var small_bridge2 := get_node_or_null("SmallBridge2")
+	if small_bridge2:
+		targets.append(small_bridge2)
 
 	for target in targets:
 		for child in target.find_children("*", "MeshInstance3D", true, false):

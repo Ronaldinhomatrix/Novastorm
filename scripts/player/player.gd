@@ -53,26 +53,31 @@ signal damage_taken(amount: int)
 @export var bounce_damping: float = 15.0
 
 @export_category("Vida e Escudo")
-@export var max_health: int = 5
+@export var max_health: int = 3
 @export var invulnerability_duration: float = 1.0
 
 # Scripts procedurais
 const SparkScript := preload("res://scripts/effects/spark.gd")
 const ExplosionScript := preload("res://scripts/effects/explosion.gd")
 const ShieldBubbleScene := preload("res://scenes/effects/shield_bubble.tscn")
+const DamageSmokeScript := preload("res://scripts/effects/damage_smoke.gd")
+const EnemyWreckageScript := preload("res://scripts/effects/enemy_wreckage.gd")
 
-# Som de disparo do laser e alerta de escudo.
+# Som de disparo do laser, explosão e alerta de escudo.
 const LaserSound := preload("res://assets/audio/laser1_player.ogg")
 const ShieldOfflineSound := preload("res://assets/audio/shield_offline.ogg")
+const ExplosionSound := preload("res://assets/audio/explosion1.ogg")
 
 # ---------------------------------------------------------------------------
 # Estado Interno
 # ---------------------------------------------------------------------------
 
-var current_health: int = 5
+var current_health: int = 3
 var _total_damage_hits: int = 0
 var _is_invulnerable: bool = false
 var _invulnerability_timer: float = 0.0
+var _is_dying: bool = false
+var _damage_smoke: DamageSmokeEffect = null
 
 var _is_firing: bool = false
 var _fire_timer: float = 0.0
@@ -136,6 +141,15 @@ func _ready() -> void:
 			else:
 				add_child(_shield_bubble)
 
+	# Instancia o efeito procedural de fumaça e fogo de dano
+	if not _damage_smoke and DamageSmokeScript:
+		_damage_smoke = DamageSmokeScript.new()
+		_damage_smoke.name = "DamageSmokeEffect"
+		if ship_model:
+			ship_model.add_child(_damage_smoke)
+		else:
+			add_child(_damage_smoke)
+
 	var col_shape := $CollisionShape3D as CollisionShape3D
 	if col_shape and col_shape.shape is BoxShape3D:
 		col_shape.shape.size = Vector3(5, 2.5, 9)
@@ -149,6 +163,10 @@ func _ready() -> void:
 	if get_parent() is PathFollow3D:
 		position = Vector3(0.0, 0.0, forward_offset)
 	_target_local_pos = position
+
+
+func _exit_tree() -> void:
+	Engine.time_scale = 1.0
 
 
 func set_controls_enabled(enabled: bool) -> void:
@@ -514,21 +532,18 @@ func stop_firing() -> void:
 # ---------------------------------------------------------------------------
 
 func take_damage(amount: int) -> void:
-	if not _controls_enabled or _is_invulnerable:
+	if not _controls_enabled or _is_invulnerable or _is_dying:
 		return
 
-	current_health = maxi(0, current_health - amount)
 	_total_damage_hits += 1
-
-	if _total_damage_hits == 3:
-		_play_shield_offline_sound()
+	current_health = maxi(0, max_health - _total_damage_hits)
 
 	damage_taken.emit(amount)
 	health_changed.emit(current_health, max_health)
 	_trigger_damage_feedback()
 
-	if current_health <= 0:
-		_on_player_destroyed()
+	if _total_damage_hits >= 3 or current_health <= 0:
+		_start_death_sequence()
 	else:
 		_start_invulnerability()
 
@@ -544,8 +559,23 @@ func _play_shield_offline_sound() -> void:
 	audio_player.play()
 
 
+func _play_explosion_sound() -> void:
+	if not ExplosionSound:
+		return
+	var audio_player := AudioStreamPlayer.new()
+	audio_player.stream = ExplosionSound
+	audio_player.bus = "Master"
+	audio_player.volume_db = 2.0
+	audio_player.finished.connect(audio_player.queue_free)
+	add_child(audio_player)
+	audio_player.play()
+
+
 func heal(amount: int) -> void:
 	current_health = mini(max_health, current_health + amount)
+	_total_damage_hits = maxi(0, max_health - current_health)
+	if _damage_smoke:
+		_damage_smoke.set_damage_level(_total_damage_hits)
 	health_changed.emit(current_health, max_health)
 
 
@@ -555,9 +585,23 @@ func _start_invulnerability() -> void:
 
 
 func _trigger_damage_feedback() -> void:
-	# Ativa o campo de força 3D (escudo holográfico) por 1 segundo
-	if _shield_bubble:
-		_shield_bubble.activate(invulnerability_duration)
+	if _total_damage_hits == 1:
+		# 1º Tiro: Escudo absorve e inicia fumaça leve em um ponto da nave
+		if _shield_bubble:
+			_shield_bubble.activate(invulnerability_duration)
+		if _damage_smoke:
+			_damage_smoke.set_damage_level(1)
+	elif _total_damage_hits == 2:
+		# 2º Tiro: Escudo absorve, surge fumaça mais densa de outro local + pequeno incêndio
+		if _shield_bubble:
+			_shield_bubble.activate(invulnerability_duration)
+		if _damage_smoke:
+			_damage_smoke.set_damage_level(2)
+	elif _total_damage_hits >= 3:
+		# 3º Tiro: Shields Offline com glitch elétrico
+		_play_shield_offline_sound()
+		if _shield_bubble:
+			_shield_bubble.trigger_shield_break(0.5)
 
 	# Cria faíscas no corpo da nave indicando impacto
 	_spawn_spark(global_position, -global_basis.z)
@@ -565,17 +609,64 @@ func _trigger_damage_feedback() -> void:
 	_bounce_vel = Vector3(randf_range(-60.0, 60.0), randf_range(-40.0, 40.0), 0.0)
 
 
-func _on_player_destroyed() -> void:
-	# Efeito de explosão dramática
+func _start_death_sequence() -> void:
+	_is_dying = true
+	_controls_enabled = false
+	stop_firing()
+
+	if _damage_smoke:
+		_damage_smoke.reset()
+
+	# 1. Efeito de Slow-Motion instantâneo
+	Engine.time_scale = 0.22
+
+	# 2. Explosão cinematográfica de grande porte
 	var explosion: Node3D = ExplosionScript.new()
 	get_tree().current_scene.add_child(explosion)
 	explosion.global_position = global_position
 	if explosion.has_method("set"):
-		explosion.set("size_scale", 2.0)
+		explosion.set("size_scale", 2.8)
 
-	# Recupera vida e reinicia temporizador de invulnerabilidade (respawn gracioso)
+	_play_explosion_sound()
+
+	# 3. Fatiamento da nave real do jogador em 3 pedaços (Asa Esq, Centro, Asa Dir) com física
+	var forward_vel := -global_basis.z.normalized() * 65.0
+	var pf = get_parent()
+	if pf:
+		if pf.has_method("_current_speed"):
+			forward_vel = -global_basis.z.normalized() * float(pf.call("_current_speed"))
+		elif "speed" in pf:
+			forward_vel = -global_basis.z.normalized() * float(pf.get("speed"))
+
+	if EnemyWreckageScript and ship_model:
+		var target_node: Node3D = ship_model.get_node_or_null("ShipGLTF") as Node3D
+		if not target_node:
+			target_node = ship_model
+		EnemyWreckageScript.spawn_from_enemy(target_node, 1.8, forward_vel)
+
+	# Oculta o modelo da nave enquanto os 3 fragmentos explodem e voam
+	ship_model.visible = false
+
+	# 4. Timer em tempo real (não afetado pelo slow motion) para a sequência de renascimento
+	var timer := get_tree().create_timer(1.8, true, false, true)
+	timer.timeout.connect(_on_death_sequence_finished)
+
+
+func _on_death_sequence_finished() -> void:
+	# Restaura a velocidade normal do jogo
+	Engine.time_scale = 1.0
+
+	# Restaura o modelo da nave e reinicia o estado do jogador
+	ship_model.visible = true
+	if _damage_smoke:
+		_damage_smoke.reset()
+
+	_total_damage_hits = 0
 	current_health = max_health
 	health_changed.emit(current_health, max_health)
+
+	_is_dying = false
+	_controls_enabled = true
 	_start_invulnerability()
 	_invulnerability_timer = invulnerability_duration * 1.5
 	if _shield_bubble:

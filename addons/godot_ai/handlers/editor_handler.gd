@@ -671,7 +671,14 @@ func _take_screenshot_impl(params: Dictionary) -> Dictionary:
 			"Captured an empty image from %s. The 3D viewport produced no output — typically headless mode or the 3D viewport has not drawn a frame yet." % source
 		)
 
-	return _finalize_image(image, source, max_resolution)
+	var res := _finalize_image(image, source, max_resolution)
+	if source == "viewport" and viewport.get_camera_3d() != null:
+		var cam_3d := viewport.get_camera_3d()
+		var pos := cam_3d.global_position
+		res.data["camera_position"] = [pos.x, pos.y, pos.z]
+		var fwd := -cam_3d.global_basis.z.normalized()
+		res.data["camera_forward"] = [fwd.x, fwd.y, fwd.z]
+	return res
 
 
 ## Render the edited scene through its active Camera3D without running the
@@ -860,16 +867,25 @@ func _find_current_camera_3d(root: Node) -> Camera3D:
 func _finalize_image(image: Image, source: String, max_resolution: int) -> Dictionary:
 	## Shared with the game-process copy in runtime/game_helper.gd (#716).
 	var encoded := McpScreenshotEncode.downscale_and_encode(image, max_resolution)
+	var data := {
+		"source": source,
+		"width": encoded.width,
+		"height": encoded.height,
+		"original_width": encoded.original_width,
+		"original_height": encoded.original_height,
+		"format": "png",
+		"image_base64": encoded.base64,
+	}
+	if source == "viewport":
+		var vp := EditorInterface.get_editor_viewport_3d()
+		if vp != null and vp.get_camera_3d() != null:
+			var cam_3d := vp.get_camera_3d()
+			var pos := cam_3d.global_position
+			data["camera_position"] = [pos.x, pos.y, pos.z]
+			var fwd := -cam_3d.global_basis.z.normalized()
+			data["camera_forward"] = [fwd.x, fwd.y, fwd.z]
 	return {
-		"data": {
-			"source": source,
-			"width": encoded.width,
-			"height": encoded.height,
-			"original_width": encoded.original_width,
-			"original_height": encoded.original_height,
-			"format": "png",
-			"image_base64": encoded.base64,
-		}
+		"data": data
 	}
 
 

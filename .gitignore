@@ -4,6 +4,9 @@
 build/
 *.apk
 *.idsig
+*.exe
+*.pck
+jogoemsi/
 
 # Summer Engine local-only state (SummerGit, caches, locks)
 .summer/local/

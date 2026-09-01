@@ -1,0 +1,104 @@
+[gd_scene load_steps=3 format=3 uid="uid://c4n7k9d2x8j1m"]
+
+[ext_resource type="Script" path="res://addons/sketchfab/ModelDialog.gd" id="1_dlg"]
+[ext_resource type="Script" path="res://addons/sketchfab/HttpImage.gd" id="2_img"]
+
+[node name="ModelDialog" type="Window"]
+title = "Model Details"
+initial_position = 2
+size = Vector2i(750, 480)
+script = ExtResource("1_dlg")
+
+[node name="Margin" type="MarginContainer" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 16
+
+[node name="VBox" type="VBoxContainer" parent="Margin"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="HBox" type="HBoxContainer" parent="Margin/VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 16
+
+[node name="Left" type="VBoxContainer" parent="Margin/VBox/HBox"]
+custom_minimum_size = Vector2(360, 0)
+layout_mode = 2
+
+[node name="Thumbnail" type="TextureRect" parent="Margin/VBox/HBox/Left"]
+layout_mode = 2
+size_flags_vertical = 3
+expand_mode = 1
+stretch_mode = 6
+script = ExtResource("2_img")
+
+[node name="Right" type="VBoxContainer" parent="Margin/VBox/HBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 10
+
+[node name="Title" type="Label" parent="Margin/VBox/HBox/Right"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "Model Title"
+autowrap_mode = 2
+
+[node name="Author" type="Label" parent="Margin/VBox/HBox/Right"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.7, 0.75, 0.85, 1)
+theme_override_font_sizes/font_size = 13
+text = "Author: Name"
+
+[node name="HSeparator" type="HSeparator" parent="Margin/VBox/HBox/Right"]
+layout_mode = 2
+
+[node name="Stats" type="Label" parent="Margin/VBox/HBox/Right"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.5, 0.8, 1, 1)
+theme_override_font_sizes/font_size = 13
+text = "Geometry: 15k faces"
+
+[node name="License" type="Label" parent="Margin/VBox/HBox/Right"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.8, 0.8, 0.8, 1)
+theme_override_font_sizes/font_size = 12
+text = "License: CC Attribution"
+autowrap_mode = 2
+
+[node name="ProgressBar" type="ProgressBar" parent="Margin/VBox"]
+visible = false
+layout_mode = 2
+value = 50.0
+
+[node name="BottomHBox" type="HBoxContainer" parent="Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="DownloadBtn" type="Button" parent="Margin/VBox/BottomHBox"]
+custom_minimum_size = Vector2(220, 36)
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+text = "⬇ Download & Import glTF"
+
+[node name="ViewSiteBtn" type="Button" parent="Margin/VBox/BottomHBox"]
+custom_minimum_size = Vector2(140, 36)
+layout_mode = 2
+text = "🔗 View on Site"
+
+[node name="StatusLabel" type="Label" parent="Margin/VBox/BottomHBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.8, 0.85, 0.9, 1)
+theme_override_font_sizes/font_size = 12
+text_overrun_behavior = 3
+
+[connection signal="pressed" from="Margin/VBox/BottomHBox/DownloadBtn" to="." method="_on_download_pressed"]
+[connection signal="pressed" from="Margin/VBox/BottomHBox/ViewSiteBtn" to="." method="_on_view_site_pressed"]
