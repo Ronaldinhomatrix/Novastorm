@@ -35,9 +35,9 @@ func _get_plugin_icon() -> Texture2D:
 	elif FileAccess.file_exists("res://addons/sketchfab/sketchfab.png.noimport"):
 		var img := Image.new()
 		var err := img.load("res://addons/sketchfab/sketchfab.png.noimport")
-		if err == OK:
-			return ImageTexture.create_from_image(img)
-	return EditorInterface.get_editor_theme().get_icon("Spatial", "EditorIcons")
+	if EditorInterface.get_base_control():
+		return EditorInterface.get_base_control().get_theme_icon("Node3D", "EditorIcons")
+	return null
 
 
 func _make_visible(visible: bool) -> void:

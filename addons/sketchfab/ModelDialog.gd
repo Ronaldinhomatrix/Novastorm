@@ -110,7 +110,7 @@ func _on_download_pressed() -> void:
 	status_label.text = "Baixando arquivo glTF..."
 	progress_bar.value = 50.0
 
-	var safe_name := _model_data.get("name", "model").to_lower()
+	var safe_name: String = str(_model_data.get("name", "model")).to_lower()
 	var regex := RegEx.new()
 	regex.compile("[^a-zA-Z0-9_]")
 	safe_name = regex.sub(safe_name, "_", true)
