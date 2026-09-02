@@ -10,9 +10,9 @@
 [ext_resource type="PackedScene" uid="uid://bxnw7noy0gpft" path="res://assets/models/levels/grand_canyon_normalized.scn" id="10_normalized"]
 [ext_resource type="PackedScene" path="res://scenes/world/big_rock.tscn" id="11_big_rock"]
 [ext_resource type="Script" uid="uid://srmgapbdlykn" path="res://scripts/world/wave_manager.gd" id="12_wave_mgr"]
-[ext_resource type="PackedScene" path="res://scenes/enemies/enemy_tank.tscn" id="13_tank"]
-[ext_resource type="PackedScene" path="res://scenes/enemies/enemy_truck.tscn" id="14_truck"]
-[ext_resource type="PackedScene" path="res://assets/models/levels/medium_bridge.glb" id="15_medium_bridge"]
+[ext_resource type="PackedScene" uid="uid://b7vy8e8lar4tm" path="res://scenes/enemies/enemy_tank.tscn" id="13_tank"]
+[ext_resource type="PackedScene" uid="uid://cx6m1q2w3e4r5" path="res://scenes/enemies/enemy_truck.tscn" id="14_truck"]
+[ext_resource type="PackedScene" uid="uid://c5th3ikqkiujk" path="res://assets/models/levels/medium_bridge.glb" id="15_medium_bridge"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_desert"]
 sky_top_color = Color(0.85, 0.55, 0.3, 1)
@@ -79,7 +79,7 @@ directional_shadow_blend_splits = true
 directional_shadow_max_distance = 800.0
 
 [node name="GrandCanyon" parent="." unique_id=463342268 instance=ExtResource("10_normalized")]
-transform = Transform3D(20, 0, 0, 0, 15.3208885, -12.855751, 0, 12.855751, 15.3208885, 0, 1400, 0)
+transform = Transform3D(19.999998, 0, 0, 0, 15.3208885, -12.855751, 0, 12.855751, 15.3208885, 0, 1400, 0)
 
 [node name="HighBridge" parent="." unique_id=281666012 instance=ExtResource("6_high_bridge")]
 transform = Transform3D(0.56164676, 0, 0.49704418, 0, 0.75, 0, -0.49704418, 0, 0.56164676, -6305.969, 331.59235, -4560.171)
@@ -88,7 +88,7 @@ transform = Transform3D(0.56164676, 0, 0.49704418, 0, 0.75, 0, -0.49704418, 0, 0
 transform = Transform3D(4.2881327, 0.021079853, 5.5327644, -0.22192562, 6.9949703, 0.14535108, -5.528352, -0.26444954, 4.2857194, 8268.041, 260.40518, -1286.7427)
 
 [node name="MediumBridge" parent="." unique_id=987654322 instance=ExtResource("15_medium_bridge")]
-transform = Transform3D(19.744111, 0.944463, -15.306142, -0.792593, 24.98204, 0.51911, 15.314758, 0.075285, 19.75987, -2860.7, 290, -3604.1)
+transform = Transform3D(31.590576, 1.5111428, -24.489834, -1.2681491, 39.971268, 0.8305783, 24.503616, 0.12045778, 31.615791, -2860.6694, 186.93005, -3655.033)
 
 [node name="FlightPath" type="Path3D" parent="." unique_id=335664874]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8049.7285, 139.74136, -8274.0205)
@@ -123,25 +123,19 @@ script = ExtResource("12_wave_mgr")
 [node name="Tank1_Front" parent="SmallBridgeConvoy" unique_id=889911221 instance=ExtResource("13_tank")]
 transform = Transform3D(0.789764, -0.031704, -0.61259, 0.037779, 0.999282, -0.003011, -0.612246, 0.020764, -0.790395, -2773.409, 435.3475, -3482.53)
 move_speed = 10.0
-activation_distance = 1500.0
 
 [node name="Truck1_Mid1" parent="SmallBridgeConvoy" unique_id=889911222 instance=ExtResource("14_truck")]
 transform = Transform3D(0.789764, -0.031704, -0.61259, 0.037779, 0.999282, -0.003011, -0.612246, 0.020764, -0.790395, -2819.353, 435.1217, -3541.81)
 move_speed = 10.0
-activation_distance = 1500.0
 
 [node name="Tank2_Center" parent="SmallBridgeConvoy" unique_id=889911223 instance=ExtResource("13_tank")]
 transform = Transform3D(0.789764, -0.031704, -0.61259, 0.037779, 0.999282, -0.003011, -0.612246, 0.020764, -0.790395, -2865.297, 434.8958, -3601.089)
 move_speed = 10.0
-activation_distance = 1500.0
 
 [node name="Truck2_Mid2" parent="SmallBridgeConvoy" unique_id=889911224 instance=ExtResource("14_truck")]
-transform = Transform3D(0.789764, -0.031704, -0.61259, 0.037779, 0.999282, -0.003011, -0.612246, 0.020764, -0.790395, -2911.241, 434.67, -3660.369)
+transform = Transform3D(-2.491734, 0.24897623, 1.6520509, 0.20754752, 2.9896505, -0.13752528, -1.657765, 6.755814e-05, -2.5003629, -2983.52, 434.67, -3516.9756)
 move_speed = 10.0
-activation_distance = 1500.0
 
 [node name="Tank3_Rear" parent="SmallBridgeConvoy" unique_id=889911225 instance=ExtResource("13_tank")]
-transform = Transform3D(0.789764, -0.031704, -0.61259, 0.037779, 0.999282, -0.003011, -0.612246, 0.020764, -0.790395, -2957.186, 434.4441, -3719.648)
+transform = Transform3D(-2.6815948, 0.32069206, 1.306218, 0.2566689, 2.9819493, -0.20517664, -1.3202913, -0.07164505, -2.6928973, -3042.3503, 443.7367, -3431.5403)
 move_speed = 10.0
-activation_distance = 1500.0
-

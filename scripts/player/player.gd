@@ -14,9 +14,6 @@ extends CharacterBody3D
 ## Os limites de movimento são calculados DINAMICAMENTE a partir do frustum
 ## da câmera, para que a nave percorra quase toda a área visível da tela.
 
-signal health_changed(current: int, max_health: int)
-signal damage_taken(amount: int)
-
 # ---------------------------------------------------------------------------
 # Exportações e Configurações
 # ---------------------------------------------------------------------------
@@ -53,8 +50,15 @@ signal damage_taken(amount: int)
 @export var bounce_damping: float = 15.0
 
 @export_category("Vida e Escudo")
-@export var max_health: int = 3
+@export var max_shield: int = 3
+@export var max_hull: int = 3
 @export var invulnerability_duration: float = 1.0
+
+# Sinais para interface e lógica de combate
+signal shield_changed(current: int, max_val: int)
+signal hull_changed(current: int, max_val: int)
+signal health_changed(current: int, max_val: int)
+signal damage_taken(amount: int)
 
 # Scripts procedurais
 const SparkScript := preload("res://scripts/effects/spark.gd")
@@ -72,8 +76,21 @@ const ExplosionSound := preload("res://assets/audio/explosion1.ogg")
 # Estado Interno
 # ---------------------------------------------------------------------------
 
-var current_health: int = 3
-var _total_damage_hits: int = 0
+var current_shield: int = 3
+var current_hull: int = 3
+
+var current_health: int:
+	get:
+		return current_hull
+	set(val):
+		current_hull = val
+
+var max_health: int:
+	get:
+		return max_hull
+	set(val):
+		max_hull = val
+
 var _is_invulnerable: bool = false
 var _invulnerability_timer: float = 0.0
 var _is_dying: bool = false
@@ -154,7 +171,11 @@ func _ready() -> void:
 	if col_shape and col_shape.shape is BoxShape3D:
 		col_shape.shape.size = Vector3(5, 2.5, 9)
 
-	health_changed.emit(current_health, max_health)
+	current_shield = max_shield
+	current_hull = max_hull
+	shield_changed.emit(current_shield, max_shield)
+	hull_changed.emit(current_hull, max_hull)
+	health_changed.emit(current_hull, max_hull)
 
 	# Só reposiciona a nave quando ela é filha de um PathFollow3D (modo rail
 	# shooter), onde a posição local deve ficar fixa à frente da câmera.
@@ -535,17 +556,54 @@ func take_damage(amount: int) -> void:
 	if not _controls_enabled or _is_invulnerable or _is_dying:
 		return
 
-	_total_damage_hits += 1
-	current_health = maxi(0, max_health - _total_damage_hits)
-
 	damage_taken.emit(amount)
-	health_changed.emit(current_health, max_health)
-	_trigger_damage_feedback()
 
-	if _total_damage_hits >= 3 or current_health <= 0:
-		_start_death_sequence()
-	else:
+	if current_shield > 0:
+		# -------------------------------------------------------------------
+		# ETAPA 1: O SHIELD ABSORVE O TIRO
+		# -------------------------------------------------------------------
+		current_shield = maxi(0, current_shield - amount)
+		shield_changed.emit(current_shield, max_shield)
+
+		if current_shield > 0:
+			# Tiros 1 e 2 no Shield: Campo de força ciano absorve
+			if _shield_bubble:
+				_shield_bubble.activate(invulnerability_duration)
+		else:
+			# 3º Tiro no Shield: Escudo esgotado -> Shields Offline!
+			_play_shield_offline_sound()
+			if _shield_bubble:
+				_shield_bubble.trigger_shield_break(0.7)
+
+		_spawn_spark(global_position, -global_basis.z)
+		_bounce_vel = Vector3(randf_range(-40.0, 40.0), randf_range(-30.0, 30.0), 0.0)
 		_start_invulnerability()
+	else:
+		# -------------------------------------------------------------------
+		# ETAPA 2: SHIELD ESTÁ OFFLINE (0). TIROS ATINGEM DIRETAMENTE O HULL
+		# -------------------------------------------------------------------
+		current_hull = maxi(0, current_hull - amount)
+		hull_changed.emit(current_hull, max_hull)
+		health_changed.emit(current_hull, max_hull)
+
+		_spawn_spark(global_position, -global_basis.z)
+		_bounce_vel = Vector3(randf_range(-60.0, 60.0), randf_range(-40.0, 40.0), 0.0)
+
+		var hull_damage_taken: int = max_hull - current_hull # 1, 2 ou 3
+
+		if hull_damage_taken == 1:
+			# 1º Tiro no Hull (4º tiro total): Pequena fumaça na asa esquerda
+			if _damage_smoke:
+				_damage_smoke.set_damage_level(1)
+			_start_invulnerability()
+		elif hull_damage_taken == 2:
+			# 2º Tiro no Hull (5º tiro total): Fumaça mais densa + pequeno incêndio
+			if _damage_smoke:
+				_damage_smoke.set_damage_level(2)
+			_start_invulnerability()
+		else:
+			# 3º Tiro no Hull: Morte do Player com slow-motion e explosão
+			_start_death_sequence()
 
 
 func _play_shield_offline_sound() -> void:
@@ -572,41 +630,26 @@ func _play_explosion_sound() -> void:
 
 
 func heal(amount: int) -> void:
-	current_health = mini(max_health, current_health + amount)
-	_total_damage_hits = maxi(0, max_health - current_health)
+	# Restaura primeiro o Hull, e o restante para o Shield
+	var needed_hull: int = max_hull - current_hull
+	var heal_to_hull: int = mini(amount, needed_hull)
+	current_hull += heal_to_hull
+	var remaining: int = amount - heal_to_hull
+	if remaining > 0:
+		current_shield = mini(max_shield, current_shield + remaining)
+
+	var hull_damage_taken: int = max_hull - current_hull
 	if _damage_smoke:
-		_damage_smoke.set_damage_level(_total_damage_hits)
-	health_changed.emit(current_health, max_health)
+		_damage_smoke.set_damage_level(hull_damage_taken)
+
+	shield_changed.emit(current_shield, max_shield)
+	hull_changed.emit(current_hull, max_hull)
+	health_changed.emit(current_hull, max_hull)
 
 
 func _start_invulnerability() -> void:
 	_is_invulnerable = true
 	_invulnerability_timer = invulnerability_duration
-
-
-func _trigger_damage_feedback() -> void:
-	if _total_damage_hits == 1:
-		# 1º Tiro: Escudo absorve e inicia fumaça leve em um ponto da nave
-		if _shield_bubble:
-			_shield_bubble.activate(invulnerability_duration)
-		if _damage_smoke:
-			_damage_smoke.set_damage_level(1)
-	elif _total_damage_hits == 2:
-		# 2º Tiro: Escudo absorve, surge fumaça mais densa de outro local + pequeno incêndio
-		if _shield_bubble:
-			_shield_bubble.activate(invulnerability_duration)
-		if _damage_smoke:
-			_damage_smoke.set_damage_level(2)
-	elif _total_damage_hits >= 3:
-		# 3º Tiro: Shields Offline com glitch elétrico
-		_play_shield_offline_sound()
-		if _shield_bubble:
-			_shield_bubble.trigger_shield_break(0.5)
-
-	# Cria faíscas no corpo da nave indicando impacto
-	_spawn_spark(global_position, -global_basis.z)
-	# Ricochete de impacto para trás
-	_bounce_vel = Vector3(randf_range(-60.0, 60.0), randf_range(-40.0, 40.0), 0.0)
 
 
 func _start_death_sequence() -> void:
@@ -661,9 +704,12 @@ func _on_death_sequence_finished() -> void:
 	if _damage_smoke:
 		_damage_smoke.reset()
 
-	_total_damage_hits = 0
-	current_health = max_health
-	health_changed.emit(current_health, max_health)
+	current_shield = max_shield
+	current_hull = max_hull
+
+	shield_changed.emit(current_shield, max_shield)
+	hull_changed.emit(current_hull, max_hull)
+	health_changed.emit(current_hull, max_hull)
 
 	_is_dying = false
 	_controls_enabled = true

@@ -2,15 +2,13 @@ class_name EnemyTank
 extends EnemyBase
 
 ## Inimigo terrestre Tanque de Guerra (Tank1).
-## Permanece posicionado em guarda sobre o cenário (ex: pontes ou estradas) e
-## inicia deslocamento lento quando a nave do jogador se aproxima.
-## Sua torreta/canhão gira dinamicamente rastreando a posição do jogador no ar.
+## Permanece posicionado no cenário (ex: pontes ou estradas) e
+## sua torreta/canhão gira dinamicamente rastreando a posição do jogador no ar.
 
 @export_category("Movimento Terrestre")
 @export var move_speed: float = 12.0
-@export var activation_distance: float = 1500.0
 @export var custom_move_direction: Vector3 = Vector3.ZERO ## Se ZERO, move na direção forward (-basis.z)
-@export var active_move: bool = false
+@export var active_move: bool = false ## Ativa a movimentação terrestre quando verdadeiro
 @export var snap_to_ground: bool = true
 
 @export_category("Torreta e Mira")
@@ -23,7 +21,6 @@ extends EnemyBase
 
 var _turret: Node3D = null
 var _fire_timer: float = 0.0
-var _is_activated: bool = false
 var _player_ref: Node3D = null
 
 
@@ -53,25 +50,22 @@ func _physics_process(delta: float) -> void:
 	var player_pos := _player_ref.global_position if _player_ref else Vector3.ZERO
 	var dist_to_player := global_position.distance_to(player_pos) if _player_ref else 99999.0
 	
-	# 1. Ativação de movimento por proximidade do jogador
-	if not _is_activated and (active_move or dist_to_player <= activation_distance):
-		_is_activated = true
-		
-	if _is_activated and move_speed > 0.0:
+	# 1. Movimentação terrestre (apenas se active_move for verdadeiro)
+	if active_move and move_speed > 0.0:
 		var dir := custom_move_direction.normalized()
 		if dir.length_squared() < 0.01:
 			dir = -global_transform.basis.z.normalized()
 		global_position += dir * move_speed * delta
 		
-		if snap_to_ground:
-			_snap_to_ground_surface()
+	if snap_to_ground:
+		_snap_to_ground_surface()
 
 	# 2. Rastreamento e mira da torreta em direção ao jogador
 	if _turret and is_instance_valid(_turret) and _player_ref and aim_at_player:
 		_aim_turret_at_player(player_pos, delta)
 
-	# 3. Disparo de projétil em direção ao jogador
-	if can_shoot and _is_activated and dist_to_player <= max_shoot_distance:
+	# 3. Disparo de projétil em direção ao jogador quando estiver no alcance
+	if can_shoot and dist_to_player <= max_shoot_distance:
 		_fire_timer -= delta
 		if _fire_timer <= 0.0:
 			_fire_timer = fire_interval + randf_range(-0.4, 0.4)

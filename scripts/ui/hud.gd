@@ -2,27 +2,38 @@ class_name CombatHUD
 extends CanvasLayer
 
 ## HUD de combate em tempo real para Novastorm.
-## Gerencia a exibição da integridade do escudo/casco, efeito de vinheta de dano
-## e texto de alerta estilizado com fonte de computador, zoom elástico e efeito decodificador.
+## Gerencia a exibição dual:
+##   - Barra e pips de SHIELD (3 cargas, esgota com aviso de Shields Offline)
+##   - Barra e pips de HULL (3 pontos de casco, ativa fumaça/fogo e morte)
+##   - Vinheta de dano e alerta cinematográfico de texto flutuante.
 
-@export_category("Cores do Escudo")
-@export var color_high: Color = Color(0.0, 0.85, 1.0, 1.0)       # Ciano Sci-Fi
-@export var color_medium: Color = Color(1.0, 0.75, 0.1, 1.0)     # Âmbar / Amarelo
-@export var color_critical: Color = Color(1.0, 0.2, 0.2, 1.0)    # Vermelho Crítico
+@export_category("Cores do HUD")
+@export var color_shield_active: Color = Color(0.0, 0.85, 1.0, 1.0)     # Ciano
+@export var color_shield_offline: Color = Color(0.9, 0.25, 0.2, 0.8)    # Vermelho/Cinza Offline
+@export var color_hull_good: Color = Color(0.1, 0.9, 0.45, 1.0)         # Verde intacto (3/3)
+@export var color_hull_warning: Color = Color(1.0, 0.75, 0.1, 1.0)      # Âmbar danificado (2/3)
+@export var color_hull_critical: Color = Color(1.0, 0.2, 0.2, 1.0)      # Vermelho crítico (1/3)
 
 # Referências de nós na cena
-@onready var shield_bar: ProgressBar = $SafeArea/BottomLeft/ShieldContainer/ShieldBar
-@onready var shield_label: Label = $SafeArea/BottomLeft/ShieldContainer/HeaderHBox/ShieldLabel
-@onready var shield_value_label: Label = $SafeArea/BottomLeft/ShieldContainer/HeaderHBox/ShieldValue
-@onready var pips_container: HBoxContainer = $SafeArea/BottomLeft/ShieldContainer/PipsContainer
+@onready var shield_bar: ProgressBar = $SafeArea/BottomLeft/StatusContainer/ShieldContainer/ShieldBar
+@onready var shield_value_label: Label = $SafeArea/BottomLeft/StatusContainer/ShieldContainer/HeaderHBox/ShieldValue
+@onready var shield_pips: HBoxContainer = $SafeArea/BottomLeft/StatusContainer/ShieldContainer/ShieldPips
+
+@onready var hull_bar: ProgressBar = $SafeArea/BottomLeft/StatusContainer/HullContainer/HullBar
+@onready var hull_value_label: Label = $SafeArea/BottomLeft/StatusContainer/HullContainer/HeaderHBox/HullValue
+@onready var hull_pips: HBoxContainer = $SafeArea/BottomLeft/StatusContainer/HullContainer/HullPips
+
 @onready var damage_vignette: ColorRect = $DamageVignette
 
 # Alerta Cinematográfico
 @onready var warning_container: Control = $SafeArea/TopCenter/WarningContainer
 @onready var warning_title_rich: RichTextLabel = $SafeArea/TopCenter/WarningContainer/TitleRich
 
-var _current_health: int = 3
-var _max_health: int = 3
+var _current_shield: int = 3
+var _max_shield: int = 3
+var _current_hull: int = 3
+var _max_hull: int = 3
+
 var _vignette_tween: Tween = null
 var _warning_tween: Tween = null
 var _decrypt_timer: float = 0.0
@@ -45,19 +56,21 @@ func _ready() -> void:
 		warning_container.visible = false
 
 	_build_shield_pips()
+	_build_hull_pips()
 	_update_shield_display(false)
+	_update_hull_display(false)
 
 
 func _process(delta: float) -> void:
-	# Efeito de pulsação luminosa quando a vida está em estado crítico
-	if _is_pulsing_critical and shield_bar:
+	# Pulsação luminosa quando o Hull está crítico (1 ponto restante)
+	if _is_pulsing_critical and hull_bar:
 		_critical_pulse_time += delta * 6.0
 		var alpha_pulse := (sin(_critical_pulse_time) + 1.0) * 0.5 * 0.5 + 0.5
-		shield_bar.modulate = Color(1.0, 0.2, 0.2, alpha_pulse)
-	elif shield_bar and shield_bar.modulate.a != 1.0:
-		shield_bar.modulate.a = 1.0
+		hull_bar.modulate = Color(1.0, 0.2, 0.2, alpha_pulse)
+	elif hull_bar and hull_bar.modulate.a != 1.0:
+		hull_bar.modulate.a = 1.0
 
-	# Efeito de decodificação hacker/computador das letras
+	# Efeito de decodificação hacker/computador das letras de alerta
 	if _is_decrypting and warning_title_rich:
 		_decrypt_timer -= delta
 		if _decrypt_timer <= 0.0:
@@ -80,26 +93,44 @@ func attach_player(player: Node) -> void:
 	if not is_instance_valid(player):
 		return
 
-	if player.has_signal("health_changed"):
-		if not player.is_connected("health_changed", _on_player_health_changed):
-			player.connect("health_changed", _on_player_health_changed)
+	if player.has_signal("shield_changed"):
+		if not player.is_connected("shield_changed", _on_player_shield_changed):
+			player.connect("shield_changed", _on_player_shield_changed)
+
+	if player.has_signal("hull_changed"):
+		if not player.is_connected("hull_changed", _on_player_hull_changed):
+			player.connect("hull_changed", _on_player_hull_changed)
 
 	if player.has_signal("damage_taken"):
 		if not player.is_connected("damage_taken", _on_player_damage_taken):
 			player.connect("damage_taken", _on_player_damage_taken)
 
-	if "current_health" in player and "max_health" in player:
-		_max_health = player.max_health
-		_current_health = player.current_health
-		_build_shield_pips()
-		_update_shield_display(false)
+	if "current_shield" in player and "max_shield" in player:
+		_max_shield = player.max_shield
+		_current_shield = player.current_shield
+
+	if "current_hull" in player and "max_hull" in player:
+		_max_hull = player.max_hull
+		_current_hull = player.current_hull
+
+	_build_shield_pips()
+	_build_hull_pips()
+	_update_shield_display(false)
+	_update_hull_display(false)
 
 
-func _on_player_health_changed(current: int, max_val: int) -> void:
-	_max_health = max_val
-	_current_health = current
+func _on_player_shield_changed(current: int, max_val: int) -> void:
+	_max_shield = max_val
+	_current_shield = current
 	_build_shield_pips()
 	_update_shield_display(true)
+
+
+func _on_player_hull_changed(current: int, max_val: int) -> void:
+	_max_hull = max_val
+	_current_hull = current
+	_build_hull_pips()
+	_update_hull_display(true)
 
 
 func _on_player_damage_taken(_amount: int) -> void:
@@ -120,41 +151,44 @@ func flash_damage() -> void:
 	_vignette_tween.tween_property(damage_vignette, "modulate:a", 0.0, 0.45)
 
 
-## Reconstrói os segmentos (pips) visuais de acordo com o max_health
+# ---------------------------------------------------------------------------
+# Sistema de Segmentos (Pips) e Barras
+# ---------------------------------------------------------------------------
+
 func _build_shield_pips() -> void:
-	if not pips_container:
+	if not shield_pips:
 		return
-
-	for child in pips_container.get_children():
+	for child in shield_pips.get_children():
 		child.queue_free()
-
-	for i in range(_max_health):
+	for i in range(_max_shield):
 		var pip := ColorRect.new()
-		pip.custom_minimum_size = Vector2(14, 8)
+		pip.custom_minimum_size = Vector2(16, 6)
 		pip.name = "Pip_%d" % i
-		pips_container.add_child(pip)
+		shield_pips.add_child(pip)
 
 
-## Atualiza a barra de vida e os segmentos
+func _build_hull_pips() -> void:
+	if not hull_pips:
+		return
+	for child in hull_pips.get_children():
+		child.queue_free()
+	for i in range(_max_hull):
+		var pip := ColorRect.new()
+		pip.custom_minimum_size = Vector2(16, 6)
+		pip.name = "Pip_%d" % i
+		hull_pips.add_child(pip)
+
+
 func _update_shield_display(animate: bool) -> void:
 	if not shield_bar:
 		return
 
-	var ratio: float = float(_current_health) / float(maxi(1, _max_health))
+	var ratio: float = float(_current_shield) / float(maxi(1, _max_shield))
 	var target_value: float = ratio * 100.0
-
-	_is_pulsing_critical = (_current_health <= 1 and _current_health > 0)
-
-	# Atualiza cor da barra de acordo com a integridade
-	var target_color: Color = color_high
-	if ratio <= 0.25:
-		target_color = color_critical
-	elif ratio <= 0.60:
-		target_color = color_medium
 
 	var stylebox := shield_bar.get_theme_stylebox("fill")
 	if stylebox is StyleBoxFlat:
-		stylebox.bg_color = target_color
+		stylebox.bg_color = color_shield_active if _current_shield > 0 else color_shield_offline
 
 	if animate:
 		var bar_tween := create_tween()
@@ -164,20 +198,65 @@ func _update_shield_display(animate: bool) -> void:
 		shield_bar.value = target_value
 
 	if shield_value_label:
-		shield_value_label.text = "%d / %d" % [_current_health, _max_health]
-		shield_value_label.modulate = target_color
+		if _current_shield <= 0:
+			shield_value_label.text = "OFFLINE"
+			shield_value_label.modulate = color_shield_offline
+		else:
+			shield_value_label.text = "%d / %d" % [_current_shield, _max_shield]
+			shield_value_label.modulate = color_shield_active
 
-	# Atualiza pips individuais
-	if pips_container:
-		var children := pips_container.get_children()
+	if shield_pips:
+		var children := shield_pips.get_children()
 		for i in range(children.size()):
 			var pip := children[i] as ColorRect
 			if pip:
-				if i < _current_health:
+				if i < _current_shield:
+					pip.color = color_shield_active
+					pip.modulate.a = 1.0
+				else:
+					pip.color = Color(0.2, 0.2, 0.25, 0.4)
+
+
+func _update_hull_display(animate: bool) -> void:
+	if not hull_bar:
+		return
+
+	var ratio: float = float(_current_hull) / float(maxi(1, _max_hull))
+	var target_value: float = ratio * 100.0
+
+	_is_pulsing_critical = (_current_hull <= 1 and _current_hull > 0)
+
+	var target_color: Color = color_hull_good
+	if _current_hull == 2:
+		target_color = color_hull_warning
+	elif _current_hull <= 1:
+		target_color = color_hull_critical
+
+	var stylebox := hull_bar.get_theme_stylebox("fill")
+	if stylebox is StyleBoxFlat:
+		stylebox.bg_color = target_color
+
+	if animate:
+		var bar_tween := create_tween()
+		bar_tween.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+		bar_tween.tween_property(hull_bar, "value", target_value, 0.25)
+	else:
+		hull_bar.value = target_value
+
+	if hull_value_label:
+		hull_value_label.text = "%d / %d" % [_current_hull, _max_hull]
+		hull_value_label.modulate = target_color
+
+	if hull_pips:
+		var children := hull_pips.get_children()
+		for i in range(children.size()):
+			var pip := children[i] as ColorRect
+			if pip:
+				if i < _current_hull:
 					pip.color = target_color
 					pip.modulate.a = 1.0
 				else:
-					pip.color = Color(0.2, 0.2, 0.25, 0.5)
+					pip.color = Color(0.25, 0.1, 0.1, 0.4)
 
 
 func _set_rich_title(text: String) -> void:

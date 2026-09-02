@@ -2,17 +2,14 @@ class_name EnemyTruck
 extends EnemyBase
 
 ## Inimigo terrestre Caminhão de Transporte / Comboio Militar (Truck1).
-## Permanece posicionado em comboio sobre o cenário (ex: pontes ou estradas) e
-## inicia deslocamento lento quando a nave do jogador se aproxima.
+## Permanece posicionado no cenário (ex: pontes ou estradas).
 
 @export_category("Movimento Terrestre")
 @export var move_speed: float = 12.0
-@export var activation_distance: float = 1500.0
 @export var custom_move_direction: Vector3 = Vector3.ZERO ## Se ZERO, move na direção forward (-basis.z)
-@export var active_move: bool = false
+@export var active_move: bool = false ## Ativa a movimentação terrestre quando verdadeiro
 @export var snap_to_ground: bool = true
 
-var _is_activated: bool = false
 var _player_ref: Node3D = null
 
 
@@ -30,24 +27,15 @@ func _physics_process(delta: float) -> void:
 		
 	super._physics_process(delta)
 		
-	if not _player_ref or not is_instance_valid(_player_ref):
-		_player_ref = _get_player_node()
-		
-	var player_pos := _player_ref.global_position if _player_ref else Vector3.ZERO
-	var dist_to_player := global_position.distance_to(player_pos) if _player_ref else 99999.0
-	
-	# 1. Ativação de movimento por proximidade do jogador
-	if not _is_activated and (active_move or dist_to_player <= activation_distance):
-		_is_activated = true
-		
-	if _is_activated and move_speed > 0.0:
+	# 1. Movimentação terrestre (apenas se active_move for verdadeiro)
+	if active_move and move_speed > 0.0:
 		var dir := custom_move_direction.normalized()
 		if dir.length_squared() < 0.01:
 			dir = -global_transform.basis.z.normalized()
 		global_position += dir * move_speed * delta
 		
-		if snap_to_ground:
-			_snap_to_ground_surface()
+	if snap_to_ground:
+		_snap_to_ground_surface()
 
 
 func _snap_to_ground_surface() -> void:
