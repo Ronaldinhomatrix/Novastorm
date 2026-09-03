@@ -16,6 +16,7 @@ var _player_ref: Node3D = null
 func _ready() -> void:
 	max_hp = 2
 	score_value = 150
+	enable_engine_sound = false
 	super._ready()
 	
 	_player_ref = _get_player_node()

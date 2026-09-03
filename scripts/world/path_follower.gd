@@ -13,6 +13,8 @@ extends PathFollow3D
 
 @export_category("Movimento ao Longo do Path")
 @export var forward_speed: float = 65.0  ## Velocidade base (unidades por segundo ao longo da curva)
+## Zonas de velocidade personalizadas entre pontos do Path3D (ex: ponto 13 ao 18 a 150 u/s)
+@export var speed_zones: Array[PathSpeedZone] = []
 ## Curva de velocidade opcional: eixo X = progresso do caminho (0 a 1),
 ## eixo Y = multiplicador de velocidade (0 = parado, 1 = velocidade base, 2 = dobro).
 @export var speed_curve: Curve
@@ -23,8 +25,8 @@ extends PathFollow3D
 
 @export_category("Tilt da Curva (Bank)")
 @export var tilt_intensity: float = 0.25  ## Intensidade do tilt nas curvas
-@export var tilt_smoothing: float = 3.0  ## Suavizacao do tilt
-@export_range(0.0, 90.0) var max_tilt_degrees: float = 35.0  ## Angulo maximo de inclinacao (graus)
+@export var tilt_smoothing: float = 3.5  ## Suavizacao do tilt
+@export_range(0.0, 90.0) var max_tilt_degrees: float = 30.0  ## Angulo maximo de inclinacao (graus)
 
 @export_category("Giro em Parafuso (Barrel Roll)")
 @export var enable_barrel_roll: bool = true  ## Ativa o efeito de giro em parafuso
@@ -87,14 +89,46 @@ func _physics_process(delta: float) -> void:
 
 func _current_speed() -> float:
 	var base_speed := forward_speed
-	if speed_curve and speed_curve.point_count > 0:
-		var parent_path := get_parent() as Path3D
-		var total := 1.0
-		if parent_path and parent_path.curve:
-			total = maxf(parent_path.curve.get_baked_length(), 0.001)
+	var parent_path := get_parent() as Path3D
+	var c: Curve3D = parent_path.curve if parent_path else null
+
+	# 1. Zonas de Velocidade por Pontos (Prioridade alta para trechos específicos)
+	if c and speed_zones.size() > 0:
+		for zone in speed_zones:
+			if not zone:
+				continue
+			if zone.start_point < 0 or zone.start_point >= c.point_count:
+				continue
+			if zone.end_point < 0 or zone.end_point >= c.point_count:
+				continue
+
+			var s_off := c.get_closest_offset(c.get_point_position(zone.start_point))
+			var e_off := c.get_closest_offset(c.get_point_position(zone.end_point))
+			if e_off <= s_off:
+				continue
+
+			var zone_target := zone.target_speed if zone.target_speed > 0.0 else (forward_speed * zone.speed_multiplier)
+			var blend := maxf(zone.blend_distance, 0.0)
+
+			# Verifica se está no intervalo da zona (incluindo margens de blend)
+			if progress >= (s_off - blend) and progress <= (e_off + blend):
+				var weight := 1.0
+				if blend > 0.0:
+					if progress < s_off:
+						# Entrada suave na zona
+						weight = smoothstep(s_off - blend, s_off, progress)
+					elif progress > e_off:
+						# Saída suave da zona
+						weight = 1.0 - smoothstep(e_off, e_off + blend, progress)
+				base_speed = lerpf(base_speed, zone_target, weight)
+
+	# 2. Curva Global de Velocidade (Opcional)
+	if speed_curve and speed_curve.point_count > 0 and c:
+		var total := maxf(c.get_baked_length(), 0.001)
 		var normalized := clampf(progress / total, 0.0, 1.0)
 		var factor := speed_curve.sample_baked(normalized)
-		base_speed = forward_speed * clampf(factor, 0.1, 10.0)
+		base_speed = base_speed * clampf(factor, 0.1, 10.0)
+
 	return base_speed * _speed_multiplier
 
 
@@ -129,22 +163,23 @@ func _align_to_path(delta: float) -> void:
 	_smoothed_forward = _smoothed_forward.slerp(raw_forward, t).normalized()
 	var forward := _smoothed_forward
 
-	# Bank / Tilt (com amortecimento na partida para evitar solavancos iniciais)
-	var angular_velocity: float = 0.0
-	if _prev_forward.length_squared() > 0.0001:
-		var dot := clampf(_prev_forward.dot(forward), -1.0, 1.0)
-		angular_velocity = acos(dot) / maxf(delta, 0.0001)
-		var cross := _prev_forward.cross(forward)
-		var turn_sign: float = signf(cross.y)
-		angular_velocity = clampf(angular_velocity * turn_sign, -12.0, 12.0)
+	# --- Bank / Tilt preditivo baseado na curvatura da pista ---
+	# Segmentos têm ~500m: amostramos à frente proporcionalmente à velocidade para capturar a curva completa
+	var look_dist := maxf(_current_speed() * 0.5, 150.0)
+	var ahead_sample := c.sample_baked(progress + look_dist, true)
+	var far_sample := c.sample_baked(progress + look_dist * 2.2, true)
 	
-	_prev_forward = forward
+	var here_tangent := raw_forward
+	var ahead_tangent := (far_sample - ahead_sample).normalized()
 	
-	# Escala o tilt pela velocidade da nave para que a câmera não dê solavancos angulares ao acelerar do zero
+	# Produto vetorial no plano horizontal determina a direção e intensidade da curva
+	var cross_y := here_tangent.z * ahead_tangent.x - here_tangent.x * ahead_tangent.z
+	var curve_curvature := clampf(cross_y * 2.0, -1.0, 1.0)
+	
+	# Converte a curvatura em ângulo de inclinação (Bank forte nas curvas)
 	var speed_factor := clampf(_current_speed() / maxf(forward_speed * 0.3, 0.001), 0.0, 1.0)
-	var target_tilt: float = -angular_velocity * tilt_intensity * speed_factor
 	var max_tilt_rad := deg_to_rad(max_tilt_degrees)
-	target_tilt = clampf(target_tilt, -max_tilt_rad, max_tilt_rad)
+	var target_tilt: float = -curve_curvature * max_tilt_rad * speed_factor
 	
 	var tilt_t := 1.0 - exp(-tilt_smoothing * delta)
 	_smoothed_tilt = lerpf(_smoothed_tilt, target_tilt, tilt_t)
@@ -164,6 +199,31 @@ func _align_to_path(delta: float) -> void:
 	var corrected_up := right.cross(forward).normalized()
 
 	global_transform.basis = Basis(right, corrected_up, -forward).orthonormalized()
+
+
+## Retorna o tilt da curva em radianos (inclinação pura nas curvas, sem barrel roll)
+func get_curve_tilt() -> float:
+	return _smoothed_tilt
+
+
+## Retorna o tilt da curva em radianos (inclinação nas curvas)
+func get_smoothed_tilt() -> float:
+	return _smoothed_tilt
+
+
+## Indica se o PathFollower está executando um barrel roll no momento
+func is_in_barrel_roll() -> bool:
+	return absf(_barrel_roll_angle) > 0.001
+
+
+## Retorna o ângulo atual de barrel roll em radianos
+func get_barrel_roll_angle() -> float:
+	return _barrel_roll_angle
+
+
+## Retorna a inclinação total (tilt de curva + barrel roll) em radianos
+func get_total_tilt() -> float:
+	return _smoothed_tilt + _barrel_roll_angle
 
 
 # ---------------------------------------------------------------------------

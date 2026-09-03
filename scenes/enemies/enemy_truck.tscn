@@ -1,21 +1,22 @@
 [gd_scene format=3 uid="uid://cx6m1q2w3e4r5"]
 
-[ext_resource type="Script" path="res://scripts/enemies/enemy_truck.gd" id="1_truck"]
-[ext_resource type="PackedScene" path="res://assets/models/Enemys/truck1.glb" id="2_truck_glb"]
+[ext_resource type="Script" uid="uid://d3lbjckvlhjto" path="res://scripts/enemies/enemy_truck.gd" id="1_truck"]
+[ext_resource type="PackedScene" uid="uid://d146eestp1xml" path="res://assets/models/Enemys/truck1.glb" id="2_truck_glb"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_truck"]
 size = Vector3(9, 10, 20)
 
-[node name="EnemyTruck" type="Area3D"]
+[node name="EnemyTruck" type="Area3D" unique_id=1444774337]
 collision_layer = 2
 collision_mask = 2
 script = ExtResource("1_truck")
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+[node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=206896545]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5, 0)
 shape = SubResource("BoxShape3D_truck")
 
-[node name="TruckModel" type="Node3D" parent="."]
+[node name="TruckModel" type="Node3D" parent="." unique_id=1651503947]
 transform = Transform3D(10, 0, 0, 0, 10, 0, 0, 0, 10, 0, 0, 0)
 
-[node name="truck1" parent="TruckModel" instance=ExtResource("2_truck_glb")]
+[node name="truck1" parent="TruckModel" unique_id=1701407470 instance=ExtResource("2_truck_glb")]
+transform = Transform3D(0.8, 0, 0, 0, 0.8, 0, 0, 0, 0.8, 0, 0, 0)

@@ -200,34 +200,78 @@ func _process_enter(_delta: float) -> void:
 			_side = 1.0 if _current_lateral < 0.0 else -1.0
 
 
-func _process_engage(_delta: float) -> void:
+func _process_engage(delta: float) -> void:
 	var u := clampf(_phase_timer / maxf(engage_duration, 0.01), 0.0, 1.0)
 
-	# Travessia contínua e suave em S
-	var angle := (u * 2.0 - 0.5) * PI
-	_current_lateral = sin(angle) * lateral_span * _side
-	_current_vertical = base_height + sin(u * 2.0 * PI) * 4.5
+	var t_lat := _current_lateral
+	var t_vert := base_height
+	var t_dist := combat_distance_ahead
+	var t_bank := 0.0
+	var t_pitch := 0.0
+	var is_shooting_phase := false
 
-	# Oscilação suave de profundidade
-	var depth_osc := sin(u * 2.0 * PI) * 20.0
-	_current_distance = combat_distance_ahead + depth_osc
+	# Scout: Ágil, sempre em movimento, de forma previsível (Nível 1)
+	if u < 0.15:
+		# Dash suave para o centro
+		var t := u / 0.15
+		var ease_t := t * t * (3.0 - 2.0 * t)
+		t_lat = lerpf(-lateral_span * _side, lateral_span * _side * 0.2, ease_t)
+		t_vert = base_height + 2.0
+		t_bank = -_side * 0.4 * sin(ease_t * PI)
+	elif u < 0.45:
+		# Voo em arco amplo e lento no centro (Snipe sem parar)
+		var t := (u - 0.15) / 0.30
+		t_lat = lerpf(lateral_span * _side * 0.2, -lateral_span * _side * 0.2, t)
+		t_vert = base_height + sin(t * PI) * 2.5
+		t_bank = -_side * 0.2 * sin(t * PI)
+		is_shooting_phase = true
+	elif u < 0.60:
+		# Dash cruzando a tela
+		var t := (u - 0.45) / 0.15
+		var ease_t := t * t * (3.0 - 2.0 * t)
+		t_lat = lerpf(-lateral_span * _side * 0.2, lateral_span * _side * 0.7, ease_t)
+		t_dist = combat_distance_ahead - sin(ease_t * PI) * 8.0
+		t_vert = base_height - 1.0
+		t_bank = -_side * 0.6 * sin(ease_t * PI)
+	elif u < 0.85:
+		# Voo em arco amplo no canto (Snipe sem parar)
+		var t := (u - 0.60) / 0.25
+		t_lat = lerpf(lateral_span * _side * 0.7, lateral_span * _side * 0.4, t)
+		t_vert = base_height - 1.0 + sin(t * PI) * 2.5
+		t_bank = -_side * 0.2 * sin(t * PI)
+		is_shooting_phase = true
+	else:
+		# Prepara pra sair subindo
+		var t := (u - 0.85) / 0.15
+		var ease_t := t * t * (3.0 - 2.0 * t)
+		t_lat = lerpf(lateral_span * _side * 0.4, lateral_span * _side * 0.1, ease_t)
+		t_vert = lerpf(base_height, base_height + 15.0, ease_t)
+		t_dist = lerpf(combat_distance_ahead, combat_distance_ahead + 20.0, ease_t)
+		t_pitch = lerpf(0.0, 0.4, ease_t)
 
+	# Interpolação independente de framerate para evitar overshoots
+	var lerp_weight := 1.0 - exp(-7.0 * delta) # Menos agressivo (7.0 em vez de 12.0)
+	_current_lateral = lerpf(_current_lateral, t_lat, lerp_weight)
+	_current_vertical = lerpf(_current_vertical, t_vert, lerp_weight)
+	_current_distance = lerpf(_current_distance, t_dist, lerp_weight)
+	
 	_curve_offset = _get_player_progress() + _current_distance
 	var frame := _sample_curve_frame(_curve_offset, _current_lateral, _current_vertical)
 	global_position = frame["position"]
 
-	var lateral_dir := cos(angle) * _side
-	var pitch_adj := -cos(u * 2.0 * PI) * 0.15
-	var bank := -clampf(lateral_dir * 0.45, -0.55, 0.55)
-	_orient_ship(frame["forward"] + Vector3(0, pitch_adj, 0), frame["up"], bank)
+	_orient_ship(frame["forward"] + Vector3(0, t_pitch, 0), frame["up"], t_bank)
 
-	# Disparos pontuais aos 30% e 70% da travessia
-	if _shots_fired == 0 and u >= 0.30:
-		_shots_fired += 1
-		_shoot()
-	elif _shots_fired == 1 and u >= 0.70:
-		_shots_fired += 1
-		_shoot()
+	# Disparos pontuais ao entrar nas fases de snipe
+	if is_shooting_phase:
+		if _shots_fired < 2 and u < 0.30:
+			_shoot()
+			_shots_fired = 2
+		elif _shots_fired < 3 and u >= 0.50:
+			_shoot()
+			_shots_fired = 3
+	else:
+		if u < 0.15:
+			_shots_fired = 1
 
 	if u >= 1.0:
 		_phase = Phase.EXIT

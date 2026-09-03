@@ -210,8 +210,8 @@ func _ready():
 			var sound_idx := clampi(mothership_sound_point, 0, point_count - 1)
 			_mothership_sound_offset = curve.get_closest_offset(curve.get_point_position(sound_idx))
 
-			# Ponto 6 (pouco antes da Wave 1 no ponto 8) para o alerta cinematográfico único
-			var warning_point_idx := clampi(6, 0, point_count - 1)
+			# Ponto 7 (imediatamente antes da Wave 1 no ponto 8) sincronizado com o alerta de áudio
+			var warning_point_idx := clampi(7, 0, point_count - 1)
 			_initial_warning_dist = curve.get_closest_offset(curve.get_point_position(warning_point_idx))
 
 			# Offsets do Comboio Terrestre (Movimento no ponto 16, disparos dos tanques entre 17 e 18)
@@ -342,7 +342,7 @@ func _process(delta: float) -> void:
 		if path_follower.progress >= _initial_warning_dist:
 			_initial_warning_shown = true
 			if hud:
-				hud.show_cinematic_warning("WARNING // INCOMING ENEMYS", "RADAR PROXIMITY ALERT // HOSTILE SQUADRONS DETECTED", 3.5)
+				hud.show_cinematic_warning("WARNING // INCOMING ENEMIES", "RADAR PROXIMITY ALERT // HOSTILE SQUADRONS DETECTED", 5.5)
 
 	# Toca o som da Mothership ao cruzar o ponto definido.
 	_trigger_mothership_sound()

@@ -27,6 +27,7 @@ const ExplosionSounds: Array[AudioStream] = [
 @export var bullet_scene: PackedScene = null
 @export var laser_volume_db: float = -4.0
 @export var explosion_volume_db: float = -2.5
+@export var enable_engine_sound: bool = true
 @export var engine_volume_db: float = -0.5
 
 var current_hp: int = 1
@@ -115,7 +116,7 @@ func _setup_audio() -> void:
 
 
 func _setup_engine_sound() -> void:
-	if not EngineSound:
+	if not enable_engine_sound or not EngineSound:
 		return
 	_engine_audio_player = AudioStreamPlayer3D.new()
 	_engine_audio_player.name = "EngineSound3D"

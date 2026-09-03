@@ -34,6 +34,8 @@ extends CharacterBody3D
 @export var roll_amount: float = 0.6
 @export var pitch_amount: float = 0.3
 @export var rotation_speed: float = 8.0
+## Multiplicador do tilt da nave acompanhando a inclinação de curva da câmera
+@export var path_tilt_amount: float = 1.4
 
 @export_category("Combate")
 @export var fire_rate: float = 0.5
@@ -420,9 +422,36 @@ func _handle_ship_rotation(delta: float) -> void:
 	var dir_x := clampf(_recent_move_local.x / maxf(1.0, speed * delta), -1.0, 1.0)
 	var dir_y := clampf(_recent_move_local.y / maxf(1.0, speed * delta), -1.0, 1.0)
 
-	ship_model.rotation.z = lerpf(ship_model.rotation.z, -dir_x * roll_amount, rotation_speed * delta)
-	ship_model.rotation.x = lerpf(ship_model.rotation.x, dir_y * pitch_amount, rotation_speed * delta)
-	ship_model.rotation.y = lerpf(ship_model.rotation.y, -dir_x * 0.25, rotation_speed * delta)
+	# 1. Obtém o tilt/bank da curva sincronizado com o PathFollower
+	var curve_tilt := 0.0
+	var is_barrel_rolling := false
+
+	var parent_node := get_parent()
+	if parent_node:
+		# Exceção: durante o Barrel Roll (giro em parafuso da câmera), o tilt de curva é desativado na nave
+		if parent_node.has_method("is_in_barrel_roll") and parent_node.call("is_in_barrel_roll"):
+			is_barrel_rolling = true
+		elif parent_node.has_method("get_barrel_roll_angle") and absf(float(parent_node.call("get_barrel_roll_angle"))) > 0.001:
+			is_barrel_rolling = true
+
+		if not is_barrel_rolling:
+			if parent_node.has_method("get_curve_tilt"):
+				curve_tilt = float(parent_node.call("get_curve_tilt"))
+			elif parent_node.has_method("get_smoothed_tilt"):
+				curve_tilt = float(parent_node.call("get_smoothed_tilt"))
+
+	# A nave inclina acompanhando a curvatura do trilho com limite máximo de 30 graus
+	# curve_tilt < 0 é curva para a esquerda -> -curve_tilt gera roll positivo (asa esquerda baixa)
+	var max_curve_tilt_rad := deg_to_rad(30.0)
+	var curve_roll := clampf(-curve_tilt * 1.2 * path_tilt_amount, -max_curve_tilt_rad, max_curve_tilt_rad)
+	var curve_yaw := clampf(-curve_tilt * 0.3 * path_tilt_amount, -deg_to_rad(18.0), deg_to_rad(18.0))
+	var target_roll := clampf((-dir_x * roll_amount) + curve_roll, -deg_to_rad(35.0), deg_to_rad(35.0))
+	var target_pitch := dir_y * pitch_amount
+	var target_yaw := clampf((-dir_x * 0.25) + curve_yaw, -deg_to_rad(20.0), deg_to_rad(20.0))
+
+	ship_model.rotation.z = lerpf(ship_model.rotation.z, target_roll, rotation_speed * delta)
+	ship_model.rotation.x = lerpf(ship_model.rotation.x, target_pitch, rotation_speed * delta)
+	ship_model.rotation.y = lerpf(ship_model.rotation.y, target_yaw, rotation_speed * delta)
 
 
 # ---------------------------------------------------------------------------

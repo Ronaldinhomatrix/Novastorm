@@ -110,28 +110,64 @@ func _process_enter(_delta: float) -> void:
 func _process_engage(delta: float) -> void:
 	var u := clampf(_phase_timer / maxf(engage_duration, 0.01), 0.0, 1.0)
 
-	# Deriva horizontal lenta e contínua
-	var angle := u * TAU
-	_current_lateral = sin(angle) * width_amplitude * _side
-	_current_vertical = 14.0 + cos(angle) * height_amplitude
+	var t_lat := _current_lateral
+	var t_vert := 14.0
+	var t_dist := combat_distance_ahead
+	var t_bank := 0.0
+	var t_pitch := 0.0
 
-	# Oscilação suave de profundidade
-	var depth_surge := sin(angle) * 18.0
-	_current_distance = combat_distance_ahead + depth_surge
+	# Padrão pesado e tático de cruzador (nunca fica 100% parado)
+	if u < 0.20:
+		# Posiciona-se no centro e alto
+		var t := u / 0.20
+		var ease_t := t * t * (3.0 - 2.0 * t)
+		t_lat = lerpf(-width_amplitude * _side * 0.5, 0.0, ease_t)
+		t_vert = lerpf(14.0, 18.0, ease_t)
+		t_bank = -_side * 0.15 * sin(ease_t * PI)
+	elif u < 0.45:
+		# Lento avanço pelo centro (Dispara)
+		var t := (u - 0.20) / 0.25
+		t_lat = lerpf(0.0, width_amplitude * _side * 0.3, t)
+		t_vert = 18.0 + sin(t * PI) * 1.5
+		t_bank = -_side * 0.05 * sin(t * PI)
+	elif u < 0.70:
+		# Move-se pesadamente para o flanco oposto
+		var t := (u - 0.45) / 0.25
+		var ease_t := t * t * (3.0 - 2.0 * t)
+		t_lat = lerpf(width_amplitude * _side * 0.3, width_amplitude * _side * 0.8, ease_t)
+		t_vert = lerpf(18.0, 12.0, ease_t)
+		t_dist = combat_distance_ahead + sin(ease_t * PI) * 12.0
+		t_bank = -_side * 0.3 * sin(ease_t * PI)
+	elif u < 0.90:
+		# Lento avanço pelo flanco (Dispara)
+		var t := (u - 0.70) / 0.20
+		t_lat = lerpf(width_amplitude * _side * 0.8, width_amplitude * _side * 0.5, t)
+		t_vert = 12.0 + sin(t * PI) * 1.5
+		t_bank = _side * 0.05 * sin(t * PI)
+	else:
+		# Prepara para sair subindo
+		var t := (u - 0.90) / 0.10
+		var ease_t := t * t * (3.0 - 2.0 * t)
+		t_lat = lerpf(width_amplitude * _side * 0.5, width_amplitude * _side, ease_t)
+		t_vert = lerpf(12.0, 25.0, ease_t)
+		t_pitch = lerpf(0.0, 0.25, ease_t)
+
+	# Interpolação independente de framerate para evitar overshoots ("nave desaparecendo")
+	var lerp_weight := 1.0 - exp(-2.0 * delta) # Simula peso/inércia grande (2.0)
+	_current_lateral = lerpf(_current_lateral, t_lat, lerp_weight)
+	_current_vertical = lerpf(_current_vertical, t_vert, lerp_weight)
+	_current_distance = lerpf(_current_distance, t_dist, lerp_weight)
 
 	_curve_offset = _get_player_progress() + _current_distance
 	var frame := _sample_curve_frame(_curve_offset, _current_lateral, _current_vertical)
 	global_position = frame["position"]
 
-	# Banking suave e pesado de cruzador espacial
-	var bank := -cos(angle) * 0.25 * _side
-	var pitch_adj := -cos(angle) * 0.10
-	_orient_ship(frame["forward"] + Vector3(0, pitch_adj, 0), frame["up"], bank)
+	_orient_ship(frame["forward"] + Vector3(0, t_pitch, 0), frame["up"], t_bank)
 
-	# Sistema de ataques alternados
+	# Sistema de ataques contínuos
 	_attack_timer -= delta
 	if _attack_timer <= 0.0:
-		_attack_timer = 2.4
+		_attack_timer = 2.0 
 		_execute_attack()
 
 	if u >= 1.0:

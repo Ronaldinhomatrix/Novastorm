@@ -227,44 +227,77 @@ func _process_enter(_delta: float) -> void:
 func _process_engage(delta: float) -> void:
 	var u := clampf(_phase_timer / maxf(engage_duration, 0.01), 0.0, 1.0)
 
-	# Travessia lateral suave com manobras de aproximação tática
-	var smooth_u := u * u * (3.0 - 2.0 * u)
-	_current_lateral = lerpf(-lateral_span * _side, lateral_span * _side, smooth_u)
-	_current_vertical = base_height + sin(u * TAU) * 4.5
+	var t_lat := _current_lateral
+	var t_vert := base_height
+	var t_dist := combat_distance_ahead
+	var t_bank := 0.0
+	var t_pitch := 0.0
+	var extra_roll := 0.0
+	
+	var is_shooting_phase := false
 
-	# Oscilação suave de profundidade
-	var depth_wave := sin(u * 2.0 * PI) * 22.0
-	_current_distance = combat_distance_ahead + depth_wave
+	# Padrão tático segmentado estilo AAA (Nível 1 - Sem ficar parado)
+	if u < 0.15:
+		# Varredura suave de entrada
+		var t := u / 0.15
+		var ease_t := t * t * (3.0 - 2.0 * t)
+		t_lat = lerpf(-lateral_span * _side, lateral_span * _side * 0.4, ease_t)
+		t_vert = base_height + sin(ease_t * PI) * 3.0
+		t_bank = -_side * 0.6 * sin(ease_t * PI)
+	elif u < 0.45:
+		# Deslizamento tático constante e rastreio (Atira)
+		var t := (u - 0.15) / 0.30
+		t_lat = lerpf(lateral_span * _side * 0.4, lateral_span * _side * 0.8, t)
+		t_vert = base_height + sin(t * TAU) * 1.5
+		t_bank = -_side * 0.15 * sin(t * TAU)
+		is_shooting_phase = true
+	elif u < 0.60:
+		# Evasão suave: Barrel roll lento para o outro lado
+		var t := (u - 0.45) / 0.15
+		var ease_t := t * t * (3.0 - 2.0 * t)
+		t_lat = lerpf(lateral_span * _side * 0.8, -lateral_span * _side * 0.4, ease_t)
+		t_vert = base_height - sin(ease_t * PI) * 2.0
+		t_dist = combat_distance_ahead + sin(ease_t * PI) * 10.0
+		t_bank = -_side * 0.4 * sin(ease_t * PI)
+		extra_roll = ease_t * TAU * -_side
+	elif u < 0.90:
+		# Deslizamento tático constante no outro lado (Atira)
+		var t := (u - 0.60) / 0.30
+		t_lat = lerpf(-lateral_span * _side * 0.4, -lateral_span * _side * 0.8, t)
+		t_vert = base_height + sin(t * TAU) * 1.5
+		t_bank = _side * 0.15 * sin(t * TAU)
+		is_shooting_phase = true
+	else:
+		# Preparação para saída subindo
+		var t := (u - 0.90) / 0.10
+		var ease_t := t * t * (3.0 - 2.0 * t)
+		t_lat = -lateral_span * _side * 0.8
+		t_vert = lerpf(base_height, base_height + 15.0, ease_t)
+		t_dist = lerpf(combat_distance_ahead, combat_distance_ahead + 20.0, ease_t)
+		t_pitch = lerpf(0.0, 0.35, ease_t)
+		t_bank = 0.0
 
+	# Interpolação independente de framerate para evitar overshoots ("nave desaparecendo")
+	var lerp_weight := 1.0 - exp(-6.0 * delta) # Movimento mais suave (6.0 em vez de 8.0)
+	_current_lateral = lerpf(_current_lateral, t_lat, lerp_weight)
+	_current_vertical = lerpf(_current_vertical, t_vert, lerp_weight)
+	_current_distance = lerpf(_current_distance, t_dist, lerp_weight)
+	
 	_curve_offset = _get_player_progress() + _current_distance
 	var frame := _sample_curve_frame(_curve_offset, _current_lateral, _current_vertical)
 	global_position = frame["position"]
 
-	var base_bank := -_side * 0.35
-	var pitch_adj := -cos(u * 2.0 * PI) * 0.15
+	var final_bank := t_bank + extra_roll
+	_orient_ship(frame["forward"] + Vector3(0, t_pitch, 0), frame["up"], final_bank)
 
-	# Único Barrel Roll pontual aos 45% da travessia (na metade do voo)
-	if not _roll_done and u >= 0.45:
-		_is_rolling = true
-		_roll_timer = 0.0
-		_roll_done = true
-
-	var extra_roll := 0.0
-	if _is_rolling:
-		_roll_timer += delta
-		var roll_t := clampf(_roll_timer / maxf(roll_duration, 0.01), 0.0, 1.0)
-		var smooth_roll := roll_t * roll_t * (3.0 - 2.0 * roll_t)
-		extra_roll = smooth_roll * TAU * -_side
-		if roll_t >= 1.0:
-			_is_rolling = false
-
-	_orient_ship(frame["forward"] + Vector3(0, pitch_adj, 0), frame["up"], base_bank + extra_roll)
-
-	# Disparo periódico de lasers duplos a cada 2.0s
-	_fire_timer -= delta
-	if _fire_timer <= 0.0:
-		_fire_timer = 2.0
-		_shoot_twin_lasers()
+	# Lógica de tiro: Rajadas durante as fases de hover
+	if is_shooting_phase:
+		_fire_timer -= delta
+		if _fire_timer <= 0.0:
+			_fire_timer = 0.6  # Dispara um pouco mais lento (0.6s) para ser mais fácil
+			_shoot_twin_lasers()
+	else:
+		_fire_timer = 0.3
 
 	if u >= 1.0:
 		_phase = Phase.EXIT

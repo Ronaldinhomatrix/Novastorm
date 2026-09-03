@@ -1,27 +1,28 @@
 class_name CombatHUD
 extends CanvasLayer
 
-## HUD de combate em tempo real para Novastorm.
-## Gerencia a exibição dual:
-##   - Barra e pips de SHIELD (3 cargas, esgota com aviso de Shields Offline)
-##   - Barra e pips de HULL (3 pontos de casco, ativa fumaça/fogo e morte)
-##   - Vinheta de dano e alerta cinematográfico de texto flutuante.
+## HUD de combate tático estilo AAA para Novastorm.
+## Painel militar/cyberpunk de monitoramento dual:
+##   - Módulo de SHIELD (Células de energia holográfica ciano / aviso OFFLINE)
+##   - Módulo de HULL INTEGRITY (Blindagem em células com estados Verde/Âmbar/Vermelho)
+##   - Tremer de painel em impactos (Hit Shiver), vinheta e avisos cinematográficos.
 
 @export_category("Cores do HUD")
-@export var color_shield_active: Color = Color(0.0, 0.85, 1.0, 1.0)     # Ciano
-@export var color_shield_offline: Color = Color(0.9, 0.25, 0.2, 0.8)    # Vermelho/Cinza Offline
-@export var color_hull_good: Color = Color(0.1, 0.9, 0.45, 1.0)         # Verde intacto (3/3)
-@export var color_hull_warning: Color = Color(1.0, 0.75, 0.1, 1.0)      # Âmbar danificado (2/3)
-@export var color_hull_critical: Color = Color(1.0, 0.2, 0.2, 1.0)      # Vermelho crítico (1/3)
+@export var color_shield_active: Color = Color(0.0, 0.88, 1.0, 1.0)       # Ciano Neon
+@export var color_shield_offline: Color = Color(0.95, 0.2, 0.15, 0.85)   # Vermelho Alerta
+@export var color_hull_good: Color = Color(0.08, 0.92, 0.48, 1.0)         # Verde Esmeralda (3/3)
+@export var color_hull_warning: Color = Color(1.0, 0.72, 0.1, 1.0)        # Âmbar Tático (2/3)
+@export var color_hull_critical: Color = Color(1.0, 0.22, 0.2, 1.0)       # Vermelho Crítico (1/3)
 
 # Referências de nós na cena
-@onready var shield_bar: ProgressBar = $SafeArea/BottomLeft/StatusContainer/ShieldContainer/ShieldBar
-@onready var shield_value_label: Label = $SafeArea/BottomLeft/StatusContainer/ShieldContainer/HeaderHBox/ShieldValue
-@onready var shield_pips: HBoxContainer = $SafeArea/BottomLeft/StatusContainer/ShieldContainer/ShieldPips
+@onready var tactical_panel: PanelContainer = $SafeArea/BottomLeft/TacticalPanel
+@onready var shield_row: HBoxContainer = $SafeArea/BottomLeft/TacticalPanel/Margin/StatusVBox/ShieldRow
+@onready var shield_label: Label = $SafeArea/BottomLeft/TacticalPanel/Margin/StatusVBox/ShieldRow/ShieldLabel
+@onready var shield_pips: HBoxContainer = $SafeArea/BottomLeft/TacticalPanel/Margin/StatusVBox/ShieldRow/ShieldPips
 
-@onready var hull_bar: ProgressBar = $SafeArea/BottomLeft/StatusContainer/HullContainer/HullBar
-@onready var hull_value_label: Label = $SafeArea/BottomLeft/StatusContainer/HullContainer/HeaderHBox/HullValue
-@onready var hull_pips: HBoxContainer = $SafeArea/BottomLeft/StatusContainer/HullContainer/HullPips
+@onready var hull_row: HBoxContainer = $SafeArea/BottomLeft/TacticalPanel/Margin/StatusVBox/HullRow
+@onready var hull_label: Label = $SafeArea/BottomLeft/TacticalPanel/Margin/StatusVBox/HullRow/HullLabel
+@onready var hull_pips: HBoxContainer = $SafeArea/BottomLeft/TacticalPanel/Margin/StatusVBox/HullRow/HullPips
 
 @onready var damage_vignette: ColorRect = $DamageVignette
 
@@ -36,9 +37,13 @@ var _max_hull: int = 3
 
 var _vignette_tween: Tween = null
 var _warning_tween: Tween = null
+var _panel_shake_tween: Tween = null
+var _shield_blink_tween: Tween = null
+var _is_shield_down: bool = false
+var _shield_down_time: float = 0.0
 var _decrypt_timer: float = 0.0
 var _is_decrypting: bool = false
-var _target_title_text: String = "WARNING // INCOMING ENEMYS"
+var _target_title_text: String = "WARNING // INCOMING ENEMIES"
 
 var _is_pulsing_critical: bool = false
 var _critical_pulse_time: float = 0.0
@@ -62,15 +67,26 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
-	# Pulsação luminosa quando o Hull está crítico (1 ponto restante)
-	if _is_pulsing_critical and hull_bar:
-		_critical_pulse_time += delta * 6.0
-		var alpha_pulse := (sin(_critical_pulse_time) + 1.0) * 0.5 * 0.5 + 0.5
-		hull_bar.modulate = Color(1.0, 0.2, 0.2, alpha_pulse)
-	elif hull_bar and hull_bar.modulate.a != 1.0:
-		hull_bar.modulate.a = 1.0
+	# Pulsação suave de alarme quando o Hull está crítico (1 ponto restante)
+	if _is_pulsing_critical and hull_pips:
+		_critical_pulse_time += delta * 5.0
+		var alpha_pulse := (sin(_critical_pulse_time) + 1.0) * 0.5 * 0.45 + 0.55
+		hull_pips.modulate.a = alpha_pulse
+		if hull_label:
+			hull_label.modulate.a = alpha_pulse
+	else:
+		if hull_pips and hull_pips.modulate.a != 1.0:
+			hull_pips.modulate.a = 1.0
+		if hull_label and hull_label.modulate.a != 1.0:
+			hull_label.modulate.a = 1.0
 
-	# Efeito de decodificação hacker/computador das letras de alerta
+	# Alerta contínuo quando o Shield caiu completamente (0 de escudo)
+	if _is_shield_down and shield_label:
+		_shield_down_time += delta * 4.5
+		var shield_down_alpha := (sin(_shield_down_time) + 1.0) * 0.5 * 0.6 + 0.35
+		shield_label.modulate = Color(1.3, 0.25, 0.25, shield_down_alpha)
+
+	# Decodificação hacker/computador das letras do alerta
 	if _is_decrypting and warning_title_rich:
 		_decrypt_timer -= delta
 		if _decrypt_timer <= 0.0:
@@ -120,10 +136,23 @@ func attach_player(player: Node) -> void:
 
 
 func _on_player_shield_changed(current: int, max_val: int) -> void:
+	var prev := _current_shield
 	_max_shield = max_val
 	_current_shield = current
 	_build_shield_pips()
 	_update_shield_display(true)
+
+	if current < prev:
+		if current <= 0:
+			_trigger_shield_break_blink()
+		else:
+			_trigger_shield_hit_blink()
+	elif current > 0:
+		_is_shield_down = false
+		if _shield_blink_tween and _shield_blink_tween.is_running():
+			_shield_blink_tween.kill()
+		if shield_row:
+			shield_row.modulate = Color.WHITE
 
 
 func _on_player_hull_changed(current: int, max_val: int) -> void:
@@ -135,6 +164,23 @@ func _on_player_hull_changed(current: int, max_val: int) -> void:
 
 func _on_player_damage_taken(_amount: int) -> void:
 	flash_damage()
+	_shiver_tactical_panel()
+
+
+## Dispara o efeito de tremer o painel tático ao sofrer impacto
+func _shiver_tactical_panel() -> void:
+	if not tactical_panel:
+		return
+	if _panel_shake_tween and _panel_shake_tween.is_running():
+		_panel_shake_tween.kill()
+
+	var orig_pos := Vector2(0, 0)
+	_panel_shake_tween = create_tween()
+	_panel_shake_tween.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
+	_panel_shake_tween.tween_property(tactical_panel, "position:x", orig_pos.x - 8.0, 0.04)
+	_panel_shake_tween.tween_property(tactical_panel, "position:x", orig_pos.x + 6.0, 0.04)
+	_panel_shake_tween.tween_property(tactical_panel, "position:x", orig_pos.x - 3.0, 0.04)
+	_panel_shake_tween.tween_property(tactical_panel, "position:x", orig_pos.x, 0.04)
 
 
 ## Dispara o efeito de vinheta de dano na tela (flash vermelho nas bordas)
@@ -152,125 +198,204 @@ func flash_damage() -> void:
 
 
 # ---------------------------------------------------------------------------
-# Sistema de Segmentos (Pips) e Barras
+# Células Táticas de Energia / Blindagem (AAA Pips)
 # ---------------------------------------------------------------------------
 
 func _build_shield_pips() -> void:
 	if not shield_pips:
 		return
+	if shield_pips.get_child_count() == _max_shield:
+		return
 	for child in shield_pips.get_children():
 		child.queue_free()
+
 	for i in range(_max_shield):
-		var pip := ColorRect.new()
-		pip.custom_minimum_size = Vector2(16, 6)
-		pip.name = "Pip_%d" % i
+		var pip := PanelContainer.new()
+		pip.custom_minimum_size = Vector2(0, 10)
+		pip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		pip.size_flags_vertical = Control.SIZE_FILL
+		pip.name = "ShieldPip_%d" % i
 		shield_pips.add_child(pip)
 
 
 func _build_hull_pips() -> void:
 	if not hull_pips:
 		return
+	if hull_pips.get_child_count() == _max_hull:
+		return
 	for child in hull_pips.get_children():
 		child.queue_free()
+
 	for i in range(_max_hull):
-		var pip := ColorRect.new()
-		pip.custom_minimum_size = Vector2(16, 6)
-		pip.name = "Pip_%d" % i
+		var pip := PanelContainer.new()
+		pip.custom_minimum_size = Vector2(0, 10)
+		pip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		pip.size_flags_vertical = Control.SIZE_FILL
+		pip.name = "HullPip_%d" % i
 		hull_pips.add_child(pip)
 
 
 func _update_shield_display(animate: bool) -> void:
-	if not shield_bar:
+	if not shield_pips:
 		return
 
-	var ratio: float = float(_current_shield) / float(maxi(1, _max_shield))
-	var target_value: float = ratio * 100.0
-
-	var stylebox := shield_bar.get_theme_stylebox("fill")
-	if stylebox is StyleBoxFlat:
-		stylebox.bg_color = color_shield_active if _current_shield > 0 else color_shield_offline
-
-	if animate:
-		var bar_tween := create_tween()
-		bar_tween.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
-		bar_tween.tween_property(shield_bar, "value", target_value, 0.25)
+	if _current_shield > 0:
+		_is_shield_down = false
+		if shield_label:
+			shield_label.modulate = Color(0.2, 1.15, 1.35, 1.0)
 	else:
-		shield_bar.value = target_value
+		_is_shield_down = true
 
-	if shield_value_label:
-		if _current_shield <= 0:
-			shield_value_label.text = "OFFLINE"
-			shield_value_label.modulate = color_shield_offline
+	var children := shield_pips.get_children()
+	for i in range(children.size()):
+		var pip := children[i] as PanelContainer
+		if not pip:
+			continue
+
+		var is_active := (i < _current_shield)
+		var sb := StyleBoxFlat.new()
+		sb.corner_radius_top_left = 2
+		sb.corner_radius_top_right = 2
+		sb.corner_radius_bottom_right = 2
+		sb.corner_radius_bottom_left = 2
+
+		if is_active:
+			# ACESO: Extremamente brilhante, neon emissivo com contorno luminoso e sombra de glow intensa
+			sb.bg_color = Color(0.1, 1.1, 1.35, 1.0)
+			sb.border_width_left = 1
+			sb.border_width_top = 1
+			sb.border_width_right = 1
+			sb.border_width_bottom = 1
+			sb.border_color = Color(0.9, 1.3, 1.4, 1.0)
+			sb.shadow_color = Color(0.0, 0.95, 1.0, 0.85)
+			sb.shadow_size = 6
+			pip.modulate = Color(1.15, 1.15, 1.15, 1.0)
 		else:
-			shield_value_label.text = "%d / %d" % [_current_shield, _max_shield]
-			shield_value_label.modulate = color_shield_active
+			# APAGADO: Escuro, oco, desativado, sem brilho
+			sb.bg_color = Color(0.03, 0.05, 0.08, 0.85)
+			sb.border_width_left = 1
+			sb.border_width_top = 1
+			sb.border_width_right = 1
+			sb.border_width_bottom = 1
+			sb.border_color = Color(0.15, 0.2, 0.28, 0.35)
+			sb.shadow_size = 0
+			pip.modulate = Color(1.0, 1.0, 1.0, 0.5)
 
-	if shield_pips:
-		var children := shield_pips.get_children()
-		for i in range(children.size()):
-			var pip := children[i] as ColorRect
-			if pip:
-				if i < _current_shield:
-					pip.color = color_shield_active
-					pip.modulate.a = 1.0
-				else:
-					pip.color = Color(0.2, 0.2, 0.25, 0.4)
+		pip.add_theme_stylebox_override("panel", sb)
+
+		if animate and i == _current_shield:
+			var flash_tween := create_tween()
+			pip.modulate = Color(3.0, 3.0, 3.0, 1.0)
+			flash_tween.tween_property(pip, "modulate", Color(1.0, 1.0, 1.0, 0.5), 0.25)
 
 
 func _update_hull_display(animate: bool) -> void:
-	if not hull_bar:
+	if not hull_pips:
 		return
-
-	var ratio: float = float(_current_hull) / float(maxi(1, _max_hull))
-	var target_value: float = ratio * 100.0
 
 	_is_pulsing_critical = (_current_hull <= 1 and _current_hull > 0)
 
-	var target_color: Color = color_hull_good
+	var target_color: Color = Color(0.15, 1.15, 0.55, 1.0)  # Verde esmeralda brilhante
+	var target_glow: Color = Color(0.1, 0.95, 0.45, 0.85)
+	var target_border: Color = Color(0.8, 1.3, 0.9, 1.0)
+
 	if _current_hull == 2:
-		target_color = color_hull_warning
+		target_color = Color(1.2, 0.85, 0.1, 1.0)  # Âmbar brilhante
+		target_glow = Color(1.0, 0.75, 0.1, 0.85)
+		target_border = Color(1.3, 1.1, 0.6, 1.0)
 	elif _current_hull <= 1:
-		target_color = color_hull_critical
+		target_color = Color(1.35, 0.2, 0.15, 1.0)  # Vermelho alarme brilhante
+		target_glow = Color(1.0, 0.15, 0.1, 0.85)
+		target_border = Color(1.4, 0.6, 0.5, 1.0)
 
-	var stylebox := hull_bar.get_theme_stylebox("fill")
-	if stylebox is StyleBoxFlat:
-		stylebox.bg_color = target_color
+	if hull_label:
+		hull_label.modulate = target_color
 
-	if animate:
-		var bar_tween := create_tween()
-		bar_tween.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
-		bar_tween.tween_property(hull_bar, "value", target_value, 0.25)
-	else:
-		hull_bar.value = target_value
+	var children := hull_pips.get_children()
+	for i in range(children.size()):
+		var pip := children[i] as PanelContainer
+		if not pip:
+			continue
 
-	if hull_value_label:
-		hull_value_label.text = "%d / %d" % [_current_hull, _max_hull]
-		hull_value_label.modulate = target_color
+		var is_active := (i < _current_hull)
+		var sb := StyleBoxFlat.new()
+		sb.corner_radius_top_left = 2
+		sb.corner_radius_top_right = 2
+		sb.corner_radius_bottom_right = 2
+		sb.corner_radius_bottom_left = 2
 
-	if hull_pips:
-		var children := hull_pips.get_children()
-		for i in range(children.size()):
-			var pip := children[i] as ColorRect
-			if pip:
-				if i < _current_hull:
-					pip.color = target_color
-					pip.modulate.a = 1.0
-				else:
-					pip.color = Color(0.25, 0.1, 0.1, 0.4)
+		if is_active:
+			# ACESO: Muito brilhante com contorno e glow correspondentes
+			sb.bg_color = target_color
+			sb.border_width_left = 1
+			sb.border_width_top = 1
+			sb.border_width_right = 1
+			sb.border_width_bottom = 1
+			sb.border_color = target_border
+			sb.shadow_color = target_glow
+			sb.shadow_size = 6
+			pip.modulate = Color(1.15, 1.15, 1.15, 1.0)
+		else:
+			# APAGADO: Vazio e escuro
+			sb.bg_color = Color(0.05, 0.03, 0.03, 0.85)
+			sb.border_width_left = 1
+			sb.border_width_top = 1
+			sb.border_width_right = 1
+			sb.border_width_bottom = 1
+			sb.border_color = Color(0.25, 0.12, 0.12, 0.35)
+			sb.shadow_size = 0
+			pip.modulate = Color(1.0, 1.0, 1.0, 0.5)
+
+		pip.add_theme_stylebox_override("panel", sb)
+
+		if animate and i == _current_hull:
+			var flash_tween := create_tween()
+			pip.modulate = Color(3.0, 3.0, 3.0, 1.0)
+			flash_tween.tween_property(pip, "modulate", Color(1.0, 1.0, 1.0, 0.5), 0.25)
+
+
+## Pisca intensamente toda a linha de Shield quando o escudo cai para 0
+func _trigger_shield_break_blink() -> void:
+	_is_shield_down = true
+	_shield_down_time = 0.0
+
+	if not shield_row:
+		return
+
+	if _shield_blink_tween and _shield_blink_tween.is_running():
+		_shield_blink_tween.kill()
+
+	_shield_blink_tween = create_tween()
+	# Sequência rápida de 5 piscadas estroboscópicas em vermelho alarme
+	for _i in range(5):
+		_shield_blink_tween.tween_property(shield_row, "modulate", Color(2.6, 0.3, 0.3, 1.0), 0.07)
+		_shield_blink_tween.tween_property(shield_row, "modulate", Color(0.3, 0.06, 0.06, 0.2), 0.07)
+
+	_shield_blink_tween.tween_property(shield_row, "modulate", Color.WHITE, 0.1)
+
+
+## Pisca sutilmente a linha de Shield ao tomar dano parcial
+func _trigger_shield_hit_blink() -> void:
+	if not shield_row:
+		return
+	var hit_tween := create_tween()
+	hit_tween.tween_property(shield_row, "modulate", Color(2.2, 2.2, 2.5, 1.0), 0.06)
+	hit_tween.tween_property(shield_row, "modulate", Color(0.4, 0.8, 1.0, 0.6), 0.06)
+	hit_tween.tween_property(shield_row, "modulate", Color.WHITE, 0.08)
 
 
 func _set_rich_title(text: String) -> void:
 	if warning_title_rich:
-		warning_title_rich.text = "[center][b][wave amp=18.0 freq=3.5][color=#ffcc00]%s[/color][/wave][/b][/center]" % text
+		warning_title_rich.text = "[center][b][wave amp=24.0 freq=4.0][color=#ffcc00]%s[/color][/wave][/b][/center]" % text
 
 
-## Exibe o alerta com Zoom Explosivo, Efeito Elástico e Decodificador de Computador
-func show_cinematic_warning(title: String = "WARNING // INCOMING ENEMYS", _subtitle: String = "", duration: float = 3.5) -> void:
+## Exibe o alerta com animação elástica das letras crescendo
+func show_cinematic_warning(title: String = "WARNING // INCOMING ENEMIES", _subtitle: String = "", duration: float = 5.5) -> void:
 	if not warning_container:
 		return
 
 	_target_title_text = title
-	_decrypt_timer = 0.35
+	_decrypt_timer = 0.45
 	_is_decrypting = true
 
 	warning_container.visible = true
@@ -278,26 +403,27 @@ func show_cinematic_warning(title: String = "WARNING // INCOMING ENEMYS", _subti
 	if _warning_tween and _warning_tween.is_running():
 		_warning_tween.kill()
 
-	# 1. Entrada com ZOOM EXPLOSIVO (Scale 2.4x -> 1.0x com impacto elástico)
-	warning_container.scale = Vector2(2.4, 2.4)
+	# 1. Efeito Elástico: as letras iniciam em escala quase zero e crescem com overshoot elástico elástico
+	warning_container.scale = Vector2(0.02, 0.02)
 	warning_container.pivot_offset = Vector2(350.0, 30.0)
 	warning_container.modulate.a = 0.0
 
 	_warning_tween = create_tween()
 	_warning_tween.set_parallel(true)
-	_warning_tween.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
-	_warning_tween.tween_property(warning_container, "modulate:a", 1.0, 0.25)
-	_warning_tween.tween_property(warning_container, "scale", Vector2.ONE, 0.45)
+	# Entrada rápida de opacidade para visibilidade imediata
+	_warning_tween.tween_property(warning_container, "modulate:a", 1.0, 0.16).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	# As letras explodem e quicam elásticamente (0.02 -> 1.35x -> 0.88x -> 1.05x -> 1.0x)
+	_warning_tween.tween_property(warning_container, "scale", Vector2.ONE, 1.05).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
 
-	# 2. Duração de exibição
+	# 2. Duração de permanência para o jogador ler com calma durante a aproximação da wave
 	_warning_tween.chain().set_parallel(false)
 	_warning_tween.tween_interval(duration)
 
-	# 3. Saída: dissolução e colapso suave
-	_warning_tween.set_parallel(true)
-	_warning_tween.set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_QUAD)
-	_warning_tween.tween_property(warning_container, "scale", Vector2(1.15, 0.0), 0.25)
-	_warning_tween.tween_property(warning_container, "modulate:a", 0.0, 0.25)
+	# 3. Saída cinematográfica: colapso elástico vertical suave e fade out
+	_warning_tween.chain().set_parallel(true)
+	_warning_tween.set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_BACK)
+	_warning_tween.tween_property(warning_container, "scale", Vector2(1.2, 0.0), 0.35)
+	_warning_tween.tween_property(warning_container, "modulate:a", 0.0, 0.3)
 
 	_warning_tween.chain().set_parallel(false)
 	_warning_tween.tween_callback(func():
