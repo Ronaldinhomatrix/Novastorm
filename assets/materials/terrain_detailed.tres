@@ -17,7 +17,13 @@ image = SubResource("Image_ifaav")
 
 [resource]
 albedo_texture = ExtResource("1_ifaav")
+roughness = 0.85
+normal_enabled = true
+normal_scale = 1.3
 normal_texture = ExtResource("2_lgxu7")
+uv1_scale = Vector3(0.015, 0.015, 0.015)
+uv1_triplanar = true
+uv1_world_triplanar = true
 detail_enabled = true
 detail_blend_mode = 3
 detail_uv_layer = 1

@@ -53,6 +53,12 @@ var _crosshair: Control = null  ## Instância do crosshair UI
 ## Volume do som da Mothership em dB (+3.0 dB ≈ +40% de volume).
 @export_range(-20.0, 10.0, 0.5) var mothership_sound_volume_db: float = 3.0
 
+@export_category("Comboio Terrestre (SmallBridgeConvoy)")
+@export var convoy_node_path: NodePath = "SmallBridgeConvoy"
+@export var convoy_move_start_point: int = 16  ## Ponto onde o comboio começa a se mover lentamente
+@export var convoy_tank_fire_start_point: int = 17  ## Ponto inicial da janela de disparo dos tanques
+@export var convoy_tank_fire_end_point: int = 18    ## Ponto final da janela de disparo dos tanques
+
 @export_category("Intro Cinematica")
 @export var enable_cinematic_intro: bool = false
 @export var intro_duration: float = 5.0
@@ -110,6 +116,13 @@ var _fire_dist_2: float = 0.0
 var _fire_shot_1_done: bool = false
 var _fire_shot_2_done: bool = false
 var _energy_ball_scene: PackedScene = preload("res://scenes/projectiles/energy_ball.tscn")
+
+# Convoy state & offsets
+var _convoy_move_dist: float = 0.0
+var _convoy_fire_start_dist: float = 0.0
+var _convoy_fire_end_dist: float = 0.0
+var _convoy_started_moving: bool = false
+var _convoy_node: Node3D = null
 
 # Sistema de tremor de câmera (Screen Shake)
 var _shake_time: float = 0.0
@@ -200,6 +213,17 @@ func _ready():
 			# Ponto 6 (pouco antes da Wave 1 no ponto 8) para o alerta cinematográfico único
 			var warning_point_idx := clampi(6, 0, point_count - 1)
 			_initial_warning_dist = curve.get_closest_offset(curve.get_point_position(warning_point_idx))
+
+			# Offsets do Comboio Terrestre (Movimento no ponto 16, disparos dos tanques entre 17 e 18)
+			var c_move_idx := clampi(convoy_move_start_point, 0, point_count - 1)
+			var c_fstart_idx := clampi(convoy_tank_fire_start_point, 0, point_count - 1)
+			var c_fend_idx := clampi(convoy_tank_fire_end_point, 0, point_count - 1)
+			_convoy_move_dist = curve.get_closest_offset(curve.get_point_position(c_move_idx))
+			_convoy_fire_start_dist = curve.get_closest_offset(curve.get_point_position(c_fstart_idx))
+			_convoy_fire_end_dist = curve.get_closest_offset(curve.get_point_position(c_fend_idx))
+
+	if convoy_node_path != ^"":
+		_convoy_node = get_node_or_null(convoy_node_path) as Node3D
 
 	# Configuração gráfica dinâmica: PC Ultra vs Mobile Otimizado
 	_apply_platform_graphics_settings()
@@ -323,6 +347,9 @@ func _process(delta: float) -> void:
 	# Toca o som da Mothership ao cruzar o ponto definido.
 	_trigger_mothership_sound()
 	_handle_mothership_firing()
+
+	# Gerencia o movimento lento e a janela de disparos do comboio terrestre
+	_handle_convoy_logic()
 
 	# Processa tremor de câmera ativo
 	_process_camera_shake(delta)
@@ -545,6 +572,8 @@ func _apply_platform_graphics_settings() -> void:
 			sun.directional_shadow_max_distance = 100.0
 			sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
 			sun.directional_shadow_blend_splits = false
+			sun.shadow_blur = 1.0
+			sun.shadow_contact = 0.0
 		
 		# Terreno no Mobile: material leve sem triplanar e sem projeção de sombras no cenário
 		_apply_scenery_materials_and_shadows(TerrainMobileMaterial, GeometryInstance3D.SHADOW_CASTING_SETTING_OFF)
@@ -554,23 +583,39 @@ func _apply_platform_graphics_settings() -> void:
 		get_viewport().scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR
 		get_viewport().scaling_3d_scale = 1.0
 		
-		# Sol e Sombras no PC: 800m de alcance, 4 divisões ultra suaves
+		# Sol e Sombras no PC: 800m de alcance, 4 divisões ultra suaves e sombras de contato
 		if sun:
 			sun.directional_shadow_max_distance = 800.0
 			sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
 			sun.directional_shadow_blend_splits = true
+			sun.shadow_blur = 1.8
+			sun.shadow_contact = 0.15
+			sun.directional_shadow_split_1 = 0.05
+			sun.directional_shadow_split_2 = 0.15
+			sun.directional_shadow_split_3 = 0.35
 		
 		# Terreno no PC: material ultra detalhado com Triplanar e sombras ativas
 		_apply_scenery_materials_and_shadows(terrain_detail_material, GeometryInstance3D.SHADOW_CASTING_SETTING_ON)
 
-	# Aplica a névoa suave de profundidade automática e perfil de Glow no WorldEnvironment
+	# Aplica a névoa suave de profundidade automática e perfil de Glow / SSAO / SSIL no WorldEnvironment
 	var world_env := get_node_or_null("WorldEnvironment") as WorldEnvironment
 	if world_env and world_env.environment:
 		if enable_depth_fog:
 			CameraConfig.apply_depth_fog(world_env.environment, target_far)
-		# No Mobile: desativa pós-processamento pesado de Glow para economizar bateria e garantir 60 FPS
-		# No PC: ativa Glow com alta fidelidade
+		# No Mobile: desativa pós-processamento pesado para economizar bateria e garantir 60 FPS
+		# No PC: ativa Glow, SSAO e SSIL com máxima fidelidade
 		world_env.environment.glow_enabled = not is_mobile
+		world_env.environment.ssao_enabled = not is_mobile
+		if not is_mobile:
+			world_env.environment.ssao_radius = 2.0
+			world_env.environment.ssao_intensity = 2.2
+			world_env.environment.ssao_power = 1.5
+			world_env.environment.ssao_detail = 0.5
+			world_env.environment.ssao_horizon = 0.06
+		world_env.environment.ssil_enabled = not is_mobile
+		if not is_mobile:
+			world_env.environment.ssil_radius = 4.0
+			world_env.environment.ssil_intensity = 1.0
 
 
 func _apply_scenery_materials_and_shadows(mat: Material, shadow_setting: GeometryInstance3D.ShadowCastingSetting) -> void:
@@ -736,15 +781,53 @@ func _setup_audio_listener() -> void:
 
 
 ## Toca o som da Mothership uma única vez quando o progresso cruza o ponto
-## definido (mothership_sound_point, padrão = 27).
+## definido (mothership_sound_point, padrão = 32).
 func _trigger_mothership_sound() -> void:
-	if _mothership_sound_player == null or _mothership_sound_played:
+	if _mothership_sound_player == null or _mothership_sound_played or not path_follower:
 		return
-	if _mothership_sound_offset <= 0.0 or not path_follower:
-		return
-	if path_follower.progress >= _mothership_sound_offset:
+
+	if _mothership_sound_offset <= 0.0:
+		var flight_path := get_node_or_null("FlightPath") as Path3D
+		if flight_path and flight_path.curve and flight_path.curve.point_count > 0:
+			var sound_idx := clampi(mothership_sound_point, 0, flight_path.curve.point_count - 1)
+			_mothership_sound_offset = flight_path.curve.get_closest_offset(flight_path.curve.get_point_position(sound_idx))
+
+	if _mothership_sound_offset > 0.0 and path_follower.progress >= _mothership_sound_offset:
 		_mothership_sound_player.play()
 		_mothership_sound_played = true
+
+
+# ---------------------------------------------------------------------------
+# Comboio Terrestre (SmallBridgeConvoy)
+# ---------------------------------------------------------------------------
+
+## Controla a ativação de movimento lento do comboio no ponto 16
+## e a janela restrita de tiro dos tanques (entre os pontos 17 e 18).
+func _handle_convoy_logic() -> void:
+	if not path_follower:
+		return
+
+	if not _convoy_node:
+		_convoy_node = get_node_or_null(convoy_node_path) as Node3D
+		if not _convoy_node:
+			return
+
+	var current_prog: float = path_follower.progress
+
+	# 1. Ativa movimentação lenta (active_move = true) ao atingir o ponto 16
+	if not _convoy_started_moving and _convoy_move_dist > 0.0:
+		if current_prog >= _convoy_move_dist:
+			_convoy_started_moving = true
+			for child in _convoy_node.get_children():
+				if "active_move" in child:
+					child.active_move = true
+
+	# 2. Controla a permissão de disparo dos tanques (can_shoot = true apenas entre ponto 17 e 18)
+	if _convoy_fire_start_dist > 0.0 and _convoy_fire_end_dist > _convoy_fire_start_dist:
+		var in_firing_window := (current_prog >= _convoy_fire_start_dist and current_prog <= _convoy_fire_end_dist)
+		for child in _convoy_node.get_children():
+			if child is EnemyTank or "can_shoot" in child:
+				child.can_shoot = in_firing_window
 
 
 # ---------------------------------------------------------------------------
