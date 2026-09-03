@@ -130,7 +130,7 @@ void fragment() {
 	SPECULAR = 0.2;
 
 	// 10. Normal Map NATIVO do Godot:
-	// Usamos NORMALMAP nativo para que o motor preserve perfeitamente o cálculo de luz direta e sombras!
-	NORMALMAP = blended_normal_tex;
-	NORMALMAP_DEPTH = normal_scale;
+	// Usamos NORMAL_MAP nativo para que o motor preserve perfeitamente o cálculo de luz direta e sombras!
+	NORMAL_MAP = blended_normal_tex;
+	NORMAL_MAP_DEPTH = normal_scale;
 }
