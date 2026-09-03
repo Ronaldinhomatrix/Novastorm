@@ -1,0 +1,103 @@
+[gd_scene format=3 uid="uid://c8bombmina01"]
+
+[ext_resource type="Script" path="res://scripts/enemies/enemy_bomb.gd" id="1_bomb"]
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_bomb"]
+radius = 1.4
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_metal"]
+albedo_color = Color(0.15, 0.16, 0.18, 1)
+metallic = 0.9
+roughness = 0.3
+
+[sub_resource type="SphereMesh" id="SphereMesh_core"]
+material = SubResource("StandardMaterial3D_metal")
+radius = 0.9
+height = 1.8
+radial_segments = 16
+rings = 8
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_spikes"]
+albedo_color = Color(0.25, 0.25, 0.28, 1)
+metallic = 0.95
+roughness = 0.2
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_spike1"]
+material = SubResource("StandardMaterial3D_spikes")
+top_radius = 0.12
+bottom_radius = 0.25
+height = 2.6
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_beacon"]
+shading_mode = 0
+albedo_color = Color(1, 0.25, 0.05, 1)
+
+[sub_resource type="SphereMesh" id="SphereMesh_beacon"]
+material = SubResource("StandardMaterial3D_beacon")
+radius = 0.4
+height = 0.8
+radial_segments = 12
+rings = 6
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_spark"]
+transparency = 1
+blend_mode = 1
+shading_mode = 0
+vertex_color_use_as_albedo = true
+albedo_color = Color(1, 0.35, 0.05, 0.8)
+
+[sub_resource type="BoxMesh" id="BoxMesh_spark"]
+material = SubResource("StandardMaterial3D_spark")
+size = Vector3(0.15, 0.15, 0.15)
+
+[sub_resource type="Curve" id="Curve_particles"]
+_data = [Vector2(0, 1), 0.0, 0.0, 0, 0, Vector2(1, 0), -1.2, 0.0, 0, 0]
+point_count = 2
+
+[sub_resource type="Gradient" id="Gradient_particles"]
+offsets = PackedFloat32Array(0, 0.4, 1)
+colors = PackedColorArray(1, 0.8, 0.2, 1, 1, 0.2, 0.05, 0.8, 0.5, 0, 0, 0)
+
+[node name="EnemyBomb" type="Area3D"]
+collision_layer = 6
+collision_mask = 3
+script = ExtResource("1_bomb")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+shape = SubResource("SphereShape3D_bomb")
+
+[node name="CoreMesh" type="MeshInstance3D" parent="."]
+mesh = SubResource("SphereMesh_core")
+
+[node name="SpikeX" type="MeshInstance3D" parent="."]
+transform = Transform3D(-4.37114e-08, 1, 0, -1, -4.37114e-08, 0, 0, 0, 1, 0, 0, 0)
+mesh = SubResource("CylinderMesh_spike1")
+
+[node name="SpikeY" type="MeshInstance3D" parent="."]
+mesh = SubResource("CylinderMesh_spike1")
+
+[node name="SpikeZ" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0)
+mesh = SubResource("CylinderMesh_spike1")
+
+[node name="BeaconMesh" type="MeshInstance3D" parent="."]
+mesh = SubResource("SphereMesh_beacon")
+
+[node name="OmniLight3D" type="OmniLight3D" parent="."]
+light_color = Color(1, 0.25, 0.05, 1)
+light_energy = 5.0
+omni_range = 10.0
+
+[node name="Sparks" type="CPUParticles3D" parent="."]
+amount = 14
+lifetime = 0.8
+mesh = SubResource("BoxMesh_spark")
+direction = Vector3(0, 1, 0)
+spread = 180.0
+gravity = Vector3(0, 0, 0)
+initial_velocity_min = 1.0
+initial_velocity_max = 3.5
+scale_amount_min = 0.8
+scale_amount_max = 1.8
+scale_amount_curve = SubResource("Curve_particles")
+color_ramp = SubResource("Gradient_particles")

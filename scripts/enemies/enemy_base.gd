@@ -151,6 +151,7 @@ func _on_engine_sound_finished() -> void:
 func _collect_mesh_instances(node: Node) -> void:
 	if node is MeshInstance3D:
 		var mi: MeshInstance3D = node as MeshInstance3D
+		mi.extra_cull_margin = 1000.0
 		if mi.is_visible_in_tree():
 			_mesh_instances.append(mi)
 	for child in node.get_children():

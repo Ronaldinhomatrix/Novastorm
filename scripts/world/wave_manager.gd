@@ -15,6 +15,7 @@ signal wave_cleared(wave_index: int)
 @export var scout_scene: PackedScene = preload("res://scenes/enemies/enemy_scout.tscn")
 @export var fighter_scene: PackedScene = preload("res://scenes/enemies/enemy_fighter.tscn")
 @export var heavy_scene: PackedScene = preload("res://scenes/enemies/enemy_heavy.tscn")
+@export var bomber_scene: PackedScene = preload("res://scenes/enemies/enemy_bomber.tscn")
 
 const AlertEnemyShipsSound := preload("res://assets/audio/alert_enemy_ships.wav")
 const WarningBattlecruiserSound := preload("res://assets/audio/warning_enemy_battlecruiser.mp3")
@@ -23,12 +24,14 @@ const WarningBattlecruiserSound := preload("res://assets/audio/warning_enemy_bat
 @export var wave_1_point: int = 8   ## Ponto da curva Path3D onde a Wave 1 é disparada (Scouts)
 @export var wave_2_point: int = 15  ## Ponto da curva Path3D onde a Wave 2 é disparada (Fighters)
 @export var warning_battlecruiser_point: int = 21  ## Ponto 21 para o áudio warning_enemy_battlecruiser
+@export var wave_bomber_point: int = 25  ## Ponto 25 onde o Enemy Bomber é disparado
 @export var wave_3_point: int = 37  ## Ponto da curva Path3D onde a Wave 3 é disparada (2 pontos antes do 39)
 
 var _alert_enemy_ships_triggered: bool = false
 var _warning_battlecruiser_triggered: bool = false
 var _wave_1_triggered: bool = false
 var _wave_2_triggered: bool = false
+var _wave_bomber_triggered: bool = false
 var _wave_3_triggered: bool = false
 var _penultimate_exit_triggered: bool = false
 
@@ -36,12 +39,14 @@ var _target_ratio_1_alert: float = 0.10
 var _target_ratio_1: float = 0.14
 var _target_ratio_2: float = 0.35
 var _target_ratio_warning_battlecruiser: float = 0.50
+var _target_ratio_bomber: float = 0.53
 var _target_ratio_3: float = 0.88
 var _penultimate_ratio: float = 0.96
 
 var _quiet_zone_start_ratio: float = 0.48
-var _quiet_zone_end_ratio: float = 0.82
+var _mothership_zone_clear_ratio: float = 0.65
 var _quiet_zone_cleared: bool = false
+var _mothership_zone_cleared: bool = false
 
 var _active_enemies: Array[Node] = []
 var _enemies_container: Node3D = null
@@ -60,7 +65,12 @@ func _ready() -> void:
 func _setup_container() -> void:
 	_enemies_container = Node3D.new()
 	_enemies_container.name = "WorldEnemiesContainer"
-	get_tree().current_scene.add_child.call_deferred(_enemies_container)
+	if get_tree().current_scene:
+		get_tree().current_scene.add_child.call_deferred(_enemies_container)
+	elif get_parent():
+		get_parent().add_child.call_deferred(_enemies_container)
+	else:
+		add_child.call_deferred(_enemies_container)
 
 
 func _update_target_ratios() -> void:
@@ -77,11 +87,13 @@ func _update_target_ratios() -> void:
 	_target_ratio_1_alert = _get_point_ratio(curve, maxi(0, wave_1_point - 1), total_len)
 	_target_ratio_2 = _get_point_ratio(curve, wave_2_point, total_len)
 	_target_ratio_warning_battlecruiser = _get_point_ratio(curve, warning_battlecruiser_point, total_len)
+	_target_ratio_bomber = _get_point_ratio(curve, wave_bomber_point, total_len)
 	_target_ratio_3 = _get_point_ratio(curve, wave_3_point, total_len)
 
-	# Zona livre de inimigos do ponto 22 ao 36
+	# Limpeza de inimigos remanescentes no ponto 22 (antes do bomber)
 	_quiet_zone_start_ratio = _get_point_ratio(curve, 22, total_len)
-	_quiet_zone_end_ratio = _get_point_ratio(curve, 36, total_len)
+	# Limpeza antes da Mothership no ponto 30
+	_mothership_zone_clear_ratio = _get_point_ratio(curve, 30, total_len)
 
 	# Penúltimo ponto do nível para debandada dos inimigos restantes
 	var penultimate_idx: int = maxi(0, curve.point_count - 2)
@@ -148,12 +160,14 @@ func _process(_delta: float) -> void:
 		_warning_battlecruiser_triggered = true
 		_play_audio_alert(WarningBattlecruiserSound)
 
-	# 1. Garantir que do ponto 22 ao 38 não exista NENHUM inimigo em cena
-	if current_progress >= _quiet_zone_start_ratio and current_progress < _quiet_zone_end_ratio:
-		if not _quiet_zone_cleared:
-			_quiet_zone_cleared = true
-			_clear_all_active_enemies()
-		return
+	# 1. Limpeza de inimigos remanescentes das waves anteriores antes de novos eventos
+	if not _quiet_zone_cleared and current_progress >= _quiet_zone_start_ratio:
+		_quiet_zone_cleared = true
+		_clear_all_active_enemies()
+
+	if not _mothership_zone_cleared and current_progress >= _mothership_zone_clear_ratio:
+		_mothership_zone_cleared = true
+		_clear_all_active_enemies()
 
 	# 2. Penúltimo ponto: os inimigos que restarem aceleram para fora do nível
 	if current_progress >= _penultimate_ratio:
@@ -169,6 +183,10 @@ func _process(_delta: float) -> void:
 	if not _wave_2_triggered and current_progress >= _target_ratio_2:
 		_wave_2_triggered = true
 		_spawn_wave_2()
+
+	if not _wave_bomber_triggered and current_progress >= _target_ratio_bomber:
+		_wave_bomber_triggered = true
+		_spawn_bomber()
 
 	if not _wave_3_triggered and current_progress >= _target_ratio_3:
 		_wave_3_triggered = true
@@ -292,6 +310,27 @@ func _spawn_wave_2() -> void:
 
 
 # ---------------------------------------------------------------------------
+# Wave Bomber: Bombardeiro Pesado no Ponto 25 (Rasante + Fileira de Bombas)
+# ---------------------------------------------------------------------------
+
+func _spawn_bomber() -> void:
+	wave_started.emit(25, "Enemy Bomber Encounter")
+
+	var info: Dictionary = _get_point_info(wave_bomber_point)
+	var base_pos: Vector3 = info["position"]
+	var fwd: Vector3 = info["forward"]
+
+	var bomber: Node3D = bomber_scene.instantiate() as Node3D
+	if not bomber:
+		return
+
+	_add_enemy_to_world(bomber)
+	if bomber.has_method("setup_bomber"):
+		bomber.setup_bomber(base_pos, fwd, 1.0)
+	_register_enemy(bomber)
+
+
+# ---------------------------------------------------------------------------
 # Wave 3: 3 Cruzadores Heavy (Starship.v3) no Mundo 3D (ponto 37)
 # ---------------------------------------------------------------------------
 
@@ -326,10 +365,14 @@ func _spawn_wave_3() -> void:
 # ---------------------------------------------------------------------------
 
 func _add_enemy_to_world(enemy: Node3D) -> void:
-	if is_instance_valid(_enemies_container):
+	if is_instance_valid(_enemies_container) and _enemies_container.is_inside_tree():
 		_enemies_container.add_child(enemy)
-	else:
+	elif get_tree().current_scene:
 		get_tree().current_scene.add_child(enemy)
+	elif get_parent():
+		get_parent().add_child(enemy)
+	else:
+		add_child(enemy)
 
 
 func _register_enemy(enemy: Node) -> void:

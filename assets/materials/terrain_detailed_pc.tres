@@ -1,6 +1,6 @@
-[gd_resource type="ShaderMaterial" format=3]
+[gd_resource type="ShaderMaterial" format=3 uid="uid://b4m6ye6syok2h"]
 
-[ext_resource type="Shader" path="res://assets/shaders/terrain_detailed_pc.gdshader" id="1_shader"]
+[ext_resource type="Shader" uid="uid://bkr0vbk5l0ns8" path="res://assets/shaders/terrain_detailed_pc.gdshader" id="1_shader"]
 [ext_resource type="Texture2D" uid="uid://dy8shenl8dk61" path="res://assets/models/levels/mountains_1/textures/Material_25_baseColor.jpeg" id="2_albedo"]
 [ext_resource type="Texture2D" uid="uid://5wq75cgsjvyh" path="res://assets/models/levels/mountains_1/textures/Material_25_normal.png" id="3_normal"]
 

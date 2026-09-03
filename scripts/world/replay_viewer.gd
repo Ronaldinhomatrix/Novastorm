@@ -34,6 +34,7 @@ var _cam_speed: float = 60.0
 
 # Assets pré-carregados para visualização
 const ENEMY_GLB := preload("res://assets/models/Enemys/3_enemy_red_starships.glb")
+const BOMBER_GLB := preload("res://assets/models/levels/enemy_bomber.glb")
 const PLAYER_GLTF := preload("res://assets/models/Player_ship_1/scene.gltf")
 
 # Materiais
@@ -432,7 +433,15 @@ func _create_enemy_visual(e_info: Dictionary) -> Node3D:
 
 	var e_type: String = e_info.get("type", "Scout")
 
-	if ENEMY_GLB:
+	if e_type.contains("Bomber") and BOMBER_GLB:
+		var ship_model := Node3D.new()
+		ship_model.name = "ShipModel"
+		root.add_child(ship_model)
+
+		var bomber_glb := BOMBER_GLB.instantiate() as Node3D
+		ship_model.add_child(bomber_glb)
+		bomber_glb.transform = Transform3D(Basis(Vector3(-4, 0, 0), Vector3(0, 4, 0), Vector3(0, 0, -4)), Vector3(-0.266, -0.905, 3.506))
+	elif ENEMY_GLB:
 		var ship_model := Node3D.new()
 		ship_model.name = "ShipModel"
 		root.add_child(ship_model)

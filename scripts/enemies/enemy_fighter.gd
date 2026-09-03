@@ -233,6 +233,10 @@ func _process_engage(delta: float) -> void:
 	var t_bank := 0.0
 	var t_pitch := 0.0
 	var extra_roll := 0.0
+	if u >= 0.45:
+		var roll_t := clampf((u - 0.45) / 0.15, 0.0, 1.0)
+		var smooth_roll := roll_t * roll_t * (3.0 - 2.0 * roll_t)
+		extra_roll = smooth_roll * TAU * -_side
 	
 	var is_shooting_phase := false
 
@@ -259,7 +263,6 @@ func _process_engage(delta: float) -> void:
 		t_vert = base_height - sin(ease_t * PI) * 2.0
 		t_dist = combat_distance_ahead + sin(ease_t * PI) * 10.0
 		t_bank = -_side * 0.4 * sin(ease_t * PI)
-		extra_roll = ease_t * TAU * -_side
 	elif u < 0.90:
 		# Deslizamento tático constante no outro lado (Atira)
 		var t := (u - 0.60) / 0.30

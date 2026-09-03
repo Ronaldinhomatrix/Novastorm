@@ -1,0 +1,21 @@
+[gd_scene format=3 uid="uid://cbomber001hawk"]
+
+[ext_resource type="Script" path="res://scripts/enemies/enemy_bomber.gd" id="1_bomber"]
+[ext_resource type="PackedScene" uid="uid://cfputf4y85p1u" path="res://assets/models/levels/enemy_bomber.glb" id="2_glb"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_bomber"]
+size = Vector3(13.2, 2.6, 7.5)
+
+[node name="EnemyBomber" type="Area3D"]
+collision_layer = 2
+collision_mask = 2
+script = ExtResource("1_bomber")
+score_value = 600
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+shape = SubResource("BoxShape3D_bomber")
+
+[node name="ShipModel" type="Node3D" parent="."]
+
+[node name="enemy_bomber" parent="ShipModel" instance=ExtResource("2_glb")]
+transform = Transform3D(-4, 0, 0, 0, 4, 0, 0, 0, -4, -0.266, -0.905, 3.506)

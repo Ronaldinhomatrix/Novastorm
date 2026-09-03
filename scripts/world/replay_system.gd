@@ -92,6 +92,8 @@ func _record_current_frame() -> void:
 				e_dict["hitbox_size"] = Vector3(27, 11, 21)
 			elif e_node is EnemyHeavy or e_node.name.contains("Heavy"):
 				e_dict["hitbox_size"] = Vector3(39, 15, 30)
+			elif e_node.name.contains("Bomber"):
+				e_dict["hitbox_size"] = Vector3(34, 10, 22)
 			else:
 				e_dict["hitbox_size"] = Vector3(15, 8, 15)
 
