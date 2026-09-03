@@ -1,0 +1,30 @@
+[gd_resource type="ShaderMaterial" format=3]
+
+[ext_resource type="Shader" path="res://assets/shaders/terrain_detailed_pc.gdshader" id="1_shader"]
+[ext_resource type="Texture2D" uid="uid://dy8shenl8dk61" path="res://assets/models/levels/mountains_1/textures/Material_25_baseColor.jpeg" id="2_albedo"]
+[ext_resource type="Texture2D" uid="uid://5wq75cgsjvyh" path="res://assets/models/levels/mountains_1/textures/Material_25_normal.png" id="3_normal"]
+
+[resource]
+render_priority = 0
+shader = ExtResource("1_shader")
+shader_parameter/albedo_texture = ExtResource("2_albedo")
+shader_parameter/normal_texture = ExtResource("3_normal")
+shader_parameter/uv_scale = 0.015
+shader_parameter/triplanar_sharpness = 4.0
+shader_parameter/normal_scale = 1.3
+shader_parameter/flat_tint = Color(1.08, 0.98, 0.86, 1)
+shader_parameter/cliff_tint = Color(0.78, 0.72, 0.68, 1)
+shader_parameter/slope_threshold = 0.55
+shader_parameter/slope_blend_smoothness = 0.22
+shader_parameter/flat_roughness = 0.85
+shader_parameter/cliff_roughness = 0.92
+shader_parameter/macro_noise_scale = 0.0012
+shader_parameter/macro_noise_strength = 0.35
+shader_parameter/tint_warm_strata = Color(1.14, 0.94, 0.8, 1)
+shader_parameter/tint_cool_strata = Color(0.86, 0.9, 0.96, 1)
+shader_parameter/height_min = 0.0
+shader_parameter/height_max = 600.0
+shader_parameter/height_blend_strength = 0.2
+shader_parameter/valley_tint = Color(0.92, 0.88, 0.82, 1)
+shader_parameter/peak_tint = Color(1.08, 1.05, 1, 1)
+shader_parameter/micro_detail_strength = 0.04

@@ -68,7 +68,7 @@ var _crosshair: Control = null  ## Instância do crosshair UI
 
 @export_category("Cenario")
 @export var enable_cloud_sky: bool = true  ## Gera nuvens estáticas no céu do nível
-@export var terrain_detail_material: Material = preload("res://assets/materials/terrain_detailed.tres")
+@export var terrain_detail_material: Material = preload("res://assets/materials/terrain_detailed_pc.tres")
 @export var custom_camera_far_pc: float = 4000.0  ## Alcance da câmera no PC em metros (6000m no Nível 1)
 @export var custom_camera_far_mobile: float = 3500.0  ## Alcance da câmera no Mobile em metros (5000m no Nível 1)
 @export var enable_depth_fog: bool = true  ## Névoa de profundidade automática (sem pop-in)
