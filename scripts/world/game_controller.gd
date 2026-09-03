@@ -573,7 +573,6 @@ func _apply_platform_graphics_settings() -> void:
 			sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
 			sun.directional_shadow_blend_splits = false
 			sun.shadow_blur = 1.0
-			sun.shadow_contact = 0.0
 		
 		# Terreno no Mobile: material leve sem triplanar e sem projeção de sombras no cenário
 		_apply_scenery_materials_and_shadows(TerrainMobileMaterial, GeometryInstance3D.SHADOW_CASTING_SETTING_OFF)
@@ -583,13 +582,12 @@ func _apply_platform_graphics_settings() -> void:
 		get_viewport().scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR
 		get_viewport().scaling_3d_scale = 1.0
 		
-		# Sol e Sombras no PC: 800m de alcance, 4 divisões ultra suaves e sombras de contato
+		# Sol e Sombras no PC: 800m de alcance, 4 divisões ultra suaves
 		if sun:
 			sun.directional_shadow_max_distance = 800.0
 			sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
 			sun.directional_shadow_blend_splits = true
 			sun.shadow_blur = 1.8
-			sun.shadow_contact = 0.15
 			sun.directional_shadow_split_1 = 0.05
 			sun.directional_shadow_split_2 = 0.15
 			sun.directional_shadow_split_3 = 0.35
