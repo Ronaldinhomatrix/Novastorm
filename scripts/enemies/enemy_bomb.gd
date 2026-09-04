@@ -21,8 +21,8 @@ const ExplosionSounds: Array[AudioStream] = [
 @export var damage: int = 1
 @export var score_value: int = 50
 @export var explosion_scale: float = 0.85
-@export var blink_speed: float = 6.0
-@export var forward_speed: float = 46.0  ## Velocidade de deslocamento à frente (mais rápida ~46 u/s, menor diferença para a nave Player ~65 u/s)
+@export var blink_speed: float = 10.0  ## Frequência das piscadas vermelhas
+@export var forward_speed: float = 46.0  ## Velocidade de deslocamento à frente
 
 var current_hp: int = 1
 var _is_exploding: bool = false
@@ -37,8 +37,9 @@ var _vertical_offset: float = 0.0
 
 @onready var light: OmniLight3D = get_node_or_null("OmniLight3D") as OmniLight3D
 @onready var core_mesh: MeshInstance3D = get_node_or_null("CoreMesh") as MeshInstance3D
-@onready var plasma_halo: MeshInstance3D = get_node_or_null("PlasmaHalo") as MeshInstance3D
-@onready var plasma_inner: MeshInstance3D = get_node_or_null("PlasmaInner") as MeshInstance3D
+@onready var beacon_group: Node3D = get_node_or_null("BeaconGroup") as Node3D
+
+var _beacon_material: StandardMaterial3D = null
 
 
 func _ready() -> void:
@@ -47,6 +48,17 @@ func _ready() -> void:
 	if _random_rot_axis.length_squared() < 0.1:
 		_random_rot_axis = Vector3.UP
 	_random_rot_speed = randf_range(0.8, 1.8)
+
+	# Instancia um material local para os pontos vermelhos piscantes
+	if beacon_group and beacon_group.get_child_count() > 0:
+		var first_beacon := beacon_group.get_child(0) as MeshInstance3D
+		if first_beacon and first_beacon.mesh:
+			var orig_mat := first_beacon.mesh.surface_get_material(0)
+			if orig_mat:
+				_beacon_material = orig_mat.duplicate() as StandardMaterial3D
+				for child in beacon_group.get_children():
+					if child is MeshInstance3D and child.mesh:
+						child.material_override = _beacon_material
 
 	collision_layer = 2 | 4  # Layer 2 (inimigo atingível por tiros) e Layer 4 (projétil/perigo)
 	collision_mask = 1 | 2   # Detecta jogador (Layer 1) e tiros do jogador (Layer 2)
@@ -106,13 +118,16 @@ func _physics_process(delta: float) -> void:
 	else:
 		global_position += _move_direction * (forward_speed * delta)
 
-	# Efeito pulsante de alerta na luz e brilho intenso
-	var pulse := (sin(_float_time * blink_speed) + 1.0) * 0.5
+	# Piscar stroboscópico/pulsante das luzes vermelhas
+	var blink_phase := fmod(_float_time * blink_speed, 1.0)
+	var is_on := blink_phase < 0.45  # 45% aceso, 55% apagado
+	var red_intensity := 1.0 if is_on else 0.05
+
+	if _beacon_material:
+		_beacon_material.albedo_color = Color(red_intensity, 0.02 * red_intensity, 0.02 * red_intensity, 1.0)
+
 	if light:
-		light.light_energy = lerpf(8.0, 22.0, pulse)
-	if plasma_halo:
-		var halo_scale := lerpf(1.0, 1.25, pulse)
-		plasma_halo.scale = Vector3.ONE * halo_scale
+		light.light_energy = 16.0 if is_on else 0.0
 
 	# Verificação de descarte caso o jogador tenha ultrapassado
 	_check_despawn()

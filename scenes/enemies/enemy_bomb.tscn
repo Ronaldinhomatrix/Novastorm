@@ -28,44 +28,28 @@ top_radius = 0.08
 bottom_radius = 0.22
 height = 2.7
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_plasma_inner"]
-transparency = 1
-blend_mode = 1
-cull_mode = 2
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_red_beacon"]
+resource_local_to_scene = true
 shading_mode = 0
-albedo_color = Color(1, 0.95, 0.5, 1)
+albedo_color = Color(1, 0.05, 0.05, 1)
 
-[sub_resource type="SphereMesh" id="SphereMesh_plasma_inner"]
-material = SubResource("StandardMaterial3D_plasma_inner")
-radius = 0.65
-height = 1.3
-radial_segments = 14
-rings = 7
-
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_plasma_outer"]
-transparency = 1
-blend_mode = 1
-cull_mode = 2
-shading_mode = 0
-albedo_color = Color(1, 0.35, 0.05, 0.85)
-
-[sub_resource type="SphereMesh" id="SphereMesh_plasma_outer"]
-material = SubResource("StandardMaterial3D_plasma_outer")
-radius = 1.25
-height = 2.5
-radial_segments = 16
-rings = 8
+[sub_resource type="SphereMesh" id="SphereMesh_red_light"]
+material = SubResource("StandardMaterial3D_red_beacon")
+radius = 0.14
+height = 0.28
+radial_segments = 8
+rings = 4
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_spark"]
 transparency = 1
 blend_mode = 1
 shading_mode = 0
 vertex_color_use_as_albedo = true
-albedo_color = Color(1, 0.5, 0.1, 0.9)
+albedo_color = Color(1, 0.1, 0.1, 0.9)
 
 [sub_resource type="BoxMesh" id="BoxMesh_spark"]
 material = SubResource("StandardMaterial3D_spark")
-size = Vector3(0.2, 0.2, 0.2)
+size = Vector3(0.12, 0.12, 0.12)
 
 [sub_resource type="Curve" id="Curve_particles"]
 _data = [Vector2(0, 1), 0.0, 0.0, 0, 0, Vector2(1, 0), -1.2, 0.0, 0, 0]
@@ -73,7 +57,7 @@ point_count = 2
 
 [sub_resource type="Gradient" id="Gradient_particles"]
 offsets = PackedFloat32Array(0, 0.3, 1)
-colors = PackedColorArray(1, 1, 0.4, 1, 1, 0.35, 0.05, 0.9, 0.7, 0.05, 0, 0)
+colors = PackedColorArray(1, 0.2, 0.2, 1, 1, 0.05, 0.05, 0.9, 0.5, 0.0, 0.0, 0)
 
 [node name="EnemyBomb" type="Area3D"]
 collision_layer = 6
@@ -86,11 +70,31 @@ shape = SubResource("SphereShape3D_bomb")
 [node name="CoreMesh" type="MeshInstance3D" parent="."]
 mesh = SubResource("SphereMesh_core")
 
-[node name="PlasmaInner" type="MeshInstance3D" parent="."]
-mesh = SubResource("SphereMesh_plasma_inner")
+[node name="BeaconGroup" type="Node3D" parent="."]
 
-[node name="PlasmaHalo" type="MeshInstance3D" parent="."]
-mesh = SubResource("SphereMesh_plasma_outer")
+[node name="BeaconPosX" type="MeshInstance3D" parent="BeaconGroup"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.88, 0, 0)
+mesh = SubResource("SphereMesh_red_light")
+
+[node name="BeaconNegX" type="MeshInstance3D" parent="BeaconGroup"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.88, 0, 0)
+mesh = SubResource("SphereMesh_red_light")
+
+[node name="BeaconPosY" type="MeshInstance3D" parent="BeaconGroup"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.88, 0)
+mesh = SubResource("SphereMesh_red_light")
+
+[node name="BeaconNegY" type="MeshInstance3D" parent="BeaconGroup"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.88, 0)
+mesh = SubResource("SphereMesh_red_light")
+
+[node name="BeaconPosZ" type="MeshInstance3D" parent="BeaconGroup"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.88)
+mesh = SubResource("SphereMesh_red_light")
+
+[node name="BeaconNegZ" type="MeshInstance3D" parent="BeaconGroup"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.88)
+mesh = SubResource("SphereMesh_red_light")
 
 [node name="SpikeX" type="MeshInstance3D" parent="."]
 transform = Transform3D(-4.37114e-08, 1, 0, -1, -4.37114e-08, 0, 0, 0, 1, 0, 0, 0)
@@ -104,20 +108,21 @@ transform = Transform3D(1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 
 mesh = SubResource("CylinderMesh_spike1")
 
 [node name="OmniLight3D" type="OmniLight3D" parent="."]
-light_color = Color(1, 0.4, 0.08, 1)
-light_energy = 12.0
-omni_range = 22.0
+light_color = Color(1, 0.1, 0.1, 1)
+light_energy = 0.0
+omni_range = 16.0
 
 [node name="Sparks" type="CPUParticles3D" parent="."]
-amount = 18
-lifetime = 0.9
+amount = 10
+lifetime = 0.7
 mesh = SubResource("BoxMesh_spark")
 direction = Vector3(0, 1, 0)
 spread = 180.0
 gravity = Vector3(0, 0, 0)
-initial_velocity_min = 1.5
-initial_velocity_max = 4.5
-scale_amount_min = 0.9
-scale_amount_max = 2.2
+initial_velocity_min = 1.0
+initial_velocity_max = 2.5
+scale_amount_min = 0.8
+scale_amount_max = 1.5
 scale_amount_curve = SubResource("Curve_particles")
 color_ramp = SubResource("Gradient_particles")
+
