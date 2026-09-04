@@ -66,7 +66,8 @@ func _check_world_hit() -> void:
 	if travel.length_squared() < 0.000001:
 		return
 
-	_ray.global_position = _prev_position
+	# Desloca a origem do raycast ligeiramente à frente para evitar falso-positivo com a boca do canhão/chão imediato
+	_ray.global_position = _prev_position + _direction * 0.5
 	_ray.target_position = travel
 	_ray.force_raycast_update()
 

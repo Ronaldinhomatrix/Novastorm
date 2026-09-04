@@ -23,10 +23,12 @@ const ExplosionSounds: Array[AudioStream] = [
 @export var explosion_scale: float = 0.85
 @export var blink_speed: float = 10.0  ## Frequência das piscadas vermelhas
 @export var forward_speed: float = 46.0  ## Velocidade de deslocamento à frente
+@export var lifetime: float = 13.5  ## Tempo de vida útil da mina (em segundos) até se auto-destruir suavemente
 
 var current_hp: int = 1
 var _is_exploding: bool = false
 var _float_time: float = 0.0
+var _age: float = 0.0
 var _random_rot_axis: Vector3 = Vector3.UP
 var _random_rot_speed: float = 1.0
 var _move_direction: Vector3 = Vector3.FORWARD
@@ -44,6 +46,7 @@ var _beacon_material: StandardMaterial3D = null
 
 func _ready() -> void:
 	current_hp = max_hp
+	_age = 0.0
 	_random_rot_axis = Vector3(randf_range(-1.0, 1.0), randf_range(-1.0, 1.0), randf_range(-1.0, 1.0)).normalized()
 	if _random_rot_axis.length_squared() < 0.1:
 		_random_rot_axis = Vector3.UP
@@ -90,6 +93,12 @@ func _physics_process(delta: float) -> void:
 	if _is_exploding:
 		return
 
+	# Controle direto de tempo de vida (ultra leve, sem consultas ao jogador ou à árvore)
+	_age += delta
+	if _age >= lifetime:
+		queue_free()
+		return
+
 	_float_time += delta
 
 	# Rotação suave no próprio eixo
@@ -129,9 +138,6 @@ func _physics_process(delta: float) -> void:
 	if light:
 		light.light_energy = 16.0 if is_on else 0.0
 
-	# Verificação de descarte caso o jogador tenha ultrapassado
-	_check_despawn()
-
 
 var _cached_flight_path: Path3D = null
 
@@ -146,7 +152,7 @@ func _get_flight_path() -> Path3D:
 	if player:
 		var p: Node = player.get_parent()
 		while p:
-			if p is PathFollower:
+			if p is PathFollow3D:
 				_cached_flight_path = p.get_parent() as Path3D
 				break
 			p = p.get_parent()
@@ -156,38 +162,6 @@ func _get_flight_path() -> Path3D:
 
 	return _cached_flight_path
 
-
-func _check_despawn() -> void:
-	if not is_inside_tree():
-		return
-	var player: Node3D = get_tree().get_first_node_in_group("player") as Node3D
-	if not player or not is_instance_valid(player):
-		return
-
-	# Se a bomba se move pela curva do percurso, compara o progresso no caminho
-	if _has_curve:
-		var pf: PathFollower3D = null
-		var p: Node = player.get_parent()
-		while p:
-			if p is PathFollower3D:
-				pf = p as PathFollower3D
-				break
-			p = p.get_parent()
-		if pf:
-			# Se o progresso da bomba no caminho ficou mais de 75m atrás da câmera/jogador, descarta
-			if _curve_offset < pf.progress - 75.0:
-				queue_free()
-			return
-
-	# Fallback sem curva: calcula a distância relativa no eixo de voo da nave do jogador
-	var to_bomb := global_position - player.global_position
-	var forward_dir := -player.global_basis.z.normalized()
-	var forward_distance := to_bomb.dot(forward_dir)
-
-	# A nave Player fica a -40m em Z local da câmera do PathFollower.
-	# Permitir limite de -75m para garantir que a bomba passe longe por trás da câmera antes de dar despawn.
-	if forward_distance < -75.0:
-		queue_free()
 
 
 

@@ -110,7 +110,6 @@ transform = Transform3D(-0.8547794, -0.037440386, -0.51763505, -3.725285e-09, 0.
 script = ExtResource("3_path_follower")
 forward_speed = 300.0
 speed_zones = Array[ExtResource("8_1ax5u")]([SubResource("Resource_j44b7")])
-look_ahead = 15.0
 turn_smoothing = 1.0
 roll_start_point = 39
 roll_end_point = 44
@@ -139,19 +138,19 @@ wave_3_point = 44
 [node name="SmallBridgeConvoy" type="Node3D" parent="." unique_id=778899112]
 
 [node name="Truck1_Mid1" parent="SmallBridgeConvoy" unique_id=889911222 instance=ExtResource("14_truck")]
-transform = Transform3D(-3.9679604, 0.17811853, 3.0370321, 0.25363618, 4.9934144, 0.038523987, -3.0316594, 0.18463255, -3.9717693, -2868.5283, 413.28772, -3588.8381)
+transform = Transform3D(-3.9679604, 0.17811853, 3.0370321, 0.25363618, 4.9934144, 0.038523987, -3.0316594, 0.18463255, -3.9717693, -2868.5283, 434.98682, -3588.8381)
 move_speed = 10.0
 
 [node name="Truck1_Mid2" parent="SmallBridgeConvoy" unique_id=887542905 instance=ExtResource("14_truck")]
-transform = Transform3D(-3.9679604, 0.17811853, 3.0370321, 0.25363618, 4.9934144, 0.038523987, -3.0316594, 0.18463255, -3.9717693, -2916.0762, 413.28772, -3624.7227)
+transform = Transform3D(-3.9679604, 0.17811853, 3.0370321, 0.25363618, 4.9934144, 0.038523987, -3.0316594, 0.18463255, -3.9717693, -2916.0762, 434.98682, -3624.7227)
 move_speed = 10.0
 
 [node name="Tank2_Center" parent="SmallBridgeConvoy" unique_id=889911223 instance=ExtResource("13_tank")]
-transform = Transform3D(-2.631736, 0.11323979, 1.435667, -0.0028987282, 2.990287, -0.24117583, -1.4401234, -0.2129575, -2.623107, -2737.1343, 412.53076, -3804.4124)
+transform = Transform3D(-2.631736, 0.11323979, 1.435667, -0.0028987282, 2.990287, -0.24117583, -1.4401234, -0.2129575, -2.623107, -2737.1343, 434.98682, -3804.4124)
 move_speed = 10.0
 
 [node name="Truck2_Mid2" parent="SmallBridgeConvoy" unique_id=889911224 instance=ExtResource("14_truck")]
-transform = Transform3D(-4.1528897, 0.41496035, 2.753418, 0.34591252, 4.982751, -0.22920877, -2.7629418, 0.0001125969, -4.167271, -2821.1736, 414.24734, -3725.4812)
+transform = Transform3D(-4.1528897, 0.41496035, 2.753418, 0.34591252, 4.982751, -0.22920877, -2.7629418, 0.0001125969, -4.167271, -2821.1736, 434.98682, -3725.4812)
 move_speed = 10.0
 
 [node name="Tank3_Rear" parent="SmallBridgeConvoy" unique_id=889911225 instance=ExtResource("13_tank")]

@@ -43,8 +43,8 @@ func _snap_to_ground_surface() -> void:
 	var space_state := get_world_3d().direct_space_state
 	if not space_state:
 		return
-	var from_pos := global_position + Vector3.UP * 8.0
-	var to_pos := global_position + Vector3.DOWN * 15.0
+	var from_pos := global_position + Vector3.UP * 40.0
+	var to_pos := global_position + Vector3.DOWN * 60.0
 	var query := PhysicsRayQueryParameters3D.create(from_pos, to_pos, WORLD_LAYER_MASK)
 	var result := space_state.intersect_ray(query)
 	if result and result.has("position"):

@@ -32,11 +32,26 @@ var _current_distance: float = 135.0
 var _current_lateral: float = 0.0
 var _current_vertical: float = 6.0
 
+var _rnd_lat: float = 1.0
+var _rnd_vert: float = 0.0
+var _rnd_dist: float = 0.0
+var _th_1: float = 0.20
+var _th_2: float = 0.50
+var _th_3: float = 0.80
 
 func _ready() -> void:
 	max_hp = 1
 	current_hp = 1
 	score_value = 100
+	
+	_rnd_lat = randf_range(0.8, 1.25)
+	_rnd_vert = randf_range(-2.0, 3.5)
+	_rnd_dist = randf_range(-15.0, 25.0)
+	
+	_th_1 = randf_range(0.15, 0.25)
+	_th_2 = _th_1 + randf_range(0.25, 0.35)
+	_th_3 = randf_range(0.75, 0.85)
+	
 	super._ready()
 
 	if flight_direction.length_squared() < 0.001:
@@ -204,53 +219,54 @@ func _process_engage(delta: float) -> void:
 	var u := clampf(_phase_timer / maxf(engage_duration, 0.01), 0.0, 1.0)
 
 	var t_lat := _current_lateral
-	var t_vert := base_height
-	var t_dist := combat_distance_ahead
+	var t_vert := base_height + _rnd_vert
+	var t_dist := combat_distance_ahead + _rnd_dist
 	var t_bank := 0.0
 	var t_pitch := 0.0
 	var is_shooting_phase := false
+	
+	var lat_span := lateral_span * _rnd_lat
 
-	# Scout: Ágil, sempre em movimento, de forma previsível (Nível 1)
-	if u < 0.15:
-		# Dash suave para o centro
-		var t := u / 0.15
+	# Scout: Ágil orgânico
+	if u < _th_1:
+		var t := u / _th_1
 		var ease_t := t * t * (3.0 - 2.0 * t)
-		t_lat = lerpf(-lateral_span * _side, lateral_span * _side * 0.2, ease_t)
-		t_vert = base_height + 2.0
+		t_lat = lerpf(-lat_span * _side, lat_span * _side * 0.2, ease_t)
+		t_vert += 2.0
 		t_bank = -_side * 0.4 * sin(ease_t * PI)
-	elif u < 0.45:
-		# Voo em arco amplo e lento no centro (Snipe sem parar)
-		var t := (u - 0.15) / 0.30
-		t_lat = lerpf(lateral_span * _side * 0.2, -lateral_span * _side * 0.2, t)
-		t_vert = base_height + sin(t * PI) * 2.5
+	elif u < _th_2:
+		var len_th := maxf(0.01, _th_2 - _th_1)
+		var t := (u - _th_1) / len_th
+		t_lat = lerpf(lat_span * _side * 0.2, -lat_span * _side * 0.2, t)
+		t_vert += sin(t * PI) * 2.5
 		t_bank = -_side * 0.2 * sin(t * PI)
 		is_shooting_phase = true
-	elif u < 0.60:
-		# Dash cruzando a tela
-		var t := (u - 0.45) / 0.15
+	elif u < _th_3:
+		var len_th := maxf(0.01, _th_3 - _th_2)
+		var t := (u - _th_2) / len_th
 		var ease_t := t * t * (3.0 - 2.0 * t)
-		t_lat = lerpf(-lateral_span * _side * 0.2, lateral_span * _side * 0.7, ease_t)
-		t_dist = combat_distance_ahead - sin(ease_t * PI) * 8.0
-		t_vert = base_height - 1.0
+		t_lat = lerpf(-lat_span * _side * 0.2, lat_span * _side * 0.7, ease_t)
+		t_dist -= sin(ease_t * PI) * 8.0
+		t_vert -= 1.0
 		t_bank = -_side * 0.6 * sin(ease_t * PI)
-	elif u < 0.85:
-		# Voo em arco amplo no canto (Snipe sem parar)
-		var t := (u - 0.60) / 0.25
-		t_lat = lerpf(lateral_span * _side * 0.7, lateral_span * _side * 0.4, t)
-		t_vert = base_height - 1.0 + sin(t * PI) * 2.5
-		t_bank = -_side * 0.2 * sin(t * PI)
+	elif u < 0.90:
+		var len_th := maxf(0.01, 0.90 - _th_3)
+		var t := (u - _th_3) / len_th
+		t_lat = lerpf(lat_span * _side * 0.7, lat_span * _side * 0.9, t)
+		t_vert += sin(t * PI) * 1.5
+		t_bank = _side * 0.15 * sin(t * PI)
 		is_shooting_phase = true
 	else:
-		# Prepara pra sair subindo
-		var t := (u - 0.85) / 0.15
+		var len_th := maxf(0.01, 0.10)
+		var t := (u - 0.90) / len_th
 		var ease_t := t * t * (3.0 - 2.0 * t)
-		t_lat = lerpf(lateral_span * _side * 0.4, lateral_span * _side * 0.1, ease_t)
-		t_vert = lerpf(base_height, base_height + 15.0, ease_t)
-		t_dist = lerpf(combat_distance_ahead, combat_distance_ahead + 20.0, ease_t)
-		t_pitch = lerpf(0.0, 0.4, ease_t)
+		t_lat = lat_span * _side * 0.9
+		t_vert = lerpf(base_height + _rnd_vert, base_height + _rnd_vert + 20.0, ease_t)
+		t_dist = lerpf(combat_distance_ahead + _rnd_dist, combat_distance_ahead + _rnd_dist + 15.0, ease_t)
+		t_pitch = lerpf(0.0, 0.45, ease_t)
+		t_bank = 0.0
 
-	# Interpolação independente de framerate para evitar overshoots
-	var lerp_weight := 1.0 - exp(-7.0 * delta) # Menos agressivo (7.0 em vez de 12.0)
+	var lerp_weight := 1.0 - exp(-7.0 * delta)
 	_current_lateral = lerpf(_current_lateral, t_lat, lerp_weight)
 	_current_vertical = lerpf(_current_vertical, t_vert, lerp_weight)
 	_current_distance = lerpf(_current_distance, t_dist, lerp_weight)

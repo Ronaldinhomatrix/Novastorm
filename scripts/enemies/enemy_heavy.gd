@@ -25,17 +25,32 @@ var _phase: Phase = Phase.ENTER
 var _phase_timer: float = 0.0
 var _attack_timer: float = 1.8
 var _attack_pattern_index: int = 0
+var _shots_fired: int = 0
 var _side: float = 1.0
-
-var _current_distance: float = 160.0
+var _current_distance: float = 115.0
 var _current_lateral: float = 0.0
-var _current_vertical: float = 24.0
+var _current_vertical: float = 15.0
 
+var _rnd_lat: float = 1.0
+var _rnd_vert: float = 0.0
+var _rnd_dist: float = 0.0
+var _th_1: float = 0.20
+var _th_2: float = 0.50
+var _th_3: float = 0.80
 
 func _ready() -> void:
-	max_hp = 1
-	current_hp = 1
-	score_value = 500
+	max_hp = 50
+	current_hp = 50
+	score_value = 800
+	
+	_rnd_lat = randf_range(0.85, 1.15)
+	_rnd_vert = randf_range(-1.5, 2.0)
+	_rnd_dist = randf_range(-10.0, 10.0)
+	
+	_th_1 = randf_range(0.15, 0.25)
+	_th_2 = _th_1 + randf_range(0.25, 0.35)
+	_th_3 = randf_range(0.75, 0.85)
+	
 	super._ready()
 
 	if flight_direction.length_squared() < 0.001:
@@ -111,49 +126,49 @@ func _process_engage(delta: float) -> void:
 	var u := clampf(_phase_timer / maxf(engage_duration, 0.01), 0.0, 1.0)
 
 	var t_lat := _current_lateral
-	var t_vert := 14.0
-	var t_dist := combat_distance_ahead
+	var t_vert := 14.0 + _rnd_vert
+	var t_dist := combat_distance_ahead + _rnd_dist
 	var t_bank := 0.0
 	var t_pitch := 0.0
+	
+	var width_amp := width_amplitude * _rnd_lat
 
-	# Padrão pesado e tático de cruzador (nunca fica 100% parado)
-	if u < 0.20:
-		# Posiciona-se no centro e alto
-		var t := u / 0.20
+	# Padrão pesado orgânico
+	if u < _th_1:
+		var t := u / _th_1
 		var ease_t := t * t * (3.0 - 2.0 * t)
-		t_lat = lerpf(-width_amplitude * _side * 0.5, 0.0, ease_t)
-		t_vert = lerpf(14.0, 18.0, ease_t)
+		t_lat = lerpf(-width_amp * _side * 0.5, 0.0, ease_t)
+		t_vert = lerpf(14.0 + _rnd_vert, 18.0 + _rnd_vert, ease_t)
 		t_bank = -_side * 0.15 * sin(ease_t * PI)
-	elif u < 0.45:
-		# Lento avanço pelo centro (Dispara)
-		var t := (u - 0.20) / 0.25
-		t_lat = lerpf(0.0, width_amplitude * _side * 0.3, t)
-		t_vert = 18.0 + sin(t * PI) * 1.5
+	elif u < _th_2:
+		var len_th := maxf(0.01, _th_2 - _th_1)
+		var t := (u - _th_1) / len_th
+		t_lat = lerpf(0.0, width_amp * _side * 0.3, t)
+		t_vert = 18.0 + _rnd_vert + sin(t * PI) * 1.5
 		t_bank = -_side * 0.05 * sin(t * PI)
-	elif u < 0.70:
-		# Move-se pesadamente para o flanco oposto
-		var t := (u - 0.45) / 0.25
+	elif u < _th_3:
+		var len_th := maxf(0.01, _th_3 - _th_2)
+		var t := (u - _th_2) / len_th
 		var ease_t := t * t * (3.0 - 2.0 * t)
-		t_lat = lerpf(width_amplitude * _side * 0.3, width_amplitude * _side * 0.8, ease_t)
-		t_vert = lerpf(18.0, 12.0, ease_t)
-		t_dist = combat_distance_ahead + sin(ease_t * PI) * 12.0
+		t_lat = lerpf(width_amp * _side * 0.3, width_amp * _side * 0.8, ease_t)
+		t_vert = lerpf(18.0 + _rnd_vert, 12.0 + _rnd_vert, ease_t)
+		t_dist += sin(ease_t * PI) * 12.0
 		t_bank = -_side * 0.3 * sin(ease_t * PI)
 	elif u < 0.90:
-		# Lento avanço pelo flanco (Dispara)
-		var t := (u - 0.70) / 0.20
-		t_lat = lerpf(width_amplitude * _side * 0.8, width_amplitude * _side * 0.5, t)
-		t_vert = 12.0 + sin(t * PI) * 1.5
+		var len_th := maxf(0.01, 0.90 - _th_3)
+		var t := (u - _th_3) / len_th
+		t_lat = lerpf(width_amp * _side * 0.8, width_amp * _side * 0.5, t)
+		t_vert = 12.0 + _rnd_vert + sin(t * PI) * 1.5
 		t_bank = _side * 0.05 * sin(t * PI)
 	else:
-		# Prepara para sair subindo
-		var t := (u - 0.90) / 0.10
+		var len_th := maxf(0.01, 0.10)
+		var t := (u - 0.90) / len_th
 		var ease_t := t * t * (3.0 - 2.0 * t)
-		t_lat = lerpf(width_amplitude * _side * 0.5, width_amplitude * _side, ease_t)
-		t_vert = lerpf(12.0, 25.0, ease_t)
+		t_lat = lerpf(width_amp * _side * 0.5, width_amp * _side, ease_t)
+		t_vert = lerpf(12.0 + _rnd_vert, 25.0 + _rnd_vert, ease_t)
 		t_pitch = lerpf(0.0, 0.25, ease_t)
 
-	# Interpolação independente de framerate para evitar overshoots ("nave desaparecendo")
-	var lerp_weight := 1.0 - exp(-2.0 * delta) # Simula peso/inércia grande (2.0)
+	var lerp_weight := 1.0 - exp(-2.0 * delta)
 	_current_lateral = lerpf(_current_lateral, t_lat, lerp_weight)
 	_current_vertical = lerpf(_current_vertical, t_vert, lerp_weight)
 	_current_distance = lerpf(_current_distance, t_dist, lerp_weight)

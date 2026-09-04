@@ -39,11 +39,29 @@ var _current_distance: float = 145.0
 var _current_lateral: float = 0.0
 var _current_vertical: float = 18.0
 
+var _rnd_lat: float = 1.0
+var _rnd_vert: float = 0.0
+var _rnd_dist: float = 0.0
+var _th_1: float = 0.15
+var _th_2: float = 0.45
+var _th_3: float = 0.60
+var _th_4: float = 0.90
+
 
 func _ready() -> void:
 	max_hp = 1
 	current_hp = 1
 	score_value = 300
+	
+	_rnd_lat = randf_range(0.7, 1.4)
+	_rnd_vert = randf_range(-3.5, 5.0)
+	_rnd_dist = randf_range(-25.0, 20.0)
+	
+	_th_1 = randf_range(0.12, 0.20)
+	_th_2 = _th_1 + randf_range(0.25, 0.35)
+	_th_3 = _th_2 + randf_range(0.12, 0.18)
+	_th_4 = randf_range(0.85, 0.93)
+	
 	super._ready()
 
 
@@ -228,60 +246,62 @@ func _process_engage(delta: float) -> void:
 	var u := clampf(_phase_timer / maxf(engage_duration, 0.01), 0.0, 1.0)
 
 	var t_lat := _current_lateral
-	var t_vert := base_height
-	var t_dist := combat_distance_ahead
+	var t_vert := base_height + _rnd_vert
+	var t_dist := combat_distance_ahead + _rnd_dist
 	var t_bank := 0.0
 	var t_pitch := 0.0
 	var extra_roll := 0.0
-	if u >= 0.45:
-		var roll_t := clampf((u - 0.45) / 0.15, 0.0, 1.0)
+	
+	var lat_span := lateral_span * _rnd_lat
+	
+	if u >= _th_2:
+		var roll_len := maxf(0.01, _th_3 - _th_2)
+		var roll_t := clampf((u - _th_2) / roll_len, 0.0, 1.0)
 		var smooth_roll := roll_t * roll_t * (3.0 - 2.0 * roll_t)
 		extra_roll = smooth_roll * TAU * -_side
 	
 	var is_shooting_phase := false
 
-	# Padrão tático segmentado estilo AAA (Nível 1 - Sem ficar parado)
-	if u < 0.15:
-		# Varredura suave de entrada
-		var t := u / 0.15
+	# Padrão tático segmentado estilo AAA orgânico
+	if u < _th_1:
+		var t := u / _th_1
 		var ease_t := t * t * (3.0 - 2.0 * t)
-		t_lat = lerpf(-lateral_span * _side, lateral_span * _side * 0.4, ease_t)
-		t_vert = base_height + sin(ease_t * PI) * 3.0
+		t_lat = lerpf(-lat_span * _side, lat_span * _side * 0.4, ease_t)
+		t_vert += sin(ease_t * PI) * 3.0
 		t_bank = -_side * 0.6 * sin(ease_t * PI)
-	elif u < 0.45:
-		# Deslizamento tático constante e rastreio (Atira)
-		var t := (u - 0.15) / 0.30
-		t_lat = lerpf(lateral_span * _side * 0.4, lateral_span * _side * 0.8, t)
-		t_vert = base_height + sin(t * TAU) * 1.5
+	elif u < _th_2:
+		var len_th := maxf(0.01, _th_2 - _th_1)
+		var t := (u - _th_1) / len_th
+		t_lat = lerpf(lat_span * _side * 0.4, lat_span * _side * 0.8, t)
+		t_vert += sin(t * TAU) * 1.5
 		t_bank = -_side * 0.15 * sin(t * TAU)
 		is_shooting_phase = true
-	elif u < 0.60:
-		# Evasão suave: Barrel roll lento para o outro lado
-		var t := (u - 0.45) / 0.15
+	elif u < _th_3:
+		var len_th := maxf(0.01, _th_3 - _th_2)
+		var t := (u - _th_2) / len_th
 		var ease_t := t * t * (3.0 - 2.0 * t)
-		t_lat = lerpf(lateral_span * _side * 0.8, -lateral_span * _side * 0.4, ease_t)
-		t_vert = base_height - sin(ease_t * PI) * 2.0
-		t_dist = combat_distance_ahead + sin(ease_t * PI) * 10.0
+		t_lat = lerpf(lat_span * _side * 0.8, -lat_span * _side * 0.4, ease_t)
+		t_vert -= sin(ease_t * PI) * 2.0
+		t_dist += sin(ease_t * PI) * 10.0
 		t_bank = -_side * 0.4 * sin(ease_t * PI)
-	elif u < 0.90:
-		# Deslizamento tático constante no outro lado (Atira)
-		var t := (u - 0.60) / 0.30
-		t_lat = lerpf(-lateral_span * _side * 0.4, -lateral_span * _side * 0.8, t)
-		t_vert = base_height + sin(t * TAU) * 1.5
+	elif u < _th_4:
+		var len_th := maxf(0.01, _th_4 - _th_3)
+		var t := (u - _th_3) / len_th
+		t_lat = lerpf(-lat_span * _side * 0.4, -lat_span * _side * 0.8, t)
+		t_vert += sin(t * TAU) * 1.5
 		t_bank = _side * 0.15 * sin(t * TAU)
 		is_shooting_phase = true
 	else:
-		# Preparação para saída subindo
-		var t := (u - 0.90) / 0.10
+		var len_th := maxf(0.01, 1.0 - _th_4)
+		var t := (u - _th_4) / len_th
 		var ease_t := t * t * (3.0 - 2.0 * t)
-		t_lat = -lateral_span * _side * 0.8
-		t_vert = lerpf(base_height, base_height + 15.0, ease_t)
-		t_dist = lerpf(combat_distance_ahead, combat_distance_ahead + 20.0, ease_t)
+		t_lat = -lat_span * _side * 0.8
+		t_vert = lerpf(base_height + _rnd_vert, base_height + _rnd_vert + 15.0, ease_t)
+		t_dist = lerpf(combat_distance_ahead + _rnd_dist, combat_distance_ahead + _rnd_dist + 20.0, ease_t)
 		t_pitch = lerpf(0.0, 0.35, ease_t)
 		t_bank = 0.0
 
-	# Interpolação independente de framerate para evitar overshoots ("nave desaparecendo")
-	var lerp_weight := 1.0 - exp(-6.0 * delta) # Movimento mais suave (6.0 em vez de 8.0)
+	var lerp_weight := 1.0 - exp(-6.0 * delta)
 	_current_lateral = lerpf(_current_lateral, t_lat, lerp_weight)
 	_current_vertical = lerpf(_current_vertical, t_vert, lerp_weight)
 	_current_distance = lerpf(_current_distance, t_dist, lerp_weight)

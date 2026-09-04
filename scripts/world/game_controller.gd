@@ -55,9 +55,8 @@ var _crosshair: Control = null  ## Instância do crosshair UI
 
 @export_category("Comboio Terrestre (SmallBridgeConvoy)")
 @export var convoy_node_path: NodePath = "SmallBridgeConvoy"
-@export var convoy_move_start_point: int = 16  ## Ponto onde o comboio começa a se mover lentamente
-@export var convoy_tank_fire_start_point: int = 17  ## Ponto inicial da janela de disparo dos tanques
-@export var convoy_tank_fire_end_point: int = 18    ## Ponto final da janela de disparo dos tanques
+@export var convoy_move_start_point: int = 16  ## Ponto onde o comboio começa a se mover
+@export var convoy_move_end_point: int = 18    ## Ponto onde o comboio interrompe o movimento
 
 @export_category("Intro Cinematica")
 @export var enable_cinematic_intro: bool = false
@@ -118,10 +117,8 @@ var _fire_shot_2_done: bool = false
 var _energy_ball_scene: PackedScene = preload("res://scenes/projectiles/energy_ball.tscn")
 
 # Convoy state & offsets
-var _convoy_move_dist: float = 0.0
-var _convoy_fire_start_dist: float = 0.0
-var _convoy_fire_end_dist: float = 0.0
-var _convoy_started_moving: bool = false
+var _convoy_move_start_dist: float = 0.0
+var _convoy_move_end_dist: float = 0.0
 var _convoy_node: Node3D = null
 
 # Sistema de tremor de câmera (Screen Shake)
@@ -214,13 +211,11 @@ func _ready():
 			var warning_point_idx := clampi(7, 0, point_count - 1)
 			_initial_warning_dist = curve.get_closest_offset(curve.get_point_position(warning_point_idx))
 
-			# Offsets do Comboio Terrestre (Movimento no ponto 16, disparos dos tanques entre 17 e 18)
-			var c_move_idx := clampi(convoy_move_start_point, 0, point_count - 1)
-			var c_fstart_idx := clampi(convoy_tank_fire_start_point, 0, point_count - 1)
-			var c_fend_idx := clampi(convoy_tank_fire_end_point, 0, point_count - 1)
-			_convoy_move_dist = curve.get_closest_offset(curve.get_point_position(c_move_idx))
-			_convoy_fire_start_dist = curve.get_closest_offset(curve.get_point_position(c_fstart_idx))
-			_convoy_fire_end_dist = curve.get_closest_offset(curve.get_point_position(c_fend_idx))
+			# Offsets do Comboio Terrestre (Movimento entre o ponto 16 e 18)
+			var c_move_start_idx := clampi(convoy_move_start_point, 0, point_count - 1)
+			var c_move_end_idx := clampi(convoy_move_end_point, 0, point_count - 1)
+			_convoy_move_start_dist = curve.get_closest_offset(curve.get_point_position(c_move_start_idx))
+			_convoy_move_end_dist = curve.get_closest_offset(curve.get_point_position(c_move_end_idx))
 
 	if convoy_node_path != ^"":
 		_convoy_node = get_node_or_null(convoy_node_path) as Node3D
@@ -504,6 +499,26 @@ func _process_camera_shake(delta: float) -> void:
 
 
 
+
+
+func _handle_convoy_logic() -> void:
+	if not path_follower:
+		return
+
+	if not _convoy_node or not is_instance_valid(_convoy_node):
+		if convoy_node_path != ^"":
+			_convoy_node = get_node_or_null(convoy_node_path) as Node3D
+		if not _convoy_node:
+			return
+
+	var current_prog: float = path_follower.progress
+	var should_move: bool = (current_prog >= _convoy_move_start_dist and current_prog <= _convoy_move_end_dist)
+
+	for child in _convoy_node.get_children():
+		if not is_instance_valid(child):
+			continue
+		if "active_move" in child:
+			child.set("active_move", should_move)
 
 
 func _update_mothership_rotation() -> void:

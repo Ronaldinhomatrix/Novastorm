@@ -75,18 +75,22 @@ func _physics_process(delta: float) -> void:
 
 	# 3. Disparo de projétil pesado em direção ao jogador quando estiver no alcance
 	if can_shoot:
-		_fire_timer -= delta
-		if _fire_timer <= 0.0 and dist_to_player <= max_shoot_distance:
-			_fire_timer = fire_interval + randf_range(-0.3, 0.3)
-			_shoot_at_player()
+		if dist_to_player <= max_shoot_distance:
+			_fire_timer -= delta
+			if _fire_timer <= 0.0:
+				_fire_timer = fire_interval + randf_range(-0.3, 0.3)
+				_shoot_at_player()
+		else:
+			# Mantém pronto para disparar rapidamente assim que entrar no alcance
+			_fire_timer = randf_range(0.2, 0.5)
 
 
 func _snap_to_ground_surface() -> void:
 	var space_state := get_world_3d().direct_space_state
 	if not space_state:
 		return
-	var from_pos := global_position + Vector3.UP * 8.0
-	var to_pos := global_position + Vector3.DOWN * 15.0
+	var from_pos := global_position + Vector3.UP * 40.0
+	var to_pos := global_position + Vector3.DOWN * 60.0
 	var query := PhysicsRayQueryParameters3D.create(from_pos, to_pos, WORLD_LAYER_MASK)
 	var result := space_state.intersect_ray(query)
 	if result and result.has("position"):
@@ -113,12 +117,12 @@ func _shoot_at_player() -> void:
 	if not bullet_scene:
 		bullet_scene = DefaultTankBulletScene
 		
-	# A ponta do canhão está na direção +basis.z da torreta
+	var base_turret_pos := _turret.global_position if _turret else global_position + Vector3.UP * 3.0
 	var forward_dir := _turret.global_basis.z.normalized() if _turret else -global_basis.z.normalized()
-	var spawn_pos := _turret.global_position + forward_dir * 8.0 + Vector3.UP * 1.2 if _turret else global_position + Vector3.UP * 2.0
 	
-	if _player_ref:
-		var dir_to_player := (_player_ref.global_position - spawn_pos).normalized()
+	if _player_ref and is_instance_valid(_player_ref):
+		var dir_to_player := (_player_ref.global_position - base_turret_pos).normalized()
 		forward_dir = forward_dir.slerp(dir_to_player, 0.85).normalized()
 		
+	var spawn_pos := base_turret_pos + forward_dir * 8.5 + Vector3.UP * 1.5
 	fire_bullet(spawn_pos, forward_dir)
