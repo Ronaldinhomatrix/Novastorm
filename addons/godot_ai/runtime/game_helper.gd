@@ -116,10 +116,6 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	## register_message_capture is safe to call before the debugger
 	## handshake completes; the capture sits until a message arrives.
-	if get_node_or_null("/root/MCPRuntimeProbe") != null:
-		return
-	if EngineDebugger.has_capture(CAPTURE_PREFIX):
-		return
 	EngineDebugger.register_message_capture(CAPTURE_PREFIX, _on_debug_message)
 	_registered = true
 	## Capture print() / printerr() / push_error() / push_warning() and

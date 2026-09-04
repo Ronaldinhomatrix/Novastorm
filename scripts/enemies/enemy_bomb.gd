@@ -32,6 +32,8 @@ var _random_rot_speed: float = 1.0
 
 @onready var light: OmniLight3D = get_node_or_null("OmniLight3D") as OmniLight3D
 @onready var core_mesh: MeshInstance3D = get_node_or_null("CoreMesh") as MeshInstance3D
+@onready var plasma_halo: MeshInstance3D = get_node_or_null("PlasmaHalo") as MeshInstance3D
+@onready var plasma_inner: MeshInstance3D = get_node_or_null("PlasmaInner") as MeshInstance3D
 
 
 func _ready() -> void:
@@ -68,10 +70,13 @@ func _physics_process(delta: float) -> void:
 	var bob_x := cos(_float_time * 1.8) * 0.2
 	global_position = _initial_pos + Vector3(bob_x, bob_y, 0.0)
 
-	# Efeito pulsante de alerta na luz e brilho
+	# Efeito pulsante de alerta na luz e brilho intenso
+	var pulse := (sin(_float_time * blink_speed) + 1.0) * 0.5
 	if light:
-		var pulse := (sin(_float_time * blink_speed) + 1.0) * 0.5
-		light.light_energy = lerpf(1.5, 9.0, pulse)
+		light.light_energy = lerpf(8.0, 22.0, pulse)
+	if plasma_halo:
+		var halo_scale := lerpf(1.0, 1.25, pulse)
+		plasma_halo.scale = Vector3.ONE * halo_scale
 
 	# Verificação de descarte caso o jogador tenha ultrapassado
 	_check_despawn()

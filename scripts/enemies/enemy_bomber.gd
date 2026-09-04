@@ -19,15 +19,15 @@ const BombDropSound := preload("res://assets/audio/mothership1_torpedo.ogg")
 const EnemyBombScript := preload("res://scripts/enemies/enemy_bomb.gd")
 
 @export_category("Comportamento do Bomber")
-@export var enter_duration: float = 2.2
+@export var enter_duration: float = 4.2           ## Entrada mais lenta e imponente como nave pesada
 @export var bomb_run_duration: float = 6.0
 @export var exit_duration: float = 2.5
 
-@export var combat_distance_ahead: float = 85.0   ## Distância à frente do jogador durante o lançamento
+@export var combat_distance_ahead: float = 145.0  ## Fica bem mais distante da nave Player (145m à frente)
 @export var lateral_span: float = 14.0            ## Amplitude de varredura lateral (±14m)
 @export var base_height: float = 6.0              ## Altura de voo no cânion
-@export var total_bombs: int = 8                  ## Quantidade de bombas na fileira
-@export var drop_interval: float = 0.6            ## Intervalo em segundos entre cada bomba
+@export var total_bombs: int = 24                 ## Fileira de 24 minas
+@export var drop_interval: float = 0.25           ## Cadência de 4 minas por segundo (1.0 / 4.0 = 0.25s)
 
 var _phase: Phase = Phase.ENTER
 var _phase_timer: float = 0.0
@@ -53,17 +53,17 @@ func setup_bomber(_start_pos: Vector3, _dir: Vector3, side: float = 1.0) -> void
 	_phase = Phase.ENTER
 	_phase_timer = 0.0
 	_bombs_dropped = 0
-	_drop_timer = 0.4  ## Pequeno delay antes de soltar a primeira bomba após o rasante
+	_drop_timer = 0.25  ## Delay inicial antes da primeira bomba
 
-	# Nasce 178m atrás da câmera para fazer o rasante perfeito
+	# Nasce 178m atrás da câmera para fazer o rasante pesado e imponente
 	_current_distance = -178.0
-	_current_lateral = _side * 3.5
-	_current_vertical = 3.5
+	_current_lateral = _side * 4.0
+	_current_vertical = 4.0
 
 	_curve_offset = _get_player_progress() + _current_distance
 	var frame := _sample_curve_frame(_curve_offset, _current_lateral, _current_vertical)
 	global_position = frame["position"]
-	_orient_ship(frame["forward"], frame["up"], -_side * 0.3, true)
+	_orient_ship(frame["forward"], frame["up"], -_side * 0.2, true)
 
 
 func force_exit() -> void:
@@ -89,7 +89,7 @@ func _physics_process(delta: float) -> void:
 
 
 # ---------------------------------------------------------------------------
-# Fase 1: Rasante Supersônico vindo de trás do jogador (-178m para +85m)
+# Fase 1: Rasante Pesado e Cadenciado vindo de trás do jogador (-178m para +145m)
 # ---------------------------------------------------------------------------
 
 func _process_enter(_delta: float) -> void:
@@ -97,40 +97,41 @@ func _process_enter(_delta: float) -> void:
 	var t := clampf(_phase_timer / total_dur, 0.0, 1.0)
 
 	if t < 0.60:
-		# Rasante acelerando e cruzando a câmera em alta velocidade
+		# Rasante pesado e deliberado cruzando a câmera
 		var surge_t := t / 0.60
-		_current_distance = lerpf(-178.0, 55.0, surge_t)
-		_current_lateral = lerpf(_side * 3.5, _side * 6.0, surge_t)
-		_current_vertical = lerpf(3.5, 4.8, surge_t)
+		_current_distance = lerpf(-178.0, 75.0, surge_t)
+		_current_lateral = lerpf(_side * 4.0, _side * 6.5, surge_t)
+		_current_vertical = lerpf(4.0, 5.2, surge_t)
 
-		var bank := -_side * lerpf(0.25, 0.50, surge_t)
+		var bank := -_side * lerpf(0.15, 0.35, surge_t)
 		_curve_offset = _get_player_progress() + _current_distance
 		var frame := _sample_curve_frame(_curve_offset, _current_lateral, _current_vertical)
 		global_position = frame["position"]
 		_orient_ship(frame["forward"], frame["up"], bank)
 
-		# Efeito Doppler do motor subindo
-		set_engine_pitch(lerpf(1.10, 1.30, surge_t))
+		# Som grave e pesado do motor subindo gradualmente
+		set_engine_pitch(lerpf(0.75, 1.02, surge_t))
 	else:
-		# Desacelera para a distância de engajamento e estabiliza à frente
+		# Desacelera suavemente e avança até a distância de combate distante (145m)
 		var settle_t := (t - 0.60) / 0.40
 		var eased := settle_t * (2.0 - settle_t)
-		_current_distance = lerpf(55.0, combat_distance_ahead, eased)
-		_current_lateral = lerpf(_side * 6.0, -_side * 2.0, eased)
-		_current_vertical = lerpf(4.8, base_height, eased)
+		_current_distance = lerpf(75.0, combat_distance_ahead, eased)
+		_current_lateral = lerpf(_side * 6.5, -_side * 2.0, eased)
+		_current_vertical = lerpf(5.2, base_height, eased)
 
-		var bank := -_side * lerpf(0.50, 0.1, eased)
+		var bank := -_side * lerpf(0.35, 0.1, eased)
 		_curve_offset = _get_player_progress() + _current_distance
 		var frame := _sample_curve_frame(_curve_offset, _current_lateral, _current_vertical)
 		global_position = frame["position"]
 		_orient_ship(frame["forward"], frame["up"], bank)
 
-		set_engine_pitch(lerpf(1.30, 1.0, eased))
+		# Pitch normal grave de nave pesada
+		set_engine_pitch(lerpf(1.02, 0.85, eased))
 
 	if t >= 1.0:
 		_phase = Phase.BOMB_RUN
 		_phase_timer = 0.0
-		_drop_timer = 0.3
+		_drop_timer = drop_interval
 
 
 # ---------------------------------------------------------------------------
@@ -199,10 +200,10 @@ func _play_drop_sound() -> void:
 	var audio := AudioStreamPlayer3D.new()
 	audio.stream = BombDropSound
 	audio.bus = "Master"
-	audio.volume_db = -8.0
-	audio.pitch_scale = randf_range(1.2, 1.4)
-	audio.unit_size = 10.0
-	audio.max_distance = 180.0
+	audio.volume_db = -14.0
+	audio.pitch_scale = randf_range(1.15, 1.4)
+	audio.unit_size = 12.0
+	audio.max_distance = 220.0
 	audio.finished.connect(audio.queue_free)
 	get_tree().current_scene.add_child(audio)
 	audio.global_position = global_position
