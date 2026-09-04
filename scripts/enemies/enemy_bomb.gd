@@ -164,14 +164,31 @@ func _check_despawn() -> void:
 	if not player or not is_instance_valid(player):
 		return
 
-	# Vetor do jogador até a bomba
+	# Se a bomba se move pela curva do percurso, compara o progresso no caminho
+	if _has_curve:
+		var pf: PathFollower3D = null
+		var p: Node = player.get_parent()
+		while p:
+			if p is PathFollower3D:
+				pf = p as PathFollower3D
+				break
+			p = p.get_parent()
+		if pf:
+			# Se o progresso da bomba no caminho ficou mais de 75m atrás da câmera/jogador, descarta
+			if _curve_offset < pf.progress - 75.0:
+				queue_free()
+			return
+
+	# Fallback sem curva: calcula a distância relativa no eixo de voo da nave do jogador
 	var to_bomb := global_position - player.global_position
 	var forward_dir := -player.global_basis.z.normalized()
 	var forward_distance := to_bomb.dot(forward_dir)
 
-	# Se a bomba ficou mais de 35m atrás do jogador na direção do voo, remove
-	if forward_distance < -35.0:
+	# A nave Player fica a -40m em Z local da câmera do PathFollower.
+	# Permitir limite de -75m para garantir que a bomba passe longe por trás da câmera antes de dar despawn.
+	if forward_distance < -75.0:
 		queue_free()
+
 
 
 func take_damage(amount: int = 1) -> void:
