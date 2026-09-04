@@ -181,7 +181,8 @@ func _drop_bomb() -> void:
 
 	# Solta a bomba logo atrás da cauda do Bomber
 	var drop_pos := global_position + global_basis.z * 4.5 - global_basis.y * 0.8
-	bomb.global_position = drop_pos
+	var drop_fwd := -global_basis.z.normalized()
+	var drop_curve_offset := _curve_offset - 4.5
 
 	# Adiciona no container de mundo ou cena
 	var container: Node = get_parent()
@@ -189,6 +190,11 @@ func _drop_bomb() -> void:
 		container.add_child(bomb)
 	else:
 		get_tree().current_scene.add_child(bomb)
+
+	if bomb.has_method("setup_bomb"):
+		bomb.setup_bomb(drop_pos, drop_fwd, drop_curve_offset, _current_lateral, _current_vertical)
+	else:
+		bomb.global_position = drop_pos
 
 	# Som sutil de lançamento de mina/bomba
 	_play_drop_sound()

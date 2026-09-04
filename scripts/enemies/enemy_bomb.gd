@@ -22,13 +22,18 @@ const ExplosionSounds: Array[AudioStream] = [
 @export var score_value: int = 50
 @export var explosion_scale: float = 0.85
 @export var blink_speed: float = 6.0
+@export var forward_speed: float = 28.0  ## Velocidade de deslocamento à frente (mais lenta que a nave Player ~65 u/s)
 
 var current_hp: int = 1
 var _is_exploding: bool = false
-var _initial_pos: Vector3 = Vector3.ZERO
 var _float_time: float = 0.0
 var _random_rot_axis: Vector3 = Vector3.UP
 var _random_rot_speed: float = 1.0
+var _move_direction: Vector3 = Vector3.FORWARD
+var _has_curve: bool = false
+var _curve_offset: float = 0.0
+var _lateral_offset: float = 0.0
+var _vertical_offset: float = 0.0
 
 @onready var light: OmniLight3D = get_node_or_null("OmniLight3D") as OmniLight3D
 @onready var core_mesh: MeshInstance3D = get_node_or_null("CoreMesh") as MeshInstance3D
@@ -38,7 +43,6 @@ var _random_rot_speed: float = 1.0
 
 func _ready() -> void:
 	current_hp = max_hp
-	_initial_pos = global_position
 	_random_rot_axis = Vector3(randf_range(-1.0, 1.0), randf_range(-1.0, 1.0), randf_range(-1.0, 1.0)).normalized()
 	if _random_rot_axis.length_squared() < 0.1:
 		_random_rot_axis = Vector3.UP
@@ -56,6 +60,20 @@ func _ready() -> void:
 	body_entered.connect(_on_body_entered)
 
 
+func setup_bomb(initial_pos: Vector3, forward_dir: Vector3 = Vector3.ZERO, curve_off: float = -1.0, lat: float = 0.0, vert: float = 0.0) -> void:
+	global_position = initial_pos
+	if forward_dir.length_squared() > 0.01:
+		_move_direction = forward_dir.normalized()
+	else:
+		_move_direction = -global_basis.z.normalized()
+
+	if curve_off >= 0.0:
+		_has_curve = true
+		_curve_offset = curve_off
+		_lateral_offset = lat
+		_vertical_offset = vert
+
+
 func _physics_process(delta: float) -> void:
 	if _is_exploding:
 		return
@@ -68,7 +86,25 @@ func _physics_process(delta: float) -> void:
 	# Flutuação e oscilação suave no ar
 	var bob_y := sin(_float_time * 2.5) * 0.35
 	var bob_x := cos(_float_time * 1.8) * 0.2
-	global_position = _initial_pos + Vector3(bob_x, bob_y, 0.0)
+
+	# Deslocamento para a frente ao longo do percurso / direção de voo
+	if _has_curve:
+		_curve_offset += forward_speed * delta
+		var path := _get_flight_path()
+		if path and path.curve and path.curve.point_count > 1:
+			var curve_pos: Vector3 = path.curve.sample_baked(_curve_offset)
+			var global_center: Vector3 = path.global_transform * curve_pos
+			var tangent: Vector3 = (path.curve.sample_baked(_curve_offset + 1.0) - curve_pos).normalized()
+			var fwd: Vector3 = (path.global_basis * tangent).normalized()
+			var right: Vector3 = fwd.cross(Vector3.UP).normalized()
+			if right.length_squared() < 0.001:
+				right = Vector3.RIGHT
+			var up: Vector3 = right.cross(fwd).normalized()
+			global_position = global_center + right * (_lateral_offset + bob_x) + up * (_vertical_offset + bob_y)
+		else:
+			global_position += _move_direction * (forward_speed * delta) + Vector3(bob_x, bob_y, 0.0) * delta
+	else:
+		global_position += _move_direction * (forward_speed * delta)
 
 	# Efeito pulsante de alerta na luz e brilho intenso
 	var pulse := (sin(_float_time * blink_speed) + 1.0) * 0.5
@@ -82,7 +118,33 @@ func _physics_process(delta: float) -> void:
 	_check_despawn()
 
 
+var _cached_flight_path: Path3D = null
+
+
+func _get_flight_path() -> Path3D:
+	if _cached_flight_path and is_instance_valid(_cached_flight_path):
+		return _cached_flight_path
+	if not is_inside_tree():
+		return null
+
+	var player: Node3D = get_tree().get_first_node_in_group("player") as Node3D
+	if player:
+		var p: Node = player.get_parent()
+		while p:
+			if p is PathFollower:
+				_cached_flight_path = p.get_parent() as Path3D
+				break
+			p = p.get_parent()
+
+	if not _cached_flight_path and get_tree().current_scene:
+		_cached_flight_path = get_tree().current_scene.find_child("FlightPath", true, false) as Path3D
+
+	return _cached_flight_path
+
+
 func _check_despawn() -> void:
+	if not is_inside_tree():
+		return
 	var player: Node3D = get_tree().get_first_node_in_group("player") as Node3D
 	if not player or not is_instance_valid(player):
 		return
