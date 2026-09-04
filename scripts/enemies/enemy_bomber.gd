@@ -19,11 +19,11 @@ const BombDropSound := preload("res://assets/audio/mothership1_torpedo.ogg")
 const EnemyBombScript := preload("res://scripts/enemies/enemy_bomb.gd")
 
 @export_category("Comportamento do Bomber")
-@export var enter_duration: float = 4.2           ## Entrada mais lenta e imponente como nave pesada
+@export var enter_duration: float = 6.2           ## Entrada ainda mais lenta, pesada e imponente
 @export var bomb_run_duration: float = 6.0
 @export var exit_duration: float = 2.5
 
-@export var combat_distance_ahead: float = 145.0  ## Fica bem mais distante da nave Player (145m à frente)
+@export var combat_distance_ahead: float = 195.0  ## Distância ainda maior da nave Player (195m à frente na vanguarda)
 @export var lateral_span: float = 14.0            ## Amplitude de varredura lateral (±14m)
 @export var base_height: float = 6.0              ## Altura de voo no cânion
 @export var total_bombs: int = 24                 ## Fileira de 24 minas
@@ -89,44 +89,44 @@ func _physics_process(delta: float) -> void:
 
 
 # ---------------------------------------------------------------------------
-# Fase 1: Rasante Pesado e Cadenciado vindo de trás do jogador (-178m para +145m)
+# Fase 1: Rasante Pesado e Cadenciado vindo de trás do jogador (-178m para +195m)
 # ---------------------------------------------------------------------------
 
 func _process_enter(_delta: float) -> void:
 	var total_dur := maxf(enter_duration, 0.01)
 	var t := clampf(_phase_timer / total_dur, 0.0, 1.0)
 
-	if t < 0.60:
+	if t < 0.55:
 		# Rasante pesado e deliberado cruzando a câmera
-		var surge_t := t / 0.60
-		_current_distance = lerpf(-178.0, 75.0, surge_t)
-		_current_lateral = lerpf(_side * 4.0, _side * 6.5, surge_t)
-		_current_vertical = lerpf(4.0, 5.2, surge_t)
+		var surge_t := t / 0.55
+		_current_distance = lerpf(-178.0, 80.0, surge_t)
+		_current_lateral = lerpf(_side * 4.0, _side * 7.0, surge_t)
+		_current_vertical = lerpf(4.0, 5.5, surge_t)
 
-		var bank := -_side * lerpf(0.15, 0.35, surge_t)
+		var bank := -_side * lerpf(0.12, 0.30, surge_t)
 		_curve_offset = _get_player_progress() + _current_distance
 		var frame := _sample_curve_frame(_curve_offset, _current_lateral, _current_vertical)
 		global_position = frame["position"]
 		_orient_ship(frame["forward"], frame["up"], bank)
 
 		# Som grave e pesado do motor subindo gradualmente
-		set_engine_pitch(lerpf(0.75, 1.02, surge_t))
+		set_engine_pitch(lerpf(0.72, 0.98, surge_t))
 	else:
-		# Desacelera suavemente e avança até a distância de combate distante (145m)
-		var settle_t := (t - 0.60) / 0.40
+		# Desacelera suavemente e avança até a distância de combate ampla (195m)
+		var settle_t := (t - 0.55) / 0.45
 		var eased := settle_t * (2.0 - settle_t)
-		_current_distance = lerpf(75.0, combat_distance_ahead, eased)
-		_current_lateral = lerpf(_side * 6.5, -_side * 2.0, eased)
-		_current_vertical = lerpf(5.2, base_height, eased)
+		_current_distance = lerpf(80.0, combat_distance_ahead, eased)
+		_current_lateral = lerpf(_side * 7.0, -_side * 2.0, eased)
+		_current_vertical = lerpf(5.5, base_height, eased)
 
-		var bank := -_side * lerpf(0.35, 0.1, eased)
+		var bank := -_side * lerpf(0.30, 0.08, eased)
 		_curve_offset = _get_player_progress() + _current_distance
 		var frame := _sample_curve_frame(_curve_offset, _current_lateral, _current_vertical)
 		global_position = frame["position"]
 		_orient_ship(frame["forward"], frame["up"], bank)
 
 		# Pitch normal grave de nave pesada
-		set_engine_pitch(lerpf(1.02, 0.85, eased))
+		set_engine_pitch(lerpf(0.98, 0.82, eased))
 
 	if t >= 1.0:
 		_phase = Phase.BOMB_RUN

@@ -22,7 +22,7 @@ const ExplosionSounds: Array[AudioStream] = [
 @export var score_value: int = 50
 @export var explosion_scale: float = 0.85
 @export var blink_speed: float = 6.0
-@export var forward_speed: float = 28.0  ## Velocidade de deslocamento à frente (mais lenta que a nave Player ~65 u/s)
+@export var forward_speed: float = 46.0  ## Velocidade de deslocamento à frente (mais rápida ~46 u/s, menor diferença para a nave Player ~65 u/s)
 
 var current_hp: int = 1
 var _is_exploding: bool = false
