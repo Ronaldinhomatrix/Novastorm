@@ -49,3 +49,20 @@ func _snap_to_ground_surface() -> void:
 	var result := space_state.intersect_ray(query)
 	if result and result.has("position"):
 		global_position.y = result["position"].y
+
+
+const GroundVehicleWreckageScript := preload("res://scripts/effects/ground_vehicle_wreckage.gd")
+
+func die() -> void:
+	if _is_dead:
+		return
+	_is_dead = true
+
+	set_deferred("monitoring", false)
+	set_deferred("monitorable", false)
+
+	# Destruição terrestre realista: chassi carbonizado no solo fumegando com chamas
+	GroundVehicleWreckageScript.spawn_for_truck(self)
+
+	enemy_destroyed.emit(self, score_value)
+	queue_free()

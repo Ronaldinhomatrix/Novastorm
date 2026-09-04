@@ -126,3 +126,20 @@ func _shoot_at_player() -> void:
 		
 	var spawn_pos := base_turret_pos + forward_dir * 8.5 + Vector3.UP * 1.5
 	fire_bullet(spawn_pos, forward_dir)
+
+
+const GroundVehicleWreckageScript := preload("res://scripts/effects/ground_vehicle_wreckage.gd")
+
+func die() -> void:
+	if _is_dead:
+		return
+	_is_dead = true
+
+	set_deferred("monitoring", false)
+	set_deferred("monitorable", false)
+
+	# Destruição terrestre realista: casco queimando no solo + ejeção balística da torreta com gravidade
+	GroundVehicleWreckageScript.spawn_for_tank(self)
+
+	enemy_destroyed.emit(self, score_value)
+	queue_free()
