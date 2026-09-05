@@ -55,8 +55,8 @@ var _crosshair: Control = null  ## Instância do crosshair UI
 
 @export_category("Comboio Terrestre (SmallBridgeConvoy)")
 @export var convoy_node_path: NodePath = "SmallBridgeConvoy"
-@export var convoy_move_start_point: int = 16  ## Ponto onde o comboio começa a se mover
-@export var convoy_move_end_point: int = 18    ## Ponto onde o comboio interrompe o movimento
+@export var convoy_move_start_point: int = 16  ## Ponto onde o comboio começa a se mover e os tanques disparam
+@export var convoy_move_end_point: int = 18    ## Ponto onde o comboio interrompe o movimento e os tanques cessam fogo
 
 @export_category("Intro Cinematica")
 @export var enable_cinematic_intro: bool = false
@@ -99,6 +99,14 @@ var _intro_active: bool = false
 var _intro_timer: float = 0.0
 var _default_camera_pos: Vector3 = Vector3(-0.0112, 0.0, 18.0)
 var _default_camera_rot: Vector3 = Vector3.ZERO
+
+# Som de manobra tocado quando a câmera chega ao ponto 19.
+const MANEUVER_2_SOUND := preload("res://assets/audio/maneuver2.ogg")
+
+# Efeito sonoro da manobra 2 (ponto 19)
+var _maneuver2_player: AudioStreamPlayer = null
+var _maneuver2_sound_played: bool = false
+var _maneuver2_point_offset: float = 0.0
 
 # Parâmetros de distância para a rotação da Mothership
 var _start_dist: float = 0.0
@@ -206,6 +214,10 @@ func _ready():
 			# Offset do ponto de som da Mothership.
 			var sound_idx := clampi(mothership_sound_point, 0, point_count - 1)
 			_mothership_sound_offset = curve.get_closest_offset(curve.get_point_position(sound_idx))
+
+			# Offset do ponto 19 para tocar maneuver2.ogg
+			var m2_idx := clampi(19, 0, point_count - 1)
+			_maneuver2_point_offset = curve.get_closest_offset(curve.get_point_position(m2_idx))
 
 			# Ponto 7 (imediatamente antes da Wave 1 no ponto 8) sincronizado com o alerta de áudio
 			var warning_point_idx := clampi(7, 0, point_count - 1)
@@ -339,8 +351,9 @@ func _process(delta: float) -> void:
 			if hud:
 				hud.show_cinematic_warning("WARNING // INCOMING ENEMIES", "RADAR PROXIMITY ALERT // HOSTILE SQUADRONS DETECTED", 5.5)
 
-	# Toca o som da Mothership ao cruzar o ponto definido.
+	# Toca o som da Mothership e manobra 2 ao cruzar os pontos definidos.
 	_trigger_mothership_sound()
+	_trigger_maneuver2_sound()
 	_handle_mothership_firing()
 
 	# Gerencia o movimento lento e a janela de disparos do comboio terrestre
@@ -512,13 +525,17 @@ func _handle_convoy_logic() -> void:
 			return
 
 	var current_prog: float = path_follower.progress
-	var should_move: bool = (current_prog >= _convoy_move_start_dist and current_prog <= _convoy_move_end_dist)
+	var min_dist := minf(_convoy_move_start_dist, _convoy_move_end_dist)
+	var max_dist := maxf(_convoy_move_start_dist, _convoy_move_end_dist)
+	var in_window: bool = (current_prog >= min_dist and current_prog <= max_dist)
 
 	for child in _convoy_node.get_children():
 		if not is_instance_valid(child):
 			continue
 		if "active_move" in child:
-			child.set("active_move", should_move)
+			child.set("active_move", in_window)
+		if "can_shoot" in child:
+			child.set("can_shoot", in_window)
 
 
 func _update_mothership_rotation() -> void:
@@ -805,6 +822,30 @@ func _trigger_mothership_sound() -> void:
 	if _mothership_sound_offset > 0.0 and path_follower.progress >= _mothership_sound_offset:
 		_mothership_sound_player.play()
 		_mothership_sound_played = true
+
+
+## Toca o som maneuver2.ogg uma única vez quando a câmera atinge o ponto 19 do Path3D.
+func _trigger_maneuver2_sound() -> void:
+	if _maneuver2_sound_played or not path_follower:
+		return
+
+	if _maneuver2_player == null:
+		_maneuver2_player = AudioStreamPlayer.new()
+		_maneuver2_player.stream = MANEUVER_2_SOUND
+		_maneuver2_player.bus = "Master"
+		_maneuver2_player.volume_db = 0.0
+		add_child(_maneuver2_player)
+
+	if _maneuver2_point_offset <= 0.0:
+		var flight_path := get_node_or_null("FlightPath") as Path3D
+		if flight_path and flight_path.curve and flight_path.curve.point_count > 0:
+			var m2_idx := clampi(19, 0, flight_path.curve.point_count - 1)
+			_maneuver2_point_offset = flight_path.curve.get_closest_offset(flight_path.curve.get_point_position(m2_idx))
+
+	if _maneuver2_point_offset > 0.0 and path_follower.progress >= _maneuver2_point_offset:
+		_maneuver2_player.pitch_scale = randf_range(0.97, 1.03)
+		_maneuver2_player.play()
+		_maneuver2_sound_played = true
 
 
 # ---------------------------------------------------------------------------

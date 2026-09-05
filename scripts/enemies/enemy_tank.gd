@@ -18,7 +18,7 @@ const DefaultTankBulletScene := preload("res://scenes/enemies/tank_bullet.tscn")
 @export var turret_node_path: NodePath = "TankModel/tank1/Turret"
 @export var turret_rotation_speed: float = 3.2
 @export var aim_at_player: bool = true
-@export var can_shoot: bool = true
+@export var can_shoot: bool = false ## Ativado pelo GameController apenas quando o Player estiver entre os pontos 16 e 18
 @export var fire_interval: float = 2.8
 @export var max_shoot_distance: float = 1600.0
 
@@ -73,7 +73,7 @@ func _physics_process(delta: float) -> void:
 	if _turret and is_instance_valid(_turret) and _player_ref and aim_at_player:
 		_aim_turret_at_player(player_pos, delta)
 
-	# 3. Disparo de projétil pesado em direção ao jogador quando estiver no alcance
+	# 3. Disparo de projétil pesado em direção ao jogador quando estiver no alcance e autorizado
 	if can_shoot:
 		if dist_to_player <= max_shoot_distance:
 			_fire_timer -= delta
@@ -83,6 +83,9 @@ func _physics_process(delta: float) -> void:
 		else:
 			# Mantém pronto para disparar rapidamente assim que entrar no alcance
 			_fire_timer = randf_range(0.2, 0.5)
+	else:
+		# Fora da janela de disparo (antes do ponto 16 ou após ponto 18): mantém engatilhado
+		_fire_timer = randf_range(0.2, 0.5)
 
 
 func _snap_to_ground_surface() -> void:
