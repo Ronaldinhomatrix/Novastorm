@@ -116,6 +116,11 @@ func _aim_turret_at_player(target_pos: Vector3, delta: float) -> void:
 	_turret.rotation.y = lerp_angle(_turret.rotation.y, desired_yaw, turret_rotation_speed * delta)
 
 
+const TankFiringSounds := [
+	preload("res://assets/audio/tank_firing1.wav"),
+	preload("res://assets/audio/tank_firing2.wav"),
+]
+
 func _shoot_at_player() -> void:
 	if not bullet_scene:
 		bullet_scene = DefaultTankBulletScene
@@ -129,6 +134,37 @@ func _shoot_at_player() -> void:
 		
 	var spawn_pos := base_turret_pos + forward_dir * 8.5 + Vector3.UP * 1.5
 	fire_bullet(spawn_pos, forward_dir)
+
+
+func fire_bullet(from_pos: Vector3, dir: Vector3) -> void:
+	if not bullet_scene:
+		return
+
+	var bullet: Node = bullet_scene.instantiate()
+	if not bullet or not bullet is Node3D:
+		return
+
+	get_tree().current_scene.add_child(bullet)
+	(bullet as Node3D).global_position = from_pos
+	if bullet.has_method("setup"):
+		bullet.setup(dir)
+
+	if not _is_dead:
+		_play_tank_firing_sound()
+
+
+func _play_tank_firing_sound() -> void:
+	if TankFiringSounds.is_empty():
+		return
+	var scene: Node = get_tree().current_scene if (get_tree() and get_tree().current_scene) else self
+	var p := AudioStreamPlayer.new()
+	p.stream = TankFiringSounds.pick_random()
+	p.bus = "Master"
+	p.volume_db = 2.0
+	p.pitch_scale = randf_range(0.93, 1.07)
+	scene.add_child(p)
+	p.finished.connect(p.queue_free)
+	p.play()
 
 
 const GroundVehicleWreckageScript := preload("res://scripts/effects/ground_vehicle_wreckage.gd")
