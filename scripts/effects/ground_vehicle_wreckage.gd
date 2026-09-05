@@ -20,6 +20,7 @@ var _lifetime: float = 12.0
 var _age: float = 0.0
 var _flash_light: OmniLight3D = null
 var _fireball_light: OmniLight3D = null
+var _flicker_light: OmniLight3D = null
 var _fire_particles: CPUParticles3D = null
 var _smoke_particles: CPUParticles3D = null
 var _wreck_root: Node3D = null
