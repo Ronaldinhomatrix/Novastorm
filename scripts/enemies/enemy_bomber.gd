@@ -47,6 +47,7 @@ func _ready() -> void:
 	current_hp = 5
 	score_value = 600
 	enable_engine_sound = true
+	engine_volume_db = 3.5  ## Aumentado o volume base em +3.5dB (~50% de ganho perceptível)
 	super._ready()
 
 
@@ -63,14 +64,15 @@ func _setup_engine_sound() -> void:
 
 	_engine_audio_player.bus = "Master"
 	_engine_audio_player.volume_db = engine_volume_db
-	_engine_audio_player.unit_size = 16.0
-	_engine_audio_player.max_distance = 380.0
+	_engine_audio_player.unit_size = 24.0
+	_engine_audio_player.max_distance = 450.0
 	_engine_audio_player.attenuation_model = AudioStreamPlayer3D.ATTENUATION_INVERSE_DISTANCE
 	_engine_audio_player.doppler_tracking = AudioStreamPlayer3D.DOPPLER_TRACKING_DISABLED
 	_engine_audio_player.pitch_scale = randf_range(0.97, 1.03)
 	add_child(_engine_audio_player)
 	_engine_audio_player.play()
 	_engine_audio_player.finished.connect(_on_engine_sound_finished)
+
 
 
 func setup_bomber(_start_pos: Vector3, _dir: Vector3, side: float = 1.0) -> void:

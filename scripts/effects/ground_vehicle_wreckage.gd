@@ -1,22 +1,23 @@
 class_name GroundVehicleWreckage
 extends Node3D
 
-## Explosão Cinematográfica Especializada para Veículos Terrestres (Tanques e Caminhões).
+## Explosão Cinematográfica Monumental para Veículos Terrestres (Tanques e Caminhões).
 ##
-## Efeito 100% novo construído do zero, sem corte de peças ou herança das naves:
-##   1. Detonação instantânea: Flash cegante + onda de choque no solo + core de plasma.
-##   2. Bola de fogo em dois estágios: Burst inicial violento + convecção em cogumelo (combustível/munição).
-##   3. Chuveiro de faíscas incandescentes em arco balístico com gravidade pesada.
-##   4. Decalque de solo carbonizado (Scorch Mark) projetado diretamente na pista/ponte.
-##   5. Chamas residuais no ponto de impacto + coluna volumétrica de fumaça preta subindo aos céus.
-##   6. Impacto sonoro de artilharia pesada (grave com punch) + camera shake integrado.
+## Efeito em escala real cinematográfica calibrado para veículos de 50m a 100m:
+##   1. Detonação instantânea: Flash cegante massivo + onda de choque no solo + core de plasma de 50m+.
+##   2. Bola de fogo monumental em dois estágios: Burst violento primário (70m+) + convecção em cogumelo (120m+).
+##   3. Chuveiro pirotécnico de faíscas incandescentes e estilhaços em arcos balísticos amplos.
+##   4. Onda de poeira e pressão varrendo a pista e o cânion.
+##   5. Decalque de solo carbonizado (Scorch Mark) de grande área cobrindo o leito da pista.
+##   6. Fogo residual rugindo no solo + coluna monumental de fumaça preta subindo a mais de 180m de altitude.
+##   7. Impacto sonoro de artilharia pesada (grave com punch) + forte camera shake integrado.
 
 const ExplosionSounds := [
 	preload("res://assets/audio/explosion1.ogg"),
 	preload("res://assets/audio/explosion2.ogg"),
 ]
 
-var _lifetime: float = 6.0
+var _lifetime: float = 8.5
 var _age: float = 0.0
 var _flash_light: OmniLight3D = null
 var _fireball_light: OmniLight3D = null
@@ -68,85 +69,86 @@ static func _get_scene_parent(node: Node) -> Node:
 
 
 # ---------------------------------------------------------------------------
-# Construção Principal da Explosão
+# Construção Principal da Explosão Monumental
 # ---------------------------------------------------------------------------
 
 func _build_explosion(is_tank: bool) -> void:
-	var intensity: float = 1.35 if is_tank else 1.15
-	var blast_origin := Vector3(0.0, 1.8, 0.0)
+	# O Tanque tem centro visual a ~10m e comprimento ~60m; o Caminhão tem centro a ~16m e comprimento ~100m.
+	var mult: float = 3.6 if is_tank else 4.2
+	var blast_origin := Vector3(0.0, 10.0 if is_tank else 15.0, 0.0)
 
-	# 1. Flash de luz instantâneo e ultra-brilhante
-	_build_detonation_flash(intensity)
+	# 1. Flash de luz instantâneo colossal (ilumina toda a ponte e paredes do cânion)
+	_build_detonation_flash(mult)
 
-	# 2. Onda de choque rente ao solo / pista
-	_build_ground_shockwave(intensity)
+	# 2. Onda de choque expansiva violenta rente ao solo / leito da pista
+	_build_ground_shockwave(mult)
 
-	# 3. Núcleo de plasma / burst de fogo violento primário
-	_build_primary_fireball(blast_origin, intensity)
+	# 3. Núcleo primário de plasma e bola de fogo de detonação imediata (envolve todo o veículo no frame 0)
+	_build_primary_fireball(blast_origin, mult)
 
-	# 4. Segundo estágio: Bola de fogo de convecção térmica (combustível/munição subindo)
-	_build_convection_fireball(blast_origin, intensity)
+	# 4. Segundo estágio: Coluna de cogumelo térmico de alta convecção (combustível e munição subindo a 120m+)
+	_build_convection_fireball(blast_origin, mult)
 
-	# 5. Chuveiro de faíscas incandescentes em arco balístico com gravidade
-	_build_spark_shower(blast_origin, 55 if is_tank else 45)
+	# 5. Chuveiro pirotécnico de faíscas incandescentes e fragmentos pesados em arcos de gravidade
+	_build_spark_shower(blast_origin, 90 if is_tank else 80, mult)
 
-	# 6. Poeira e onda de pressão varrendo a pista horizontalmente
-	_build_road_dust(intensity)
+	# 6. Onda de pressão de poeira e detritos rasteiros varrendo a estrada
+	_build_road_dust(mult)
 
-	# 7. Decalque de marca de queimado carbonizada no chão da ponte/estrada
-	_build_scorch_mark(intensity)
+	# 7. Decalque gigante de marca de queimado carbonizada cobrindo a área do impacto
+	_build_scorch_mark(mult)
 
-	# 8. Fogo residual no solo + coluna densa de fumaça preta subindo
-	_build_aftermath_effects(blast_origin, intensity)
+	# 8. Chamas residuais rugindo no solo + coluna monumental de fumaça preta que sobe aos céus
+	_build_aftermath_effects(blast_origin, mult)
 
-	# 9. Som pesado de artilharia grave
+	# 9. Som estrondoso de artilharia pesada com grave roncante
 	_play_heavy_sound(is_tank)
 
-	# 10. Camera Shake para impacto físico visceral
-	_trigger_shake(0.65 if is_tank else 0.50)
+	# 10. Camera Shake vigoroso para impacto físico visceral
+	_trigger_shake(0.85 if is_tank else 0.95)
 
 
 # ===========================================================================
-# 1. Flash Cegante de Detonação
+# 1. Flash Cegante de Detonação (Engolimento Imediato)
 # ===========================================================================
 
 func _build_detonation_flash(mult: float) -> void:
 	_flash_light = OmniLight3D.new()
 	_flash_light.light_color = Color(1.0, 0.96, 0.85)
-	_flash_light.light_energy = 160.0 * mult
-	_flash_light.omni_range = 55.0 * mult
-	_flash_light.omni_attenuation = 0.5
-	_flash_light.position = Vector3(0, 2.5, 0)
+	_flash_light.light_energy = 380.0
+	_flash_light.omni_range = 280.0
+	_flash_light.omni_attenuation = 0.4
+	_flash_light.position = Vector3(0, 12.0, 0)
 	add_child(_flash_light)
 
-	# Esfera de plasma branco instantânea no ponto zero
+	# Esfera monumental de plasma branco-incandescente instantânea no ponto zero
 	var core := CPUParticles3D.new()
 	core.name = "PlasmaCore"
 	core.emitting = true
 	core.one_shot = true
 	core.explosiveness = 1.0
 	core.amount = 1
-	core.lifetime = 0.15
-	core.position = Vector3(0, 2.5, 0)
+	core.lifetime = 0.22
+	core.position = Vector3(0, 12.0, 0)
 	core.gravity = Vector3.ZERO
-	core.scale_amount_min = 14.0 * mult
-	core.scale_amount_max = 18.0 * mult
+	core.scale_amount_min = 45.0 * mult * 0.3
+	core.scale_amount_max = 70.0 * mult * 0.3
 
 	var ramp := Gradient.new()
 	ramp.offsets = PackedFloat32Array([0.0, 0.4, 1.0])
 	ramp.colors = PackedColorArray([
-		Color(5.0, 4.5, 3.0, 1.0),
-		Color(3.0, 1.8, 0.4, 0.9),
+		Color(6.0, 5.5, 3.5, 1.0),
+		Color(3.5, 2.0, 0.5, 0.9),
 		Color(1.0, 0.2, 0.0, 0.0)
 	])
 	core.color_ramp = ramp
-	core.mesh = _make_sphere(0.5)
+	core.mesh = _make_sphere(2.5)
 	core.material_override = _make_mat(BaseMaterial3D.BLEND_MODE_ADD)
 	add_child(core)
 
 
 # ===========================================================================
-# 2. Onda de Choque Rente ao Solo
+# 2. Onda de Choque Rente ao Solo (150m+ de diâmetro)
 # ===========================================================================
 
 func _build_ground_shockwave(mult: float) -> void:
@@ -155,33 +157,33 @@ func _build_ground_shockwave(mult: float) -> void:
 	wave.emitting = true
 	wave.one_shot = true
 	wave.explosiveness = 1.0
-	wave.amount = 45
-	wave.lifetime = 0.42
-	wave.position = Vector3(0, 0.4, 0)
+	wave.amount = 60
+	wave.lifetime = 0.65
+	wave.position = Vector3(0, 1.5, 0)
 	wave.direction = Vector3.UP
 	wave.spread = 90.0
-	wave.flatness = 0.96  # Quase 100% horizontal
+	wave.flatness = 0.98  # Expansão estritamente horizontal
 	wave.gravity = Vector3.ZERO
-	wave.initial_velocity_min = 45.0 * mult
-	wave.initial_velocity_max = 75.0 * mult
-	wave.scale_amount_min = 2.0
-	wave.scale_amount_max = 5.0 * mult
+	wave.initial_velocity_min = 70.0 * mult * 0.5
+	wave.initial_velocity_max = 130.0 * mult * 0.5
+	wave.scale_amount_min = 6.0 * mult * 0.4
+	wave.scale_amount_max = 16.0 * mult * 0.4
 
 	var ramp := Gradient.new()
-	ramp.offsets = PackedFloat32Array([0.0, 0.35, 1.0])
+	ramp.offsets = PackedFloat32Array([0.0, 0.3, 1.0])
 	ramp.colors = PackedColorArray([
-		Color(2.5, 2.0, 1.2, 0.9),
-		Color(1.5, 0.8, 0.2, 0.5),
-		Color(0.4, 0.15, 0.05, 0.0)
+		Color(3.5, 2.8, 1.5, 1.0),
+		Color(2.0, 1.0, 0.25, 0.6),
+		Color(0.5, 0.15, 0.05, 0.0)
 	])
 	wave.color_ramp = ramp
-	wave.mesh = _make_sphere(0.4)
+	wave.mesh = _make_sphere(1.5)
 	wave.material_override = _make_mat(BaseMaterial3D.BLEND_MODE_ADD)
 	add_child(wave)
 
 
 # ===========================================================================
-# 3. Bola de Fogo Primária (Violenta & Volumétrica)
+# 3. Bola de Fogo Primária (60m a 90m de diâmetro)
 # ===========================================================================
 
 func _build_primary_fireball(offset: Vector3, mult: float) -> void:
@@ -189,120 +191,119 @@ func _build_primary_fireball(offset: Vector3, mult: float) -> void:
 	fb.name = "PrimaryFireball"
 	fb.emitting = true
 	fb.one_shot = true
-	fb.explosiveness = 0.94
-	fb.amount = 48
-	fb.lifetime = 0.65
+	fb.explosiveness = 0.95
+	fb.amount = 65
+	fb.lifetime = 0.95
 	fb.position = offset
 	fb.direction = Vector3.UP
-	fb.spread = 65.0
-	fb.gravity = Vector3(0, 6.0, 0)
-	fb.initial_velocity_min = 10.0 * mult
-	fb.initial_velocity_max = 28.0 * mult
-	fb.angular_velocity_min = -150.0
-	fb.angular_velocity_max = 150.0
-	fb.scale_amount_min = 4.0 * mult
-	fb.scale_amount_max = 10.5 * mult
+	fb.spread = 160.0
+	fb.gravity = Vector3(0, 12.0, 0)
+	fb.initial_velocity_min = 20.0 * mult * 0.5
+	fb.initial_velocity_max = 50.0 * mult * 0.5
+	fb.angular_velocity_min = -140.0
+	fb.angular_velocity_max = 140.0
+	fb.scale_amount_min = 15.0 * mult * 0.4
+	fb.scale_amount_max = 35.0 * mult * 0.4
 
 	var ramp := Gradient.new()
-	ramp.offsets = PackedFloat32Array([0.0, 0.15, 0.40, 0.70, 1.0])
+	ramp.offsets = PackedFloat32Array([0.0, 0.15, 0.38, 0.68, 1.0])
 	ramp.colors = PackedColorArray([
-		Color(4.5, 4.0, 2.0, 1.0),   # Branco-amarelo nuclear
-		Color(2.8, 1.4, 0.2, 1.0),   # Dourado elétrico
-		Color(1.8, 0.45, 0.03, 0.9), # Laranja fogo vívido
-		Color(0.7, 0.1, 0.01, 0.5),  # Vermelho escurecendo
-		Color(0.12, 0.02, 0.0, 0.0)  # Fade para cinzas
+		Color(5.5, 5.0, 2.5, 1.0),   # Branco nuclear cegante
+		Color(3.2, 1.6, 0.25, 1.0),  # Dourado elétrico radiante
+		Color(2.0, 0.5, 0.04, 0.95), # Laranja fogo incandescente
+		Color(0.9, 0.12, 0.01, 0.6), # Vermelho brasa profundo
+		Color(0.15, 0.03, 0.0, 0.0)  # Fade escuro
 	])
 	fb.color_ramp = ramp
-	fb.mesh = _make_sphere(0.6)
+	fb.mesh = _make_sphere(2.5)
 	fb.material_override = _make_mat(BaseMaterial3D.BLEND_MODE_ADD)
 	add_child(fb)
 
-	# Luz laranja acompanhando a bola de fogo
+	# Luz alaranjada volumétrica
 	_fireball_light = OmniLight3D.new()
-	_fireball_light.position = offset + Vector3.UP * 2.0
-	_fireball_light.light_color = Color(1.0, 0.6, 0.12)
-	_fireball_light.light_energy = 55.0 * mult
-	_fireball_light.omni_range = 38.0 * mult
-	_fireball_light.omni_attenuation = 1.0
+	_fireball_light.position = offset + Vector3.UP * 8.0
+	_fireball_light.light_color = Color(1.0, 0.62, 0.15)
+	_fireball_light.light_energy = 160.0
+	_fireball_light.omni_range = 220.0
+	_fireball_light.omni_attenuation = 0.7
 	add_child(_fireball_light)
 
 
 # ===========================================================================
-# 4. Segundo Estágio: Bola de Fogo de Convecção Térmica (Updraft)
+# 4. Segundo Estágio: Cogumelo Térmico de Convecção (Sobe a 140m+)
 # ===========================================================================
 
 func _build_convection_fireball(offset: Vector3, mult: float) -> void:
-	# Simula o efeito cogumelo de combustível pesado explodindo e subindo
 	var col := CPUParticles3D.new()
 	col.name = "MushroomFire"
 	col.emitting = true
 	col.one_shot = true
 	col.explosiveness = 0.88
-	col.amount = 36
-	col.lifetime = 1.1
-	col.position = offset + Vector3.UP * 1.0
+	col.amount = 55
+	col.lifetime = 1.5
+	col.position = offset + Vector3.UP * 5.0
 	col.direction = Vector3.UP
 	col.spread = 35.0
-	col.gravity = Vector3(0, 14.0, 0) # Forte impulso térmico para cima
-	col.initial_velocity_min = 6.0 * mult
-	col.initial_velocity_max = 18.0 * mult
-	col.angular_velocity_min = -80.0
-	col.angular_velocity_max = 80.0
-	col.scale_amount_min = 5.0 * mult
-	col.scale_amount_max = 13.0 * mult
+	col.gravity = Vector3(0, 26.0, 0) # Ascensão térmica violenta
+	col.initial_velocity_min = 18.0 * mult * 0.4
+	col.initial_velocity_max = 42.0 * mult * 0.4
+	col.angular_velocity_min = -70.0
+	col.angular_velocity_max = 70.0
+	col.scale_amount_min = 18.0 * mult * 0.4
+	col.scale_amount_max = 45.0 * mult * 0.4
 
 	var ramp := Gradient.new()
-	ramp.offsets = PackedFloat32Array([0.0, 0.2, 0.55, 0.85, 1.0])
+	ramp.offsets = PackedFloat32Array([0.0, 0.20, 0.50, 0.80, 1.0])
 	ramp.colors = PackedColorArray([
-		Color(2.5, 1.5, 0.3, 1.0),
-		Color(1.8, 0.6, 0.08, 0.95),
-		Color(0.8, 0.15, 0.02, 0.7),
-		Color(0.25, 0.18, 0.16, 0.5), # Vira fumaça grossa
+		Color(3.5, 2.2, 0.5, 1.0),
+		Color(2.2, 0.8, 0.1, 0.95),
+		Color(1.0, 0.2, 0.03, 0.75),
+		Color(0.3, 0.2, 0.18, 0.55), # Transição para fumaça escura espessa
 		Color(0.08, 0.08, 0.08, 0.0)
 	])
 	col.color_ramp = ramp
-	col.mesh = _make_sphere(0.65)
+	col.mesh = _make_sphere(3.0)
 	col.material_override = _make_mat(BaseMaterial3D.BLEND_MODE_ADD)
 	add_child(col)
 
 
 # ===========================================================================
-# 5. Chuveiro de Faíscas Incandescentes em Arco Balístico
+# 5. Chuveiro de Faíscas Pirotécnicas e Estilhaços em Grande Arco
 # ===========================================================================
 
-func _build_spark_shower(offset: Vector3, count: int) -> void:
+func _build_spark_shower(offset: Vector3, count: int, mult: float) -> void:
 	var sp := CPUParticles3D.new()
 	sp.name = "SparkShower"
 	sp.emitting = true
 	sp.one_shot = true
 	sp.explosiveness = 0.98
 	sp.amount = count
-	sp.lifetime = 1.2
+	sp.lifetime = 2.0
 	sp.position = offset
 	sp.direction = Vector3.UP
-	sp.spread = 75.0
-	sp.gravity = Vector3(0, -26.0, 0) # Gravidade real forte
-	sp.initial_velocity_min = 22.0
-	sp.initial_velocity_max = 50.0
-	sp.scale_amount_min = 0.25
-	sp.scale_amount_max = 0.7
+	sp.spread = 80.0
+	sp.gravity = Vector3(0, -32.0, 0) # Gravidade real pesada
+	sp.initial_velocity_min = 40.0 * mult * 0.4
+	sp.initial_velocity_max = 95.0 * mult * 0.4
+	sp.scale_amount_min = 0.8
+	sp.scale_amount_max = 2.4
 
 	var ramp := Gradient.new()
-	ramp.offsets = PackedFloat32Array([0.0, 0.4, 0.8, 1.0])
+	ramp.offsets = PackedFloat32Array([0.0, 0.35, 0.75, 1.0])
 	ramp.colors = PackedColorArray([
-		Color(4.0, 3.2, 1.5, 1.0),
-		Color(2.2, 1.0, 0.15, 0.9),
-		Color(1.0, 0.3, 0.02, 0.7),
-		Color(0.5, 0.05, 0.0, 0.0)
+		Color(5.0, 4.0, 2.0, 1.0),
+		Color(3.0, 1.5, 0.2, 0.95),
+		Color(1.5, 0.4, 0.03, 0.8),
+		Color(0.6, 0.08, 0.0, 0.0)
 	])
 	sp.color_ramp = ramp
-	sp.mesh = _make_sphere(0.18)
+	sp.mesh = _make_sphere(0.45)
 	sp.material_override = _make_mat(BaseMaterial3D.BLEND_MODE_ADD)
 	add_child(sp)
 
 
 # ===========================================================================
-# 6. Poeira da Estrada
+# 6. Onda de Pressão de Poeira da Estrada
 # ===========================================================================
 
 func _build_road_dust(mult: float) -> void:
@@ -311,152 +312,151 @@ func _build_road_dust(mult: float) -> void:
 	dust.emitting = true
 	dust.one_shot = true
 	dust.explosiveness = 0.92
-	dust.amount = 28
-	dust.lifetime = 1.4
-	dust.position = Vector3(0, 0.5, 0)
+	dust.amount = 45
+	dust.lifetime = 2.0
+	dust.position = Vector3(0, 2.0, 0)
 	dust.direction = Vector3.UP
-	dust.spread = 85.0
-	dust.flatness = 0.8
-	dust.gravity = Vector3(0, 1.0, 0)
-	dust.initial_velocity_min = 12.0 * mult
-	dust.initial_velocity_max = 30.0 * mult
-	dust.scale_amount_min = 3.5 * mult
-	dust.scale_amount_max = 9.0 * mult
+	dust.spread = 88.0
+	dust.flatness = 0.85
+	dust.gravity = Vector3(0, 2.0, 0)
+	dust.initial_velocity_min = 30.0 * mult * 0.4
+	dust.initial_velocity_max = 75.0 * mult * 0.4
+	dust.scale_amount_min = 12.0 * mult * 0.35
+	dust.scale_amount_max = 28.0 * mult * 0.35
 
 	var ramp := Gradient.new()
 	ramp.offsets = PackedFloat32Array([0.0, 0.25, 0.7, 1.0])
 	ramp.colors = PackedColorArray([
-		Color(0.45, 0.38, 0.3, 0.7),
-		Color(0.35, 0.3, 0.25, 0.55),
-		Color(0.25, 0.22, 0.2, 0.3),
+		Color(0.48, 0.40, 0.32, 0.8),
+		Color(0.38, 0.32, 0.26, 0.65),
+		Color(0.26, 0.22, 0.20, 0.4),
 		Color(0.15, 0.15, 0.15, 0.0)
 	])
 	dust.color_ramp = ramp
-	dust.mesh = _make_sphere(0.5)
+	dust.mesh = _make_sphere(2.0)
 	dust.material_override = _make_mat(BaseMaterial3D.BLEND_MODE_MIX)
 	add_child(dust)
 
 
 # ===========================================================================
-# 7. Decalque de Solo Carbonizado (Scorch Mark)
+# 7. Decalque Monumental de Solo Carbonizado (Scorch Mark de 60m+)
 # ===========================================================================
 
 func _build_scorch_mark(mult: float) -> void:
 	_scorch_decal = Decal.new()
 	_scorch_decal.name = "ScorchDecal"
-	_scorch_decal.size = Vector3(14.0 * mult, 6.0, 14.0 * mult)
-	_scorch_decal.position = Vector3(0, 0.5, 0)
+	_scorch_decal.size = Vector3(45.0 * mult * 0.35, 20.0, 45.0 * mult * 0.35)
+	_scorch_decal.position = Vector3(0, 2.0, 0)
 
-	# Cria textura radial de queimadura escura procedural
 	var grad := Gradient.new()
 	grad.offsets = PackedFloat32Array([0.0, 0.35, 0.75, 1.0])
 	grad.colors = PackedColorArray([
-		Color(0.04, 0.04, 0.04, 0.95), # Centro preto carvão
-		Color(0.08, 0.07, 0.06, 0.85),
-		Color(0.12, 0.09, 0.06, 0.45),
-		Color(0.0, 0.0, 0.0, 0.0)      # Borda suave
+		Color(0.03, 0.03, 0.03, 0.96), # Centro carvão profundo
+		Color(0.07, 0.06, 0.05, 0.88),
+		Color(0.12, 0.09, 0.06, 0.5),
+		Color(0.0, 0.0, 0.0, 0.0)
 	])
 	var tex := GradientTexture2D.new()
 	tex.gradient = grad
 	tex.fill = GradientTexture2D.FILL_RADIAL
 	tex.fill_from = Vector2(0.5, 0.5)
 	tex.fill_to = Vector2(0.5, 0.0)
-	tex.width = 128
-	tex.height = 128
+	tex.width = 256
+	tex.height = 256
 
 	_scorch_decal.texture_albedo = tex
 	add_child(_scorch_decal)
 
 
 # ===========================================================================
-# 8. Efeitos Residuais: Fogo no Solo + Coluna de Fumaça Densa
+# 8. Efeitos Residuais: Fogo Rugindo no Solo + Coluna Gigante de Fumaça (180m+)
 # ===========================================================================
 
 func _build_aftermath_effects(offset: Vector3, mult: float) -> void:
-	# Fogo residual lambendo o solo onde o veículo explodiu
+	# Fogo residual rugindo no solo onde o veículo explodiu
 	_fire_particles = CPUParticles3D.new()
 	_fire_particles.name = "GroundFire"
 	_fire_particles.emitting = true
-	_fire_particles.amount = 22
-	_fire_particles.lifetime = 0.7
-	_fire_particles.position = Vector3(0, 0.8, 0)
+	_fire_particles.amount = 35
+	_fire_particles.lifetime = 1.0
+	_fire_particles.position = Vector3(0, 3.0, 0)
 	_fire_particles.direction = Vector3.UP
-	_fire_particles.spread = 40.0
-	_fire_particles.gravity = Vector3(0, 4.5, 0)
-	_fire_particles.initial_velocity_min = 1.8
-	_fire_particles.initial_velocity_max = 5.0
-	_fire_particles.scale_amount_min = 1.2 * mult
-	_fire_particles.scale_amount_max = 3.2 * mult
+	_fire_particles.spread = 45.0
+	_fire_particles.gravity = Vector3(0, 8.0, 0)
+	_fire_particles.initial_velocity_min = 4.0 * mult * 0.4
+	_fire_particles.initial_velocity_max = 12.0 * mult * 0.4
+	_fire_particles.scale_amount_min = 6.0 * mult * 0.35
+	_fire_particles.scale_amount_max = 16.0 * mult * 0.35
 
 	var fire_ramp := Gradient.new()
-	fire_ramp.offsets = PackedFloat32Array([0.0, 0.25, 0.6, 1.0])
+	fire_ramp.offsets = PackedFloat32Array([0.0, 0.22, 0.58, 1.0])
 	fire_ramp.colors = PackedColorArray([
-		Color(2.2, 1.6, 0.3, 1.0),
-		Color(1.5, 0.5, 0.05, 0.9),
-		Color(0.8, 0.15, 0.02, 0.7),
-		Color(0.15, 0.02, 0.0, 0.0)
+		Color(3.0, 2.2, 0.5, 1.0),
+		Color(2.0, 0.8, 0.08, 0.95),
+		Color(1.0, 0.2, 0.03, 0.8),
+		Color(0.2, 0.03, 0.0, 0.0)
 	])
 	_fire_particles.color_ramp = fire_ramp
-	_fire_particles.mesh = _make_sphere(0.4)
+	_fire_particles.mesh = _make_sphere(1.5)
 	_fire_particles.material_override = _make_mat(BaseMaterial3D.BLEND_MODE_ADD)
 	add_child(_fire_particles)
 
-	# Luz trêmula do fogo no chão
+	# Luz trêmula do incêndio no chão
 	_flicker_light = OmniLight3D.new()
 	_flicker_light.name = "GroundFireLight"
-	_flicker_light.position = Vector3(0, 1.5, 0)
-	_flicker_light.light_color = Color(1.0, 0.5, 0.08)
-	_flicker_light.light_energy = 6.0
-	_flicker_light.omni_range = 20.0
-	_flicker_light.omni_attenuation = 1.5
+	_flicker_light.position = Vector3(0, 5.0, 0)
+	_flicker_light.light_color = Color(1.0, 0.55, 0.1)
+	_flicker_light.light_energy = 25.0
+	_flicker_light.omni_range = 80.0
+	_flicker_light.omni_attenuation = 1.2
 	add_child(_flicker_light)
 
-	# Coluna monumental de fumaça preta densa subindo aos céus
+	# Coluna monumental de fumaça preta densa subindo aos céus (visível de longe)
 	_smoke_particles = CPUParticles3D.new()
 	_smoke_particles.name = "SmokeColumn"
 	_smoke_particles.emitting = true
-	_smoke_particles.amount = 36
-	_smoke_particles.lifetime = 3.2
-	_smoke_particles.position = Vector3(0, 1.2, 0)
+	_smoke_particles.amount = 60
+	_smoke_particles.lifetime = 5.5
+	_smoke_particles.position = Vector3(0, 4.0, 0)
 	_smoke_particles.direction = Vector3(0.06, 1.0, 0.03).normalized()
 	_smoke_particles.spread = 16.0
-	_smoke_particles.gravity = Vector3(0, 3.5, 0) # Flutuabilidade térmica
-	_smoke_particles.initial_velocity_min = 3.5
-	_smoke_particles.initial_velocity_max = 8.5
-	_smoke_particles.angular_velocity_min = -35.0
-	_smoke_particles.angular_velocity_max = 35.0
-	_smoke_particles.scale_amount_min = 2.5 * mult
-	_smoke_particles.scale_amount_max = 8.5 * mult
+	_smoke_particles.gravity = Vector3(0, 7.0, 0) # Flutuabilidade térmica constante
+	_smoke_particles.initial_velocity_min = 10.0 * mult * 0.4
+	_smoke_particles.initial_velocity_max = 28.0 * mult * 0.4
+	_smoke_particles.angular_velocity_min = -30.0
+	_smoke_particles.angular_velocity_max = 30.0
+	_smoke_particles.scale_amount_min = 12.0 * mult * 0.35
+	_smoke_particles.scale_amount_max = 36.0 * mult * 0.35
 
 	var smoke_ramp := Gradient.new()
-	smoke_ramp.offsets = PackedFloat32Array([0.0, 0.15, 0.55, 1.0])
+	smoke_ramp.offsets = PackedFloat32Array([0.0, 0.12, 0.50, 1.0])
 	smoke_ramp.colors = PackedColorArray([
-		Color(0.2, 0.18, 0.16, 0.9),
-		Color(0.13, 0.12, 0.11, 0.8),
-		Color(0.08, 0.07, 0.07, 0.45),
-		Color(0.04, 0.04, 0.04, 0.0)
+		Color(0.18, 0.16, 0.15, 0.95),
+		Color(0.12, 0.11, 0.10, 0.88),
+		Color(0.07, 0.06, 0.06, 0.55),
+		Color(0.03, 0.03, 0.03, 0.0)
 	])
 	_smoke_particles.color_ramp = smoke_ramp
-	_smoke_particles.mesh = _make_sphere(0.6)
+	_smoke_particles.mesh = _make_sphere(2.5)
 	_smoke_particles.material_override = _make_mat(BaseMaterial3D.BLEND_MODE_MIX)
 	add_child(_smoke_particles)
 
 
 # ===========================================================================
-# 9. Áudio Pesado de Artilharia
+# 9. Áudio Pesado de Artilharia com Bass Punch
 # ===========================================================================
 
 func _play_heavy_sound(is_tank: bool) -> void:
 	if has_node("/root/SoundManager"):
-		get_node("/root/SoundManager").play_explosion(1.0 if is_tank else 0.5)
+		get_node("/root/SoundManager").play_explosion(2.0 if is_tank else 1.5)
 		return
 	if ExplosionSounds.is_empty():
 		return
 	var p := AudioStreamPlayer.new()
 	p.stream = ExplosionSounds.pick_random()
 	p.bus = "Master"
-	p.volume_db = 2.5
-	p.pitch_scale = randf_range(0.75, 0.88) if is_tank else randf_range(0.85, 0.95)
+	p.volume_db = 3.5
+	p.pitch_scale = randf_range(0.70, 0.84) if is_tank else randf_range(0.78, 0.90)
 	add_child(p)
 	p.finished.connect(p.queue_free)
 	p.play()
@@ -472,7 +472,7 @@ func _trigger_shake(intensity: float) -> void:
 		return
 	var controller := tree.root.find_child("GameController", true, false)
 	if controller and controller.has_method("trigger_camera_shake"):
-		controller.trigger_camera_shake(intensity, 0.38)
+		controller.trigger_camera_shake(intensity, 0.45)
 
 
 # ===========================================================================
@@ -506,17 +506,17 @@ func _make_mat(blend: BaseMaterial3D.BlendMode) -> StandardMaterial3D:
 func _process(delta: float) -> void:
 	_age += delta
 
-	# Decaimento rápido do flash de luz (0 → 0.22s)
+	# Decaimento rápido do flash de luz (0 → 0.28s)
 	if _flash_light and is_instance_valid(_flash_light):
-		var ft := clampf(_age / 0.22, 0.0, 1.0)
+		var ft := clampf(_age / 0.28, 0.0, 1.0)
 		_flash_light.light_energy = lerpf(_flash_light.light_energy, 0.0, ft * ft)
 		if ft >= 1.0:
 			_flash_light.queue_free()
 			_flash_light = null
 
-	# Decaimento da luz da bola de fogo (0 → 0.75s)
+	# Decaimento da luz da bola de fogo (0 → 1.1s)
 	if _fireball_light and is_instance_valid(_fireball_light):
-		var fbt := clampf(_age / 0.75, 0.0, 1.0)
+		var fbt := clampf(_age / 1.1, 0.0, 1.0)
 		_fireball_light.light_energy = lerpf(_fireball_light.light_energy, 0.0, fbt)
 		if fbt >= 1.0:
 			_fireball_light.queue_free()
@@ -525,10 +525,10 @@ func _process(delta: float) -> void:
 	# Oscilação do fogo no chão
 	if _flicker_light and is_instance_valid(_flicker_light):
 		var noise := sin(_age * 20.0) * 0.35 + cos(_age * 33.0) * 0.2
-		_flicker_light.light_energy = clampf(5.5 + noise * 3.0, 1.0, 8.5)
+		_flicker_light.light_energy = clampf(25.0 + noise * 10.0, 5.0, 40.0)
 
-	# Fade suave no final da vida do efeito (últimos 2.2 segundos)
-	if _age >= _lifetime - 2.2 and not _fading:
+	# Fade suave no final da vida do efeito (últimos 3.0 segundos)
+	if _age >= _lifetime - 3.0 and not _fading:
 		_fading = true
 		if _fire_particles:
 			_fire_particles.emitting = false
@@ -536,10 +536,10 @@ func _process(delta: float) -> void:
 			_smoke_particles.emitting = false
 		if _flicker_light:
 			var tw := create_tween()
-			tw.tween_property(_flicker_light, "light_energy", 0.0, 1.8)
+			tw.tween_property(_flicker_light, "light_energy", 0.0, 2.5)
 		if _scorch_decal:
 			var tw2 := create_tween()
-			tw2.tween_property(_scorch_decal, "modulate:a", 0.0, 2.0)
+			tw2.tween_property(_scorch_decal, "modulate:a", 0.0, 2.8)
 
 	if _age >= _lifetime:
 		queue_free()
