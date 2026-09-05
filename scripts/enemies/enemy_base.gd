@@ -312,6 +312,11 @@ func _is_behind_player() -> bool:
 	return false
 
 
+## Força a saída antecipada / fuga da nave da cena
+func force_exit() -> void:
+	pass
+
+
 
 func take_damage(amount: int) -> void:
 	if _is_dead or is_invulnerable:

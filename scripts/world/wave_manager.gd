@@ -25,6 +25,7 @@ const WarningBattlecruiserSound := preload("res://assets/audio/warning_enemy_bat
 @export var wave_2_point: int = 15  ## Ponto da curva Path3D onde a Wave 2 é disparada (Fighters)
 @export var warning_battlecruiser_point: int = 21  ## Ponto 21 para o áudio warning_enemy_battlecruiser
 @export var wave_bomber_point: int = 25  ## Ponto 25 onde o Enemy Bomber é disparado
+@export var bomber_dismiss_delay: float = 2.0  ## Tempo em segundos após o spawn do Bomber para as outras naves iniciarem a retirada cinematográfica
 @export var wave_3_point: int = 37  ## Ponto da curva Path3D onde a Wave 3 é disparada (2 pontos antes do 39)
 
 var _alert_enemy_ships_triggered: bool = false
@@ -207,9 +208,17 @@ func _dismiss_all_active_enemies() -> void:
 				enemy.force_exit()
 
 
+func _dismiss_non_bomber_enemies() -> void:
+	for enemy in _active_enemies:
+		if is_instance_valid(enemy) and not (enemy is EnemyBomber or enemy.name.to_lower().contains("bomber")):
+			if enemy.has_method("force_exit"):
+				enemy.force_exit()
+
+
 # ---------------------------------------------------------------------------
 # Wave 1: 5 Scouts (Starship.002) no Mundo 3D (3 Líderes com rasante Direita/Esquerda/Cima)
 # ---------------------------------------------------------------------------
+
 
 func _spawn_wave_1() -> void:
 	wave_started.emit(1, "Wave 1: Scout Squadron")
@@ -316,6 +325,15 @@ func _spawn_wave_2() -> void:
 func _spawn_bomber() -> void:
 	wave_started.emit(25, "Enemy Bomber Encounter")
 
+	# Se houver qualquer outra nave inimiga ativa na cena, faz elas saírem cinematograficamente após o delay configurado
+	if bomber_dismiss_delay > 0.0:
+		var dismiss_timer: SceneTreeTimer = get_tree().create_timer(bomber_dismiss_delay)
+		dismiss_timer.timeout.connect(func():
+			_dismiss_non_bomber_enemies()
+		)
+	else:
+		_dismiss_non_bomber_enemies()
+
 	var info: Dictionary = _get_point_info(wave_bomber_point)
 	var base_pos: Vector3 = info["position"]
 	var fwd: Vector3 = info["forward"]
@@ -328,6 +346,9 @@ func _spawn_bomber() -> void:
 	if bomber.has_method("setup_bomber"):
 		bomber.setup_bomber(base_pos, fwd, 1.0)
 	_register_enemy(bomber)
+
+
+
 
 
 # ---------------------------------------------------------------------------

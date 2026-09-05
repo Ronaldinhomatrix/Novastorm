@@ -808,39 +808,6 @@ func _trigger_mothership_sound() -> void:
 
 
 # ---------------------------------------------------------------------------
-# Comboio Terrestre (SmallBridgeConvoy)
-# ---------------------------------------------------------------------------
-
-## Controla a ativação de movimento lento do comboio no ponto 16
-## e a janela restrita de tiro dos tanques (entre os pontos 17 e 18).
-func _handle_convoy_logic() -> void:
-	if not path_follower:
-		return
-
-	if not _convoy_node:
-		_convoy_node = get_node_or_null(convoy_node_path) as Node3D
-		if not _convoy_node:
-			return
-
-	var current_prog: float = path_follower.progress
-
-	# 1. Ativa movimentação lenta (active_move = true) ao atingir o ponto 16
-	if not _convoy_started_moving and _convoy_move_dist > 0.0:
-		if current_prog >= _convoy_move_dist:
-			_convoy_started_moving = true
-			for child in _convoy_node.get_children():
-				if "active_move" in child:
-					child.active_move = true
-
-	# 2. Controla a permissão de disparo dos tanques (can_shoot = true apenas entre ponto 17 e 18)
-	if _convoy_fire_start_dist > 0.0 and _convoy_fire_end_dist > _convoy_fire_start_dist:
-		var in_firing_window := (current_prog >= _convoy_fire_start_dist and current_prog <= _convoy_fire_end_dist)
-		for child in _convoy_node.get_children():
-			if child is EnemyTank or "can_shoot" in child:
-				child.can_shoot = in_firing_window
-
-
-# ---------------------------------------------------------------------------
 # Crosshair (Retículo de Mira)
 # ---------------------------------------------------------------------------
 

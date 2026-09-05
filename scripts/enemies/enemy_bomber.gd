@@ -205,9 +205,9 @@ func _drop_bomb() -> void:
 		return
 
 	# Solta a bomba logo atrás da cauda do Bomber
-	var drop_pos := global_position + global_basis.z * 4.5 - global_basis.y * 0.8
+	var drop_pos := global_position + global_basis.z * 8.5 - global_basis.y * 1.5
 	var drop_fwd := -global_basis.z.normalized()
-	var drop_curve_offset := _curve_offset - 4.5
+	var drop_curve_offset := _curve_offset - 8.5
 
 	# Adiciona no container de mundo ou cena
 	var container: Node = get_parent()

@@ -22,8 +22,8 @@ const ExplosionSounds: Array[AudioStream] = [
 @export var score_value: int = 50
 @export var explosion_scale: float = 0.85
 @export var blink_speed: float = 10.0  ## Frequência das piscadas vermelhas
-@export var forward_speed: float = 46.0  ## Velocidade de deslocamento à frente
-@export var lifetime: float = 13.5  ## Tempo de vida útil da mina (em segundos) até se auto-destruir suavemente
+@export var forward_speed: float = 52.0  ## Velocidade de deslocamento à frente (mais próxima da velocidade do jogador ~65 u/s, aproximando mais suave e lentamente)
+@export var lifetime: float = 18.0  ## Tempo de vida útil da mina (em segundos) até se auto-destruir suavemente
 
 var current_hp: int = 1
 var _is_exploding: bool = false
@@ -52,16 +52,14 @@ func _ready() -> void:
 		_random_rot_axis = Vector3.UP
 	_random_rot_speed = randf_range(0.8, 1.8)
 
-	# Instancia um material local para os pontos vermelhos piscantes
+	# Instancia um material local para os pontos vermelhos piscantes com forte emissão
 	if beacon_group and beacon_group.get_child_count() > 0:
-		var first_beacon := beacon_group.get_child(0) as MeshInstance3D
-		if first_beacon and first_beacon.mesh:
-			var orig_mat := first_beacon.mesh.surface_get_material(0)
-			if orig_mat:
-				_beacon_material = orig_mat.duplicate() as StandardMaterial3D
-				for child in beacon_group.get_children():
-					if child is MeshInstance3D and child.mesh:
-						child.material_override = _beacon_material
+		_beacon_material = StandardMaterial3D.new()
+		_beacon_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		_beacon_material.albedo_color = Color(1.0, 0.05, 0.05, 1.0)
+		for child in beacon_group.get_children():
+			if child is MeshInstance3D:
+				child.material_override = _beacon_material
 
 	collision_layer = 2 | 4  # Layer 2 (inimigo atingível por tiros) e Layer 4 (projétil/perigo)
 	collision_mask = 1 | 2   # Detecta jogador (Layer 1) e tiros do jogador (Layer 2)
@@ -130,13 +128,13 @@ func _physics_process(delta: float) -> void:
 	# Piscar stroboscópico/pulsante das luzes vermelhas
 	var blink_phase := fmod(_float_time * blink_speed, 1.0)
 	var is_on := blink_phase < 0.45  # 45% aceso, 55% apagado
-	var red_intensity := 1.0 if is_on else 0.05
 
 	if _beacon_material:
-		_beacon_material.albedo_color = Color(red_intensity, 0.02 * red_intensity, 0.02 * red_intensity, 1.0)
+		_beacon_material.albedo_color = Color(3.0, 0.1, 0.1, 1.0) if is_on else Color(0.12, 0.01, 0.01, 1.0)
 
 	if light:
-		light.light_energy = 16.0 if is_on else 0.0
+		light.light_energy = 24.0 if is_on else 0.0
+
 
 
 var _cached_flight_path: Path3D = null

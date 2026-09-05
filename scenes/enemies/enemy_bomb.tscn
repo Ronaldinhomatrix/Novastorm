@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://c8bombmina01"]
 
-[ext_resource type="Script" path="res://scripts/enemies/enemy_bomb.gd" id="1_bomb"]
+[ext_resource type="Script" uid="uid://b7wp5sucix7k7" path="res://scripts/enemies/enemy_bomb.gd" id="1_bomb"]
 
 [sub_resource type="SphereShape3D" id="SphereShape3D_bomb"]
 radius = 1.6
@@ -17,17 +17,6 @@ height = 1.7
 radial_segments = 16
 rings = 8
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_spikes"]
-albedo_color = Color(0.2, 0.22, 0.25, 1)
-metallic = 1.0
-roughness = 0.2
-
-[sub_resource type="CylinderMesh" id="CylinderMesh_spike1"]
-material = SubResource("StandardMaterial3D_spikes")
-top_radius = 0.08
-bottom_radius = 0.22
-height = 2.7
-
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_red_beacon"]
 resource_local_to_scene = true
 shading_mode = 0
@@ -39,6 +28,17 @@ radius = 0.14
 height = 0.28
 radial_segments = 8
 rings = 4
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_spikes"]
+albedo_color = Color(0.2, 0.22, 0.25, 1)
+metallic = 1.0
+roughness = 0.2
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_spike1"]
+material = SubResource("StandardMaterial3D_spikes")
+top_radius = 0.08
+bottom_radius = 0.22
+height = 2.7
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_spark"]
 transparency = 1
@@ -57,62 +57,62 @@ point_count = 2
 
 [sub_resource type="Gradient" id="Gradient_particles"]
 offsets = PackedFloat32Array(0, 0.3, 1)
-colors = PackedColorArray(1, 0.2, 0.2, 1, 1, 0.05, 0.05, 0.9, 0.5, 0.0, 0.0, 0)
+colors = PackedColorArray(1, 0.2, 0.2, 1, 1, 0.05, 0.05, 0.9, 0.5, 0, 0, 0)
 
-[node name="EnemyBomb" type="Area3D"]
+[node name="EnemyBomb" type="Area3D" unique_id=1661271537]
 collision_layer = 6
 collision_mask = 3
 script = ExtResource("1_bomb")
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+[node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=250184678]
 shape = SubResource("SphereShape3D_bomb")
 
-[node name="CoreMesh" type="MeshInstance3D" parent="."]
+[node name="CoreMesh" type="MeshInstance3D" parent="." unique_id=1818524531]
 mesh = SubResource("SphereMesh_core")
 
-[node name="BeaconGroup" type="Node3D" parent="."]
+[node name="BeaconGroup" type="Node3D" parent="." unique_id=1939742669]
 
-[node name="BeaconPosX" type="MeshInstance3D" parent="BeaconGroup"]
+[node name="BeaconPosX" type="MeshInstance3D" parent="BeaconGroup" unique_id=1376062861]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.88, 0, 0)
 mesh = SubResource("SphereMesh_red_light")
 
-[node name="BeaconNegX" type="MeshInstance3D" parent="BeaconGroup"]
+[node name="BeaconNegX" type="MeshInstance3D" parent="BeaconGroup" unique_id=1239067318]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.88, 0, 0)
 mesh = SubResource("SphereMesh_red_light")
 
-[node name="BeaconPosY" type="MeshInstance3D" parent="BeaconGroup"]
+[node name="BeaconPosY" type="MeshInstance3D" parent="BeaconGroup" unique_id=1152782812]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.88, 0)
 mesh = SubResource("SphereMesh_red_light")
 
-[node name="BeaconNegY" type="MeshInstance3D" parent="BeaconGroup"]
+[node name="BeaconNegY" type="MeshInstance3D" parent="BeaconGroup" unique_id=514367814]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.88, 0)
 mesh = SubResource("SphereMesh_red_light")
 
-[node name="BeaconPosZ" type="MeshInstance3D" parent="BeaconGroup"]
+[node name="BeaconPosZ" type="MeshInstance3D" parent="BeaconGroup" unique_id=2014896919]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.88)
 mesh = SubResource("SphereMesh_red_light")
 
-[node name="BeaconNegZ" type="MeshInstance3D" parent="BeaconGroup"]
+[node name="BeaconNegZ" type="MeshInstance3D" parent="BeaconGroup" unique_id=1729706413]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.88)
 mesh = SubResource("SphereMesh_red_light")
 
-[node name="SpikeX" type="MeshInstance3D" parent="."]
+[node name="SpikeX" type="MeshInstance3D" parent="." unique_id=1467496632]
 transform = Transform3D(-4.37114e-08, 1, 0, -1, -4.37114e-08, 0, 0, 0, 1, 0, 0, 0)
 mesh = SubResource("CylinderMesh_spike1")
 
-[node name="SpikeY" type="MeshInstance3D" parent="."]
+[node name="SpikeY" type="MeshInstance3D" parent="." unique_id=43398986]
 mesh = SubResource("CylinderMesh_spike1")
 
-[node name="SpikeZ" type="MeshInstance3D" parent="."]
+[node name="SpikeZ" type="MeshInstance3D" parent="." unique_id=2000122041]
 transform = Transform3D(1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0)
 mesh = SubResource("CylinderMesh_spike1")
 
-[node name="OmniLight3D" type="OmniLight3D" parent="."]
+[node name="OmniLight3D" type="OmniLight3D" parent="." unique_id=1050291110]
 light_color = Color(1, 0.1, 0.1, 1)
 light_energy = 0.0
 omni_range = 16.0
 
-[node name="Sparks" type="CPUParticles3D" parent="."]
+[node name="Sparks" type="CPUParticles3D" parent="." unique_id=1905970530]
 amount = 10
 lifetime = 0.7
 mesh = SubResource("BoxMesh_spark")
@@ -125,4 +125,3 @@ scale_amount_min = 0.8
 scale_amount_max = 1.5
 scale_amount_curve = SubResource("Curve_particles")
 color_ramp = SubResource("Gradient_particles")
-
