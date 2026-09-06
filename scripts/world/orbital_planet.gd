@@ -18,8 +18,8 @@ extends Node3D
 @export var follow_camera_xz: bool = true
 ## Fator de parallax (0.0 = fixo no mundo, 1.0 = move 100% com a câmera, 0.92 = efeito de altitude colossal).
 @export_range(0.0, 1.0) var parallax_weight: float = 0.92
-## Altitude fixa do centro do planeta (Y negativo posiciona o planeta abaixo da rota de voo).
-@export var planet_center_y: float = -4200.0
+## Altitude fixa do centro do plano do planeta (Y negativo posiciona a superfície abaixo da rota de voo).
+@export var planet_center_y: float = -300.0
 
 var _sun_light: DirectionalLight3D = null
 var _camera: Camera3D = null

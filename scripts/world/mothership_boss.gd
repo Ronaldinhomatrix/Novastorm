@@ -32,7 +32,16 @@ var _hitbox_area: Area3D = null
 func _ready() -> void:
 	current_hp = max_hp
 	_initial_pos_y = position.y
+	_disable_all_shadows(self)
+	call_deferred("_disable_all_shadows", self)
 	_setup_hitboxes()
+
+
+func _disable_all_shadows(node: Node) -> void:
+	if node is GeometryInstance3D:
+		node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	for child in node.get_children():
+		_disable_all_shadows(child)
 
 
 class BossHitboxArea extends Area3D:

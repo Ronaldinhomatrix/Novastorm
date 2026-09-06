@@ -8,22 +8,24 @@
 shader = ExtResource("3_planet_shader")
 shader_parameter/planet_texture = ExtResource("2_planet_albedo")
 shader_parameter/sun_direction = Vector3(0.5, 0.4, 0.7)
-shader_parameter/atmosphere_limb_color = Color(0.25, 0.72, 1, 1)
-shader_parameter/twilight_limb_color = Color(0.95, 0.55, 0.25, 1)
+shader_parameter/atmosphere_limb_color = Color(0.2, 0.7, 1, 1)
+shader_parameter/twilight_limb_color = Color(0.95, 0.5, 0.2, 1)
 shader_parameter/rim_power = 4.2
-shader_parameter/rim_intensity = 1.6
+shader_parameter/rim_intensity = 2.0
+shader_parameter/curve_start_radius = 2800.0
+shader_parameter/curve_max_radius = 7800.0
+shader_parameter/curve_drop_height = 2200.0
 
-[sub_resource type="SphereMesh" id="SphereMesh_surface"]
-radius = 4200.0
-height = 8400.0
-radial_segments = 64
-rings = 32
+[sub_resource type="PlaneMesh" id="PlaneMesh_surface"]
+size = Vector2(16000, 16000)
+subdivide_width = 64
+subdivide_depth = 64
 
 [node name="OrbitalPlanet" type="Node3D" node_paths=PackedStringArray("planet_mesh")]
 script = ExtResource("1_planet_script")
 planet_mesh = NodePath("PlanetSurface")
-planet_center_y = -4200.0
+planet_center_y = -300.0
 
 [node name="PlanetSurface" type="MeshInstance3D" parent="."]
 material_override = SubResource("ShaderMaterial_surface")
-mesh = SubResource("SphereMesh_surface")
+mesh = SubResource("PlaneMesh_surface")
