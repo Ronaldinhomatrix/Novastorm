@@ -1,0 +1,29 @@
+[gd_scene load_steps=5 format=3 uid="uid://c_orbital_planet_scene"]
+
+[ext_resource type="Script" path="res://scripts/world/orbital_planet.gd" id="1_planet_script"]
+[ext_resource type="Texture2D" path="res://assets/textures/orbital_planet_albedo.png" id="2_planet_albedo"]
+[ext_resource type="Shader" path="res://scripts/shaders/orbital_planet.gdshader" id="3_planet_shader"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_surface"]
+shader = ExtResource("3_planet_shader")
+shader_parameter/planet_texture = ExtResource("2_planet_albedo")
+shader_parameter/sun_direction = Vector3(0.5, 0.4, 0.7)
+shader_parameter/atmosphere_limb_color = Color(0.25, 0.72, 1, 1)
+shader_parameter/twilight_limb_color = Color(0.95, 0.55, 0.25, 1)
+shader_parameter/rim_power = 4.2
+shader_parameter/rim_intensity = 1.6
+
+[sub_resource type="SphereMesh" id="SphereMesh_surface"]
+radius = 4200.0
+height = 8400.0
+radial_segments = 64
+rings = 32
+
+[node name="OrbitalPlanet" type="Node3D" node_paths=PackedStringArray("planet_mesh")]
+script = ExtResource("1_planet_script")
+planet_mesh = NodePath("PlanetSurface")
+planet_center_y = -4200.0
+
+[node name="PlanetSurface" type="MeshInstance3D" parent="."]
+material_override = SubResource("ShaderMaterial_surface")
+mesh = SubResource("SphereMesh_surface")

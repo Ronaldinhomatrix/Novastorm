@@ -1,83 +1,103 @@
-[gd_scene load_steps=5 format=3 uid="uid://c_boss_level_1_placeholder"]
+[gd_scene load_steps=12 format=3 uid="uid://c_boss_level_1_orbital"]
 
-[ext_resource type="Script" path="res://scripts/world/level_1_boss_placeholder.gd" id="1_boss"]
+[ext_resource type="Script" path="res://scripts/world/game_controller.gd" id="1_game"]
+[ext_resource type="Script" path="res://scripts/world/path_follower.gd" id="2_path_follower"]
+[ext_resource type="PackedScene" path="res://scenes/player.tscn" id="3_player"]
+[ext_resource type="PackedScene" path="res://scenes/world/mothership.tscn" id="4_mothership"]
+[ext_resource type="Script" path="res://scripts/world/mothership_boss.gd" id="5_boss_script"]
+[ext_resource type="PackedScene" path="res://scenes/world/orbital_planet.tscn" id="6_orbital_planet"]
+[ext_resource type="Texture2D" path="res://assets/textures/space_stars_panorama.png" id="7_stars_texture"]
 
-[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_space"]
-sky_top_color = Color(0.01, 0.02, 0.08, 1)
-sky_horizon_color = Color(0.05, 0.1, 0.25, 1)
-sky_energy_multiplier = 0.8
-ground_bottom_color = Color(0.01, 0.01, 0.03, 1)
-ground_horizon_color = Color(0.03, 0.05, 0.12, 1)
+[sub_resource type="PanoramaSkyMaterial" id="PanoramaSkyMaterial_space"]
+panorama = ExtResource("7_stars_texture")
 
 [sub_resource type="Sky" id="Sky_space"]
-sky_material = SubResource("ProceduralSkyMaterial_space")
+sky_material = SubResource("PanoramaSkyMaterial_space")
 
 [sub_resource type="Environment" id="Environment_space"]
 background_mode = 2
 sky = SubResource("Sky_space")
 ambient_light_source = 2
-ambient_light_color = Color(0.15, 0.2, 0.35, 1)
+ambient_light_color = Color(0.1, 0.15, 0.25, 1)
+ambient_light_energy = 0.4
+reflected_light_source = 2
 glow_enabled = true
-glow_intensity = 1.2
-glow_bloom = 0.2
+glow_intensity = 0.6
+glow_bloom = 0.08
+glow_hdr_threshold = 1.1
 
-[node name="Level1Boss" type="Node3D"]
-script = ExtResource("1_boss")
+[sub_resource type="Curve3D" id="Curve3D_boss"]
+_data = {
+"points": PackedVector3Array(0, 0, 0, 0, 0, 250, 0, 100, -1200, 0, 0, -250, 0, 0, 250, 0, 100, -400, -30, -5, -250, 30, 5, 250, 60, 115, 300, -20, -5, -250, 20, 5, 250, 140, 135, 1000, 0, -5, -250, 0, 5, 250, 150, 155, 1600, 30, -5, -250, -30, 5, 250, 80, 165, 2200, 40, 0, -250, -40, 0, 250, -60, 150, 2800, 30, 5, -250, -30, -5, 250, -140, 130, 3400, -20, 5, -250, 20, -5, 250, -80, 115, 4000, -30, 5, -250, 30, -5, 250, 0, 100, 4600, 0, 0, -200, 0, 0, 0, 0, 100, 5200),
+"tilts": PackedFloat32Array(0, 0, 0.15, 0.2, 0.1, -0.2, -0.25, -0.15, 0.15, 0, 0)
+}
+point_count = 11
+
+[node name="Game" type="Node3D" node_paths=PackedStringArray("path_follower", "player", "camera", "mothership")]
+script = ExtResource("1_game")
+music_volume_db = 0.0
+enable_cinematic_warning = true
+cinematic_warning_point = 0
+cinematic_warning_title = "WARNING // CAPITAL DREADNOUGHT"
+cinematic_warning_subtitle = "ORBITAL INTERCEPT // MOTHERSHIP-01 TARGET LOCKED"
+cinematic_warning_duration = 5.0
+path_follower = NodePath("FlightPath/PathFollower")
+player = NodePath("FlightPath/PathFollower/Player")
+camera = NodePath("FlightPath/PathFollower/Camera3D")
+mothership = NodePath("Mothership")
+mothership_sound_point = 1
+mothership_fire_point_1 = 2
+mothership_fire_point_2 = 4
+enable_cinematic_intro = true
+intro_duration = 4.0
+intro_start_azimuth_deg = 140.0
+intro_start_elevation_deg = -15.0
+intro_start_distance_fraction = 0.3
+enable_cloud_sky = false
+custom_camera_far_pc = 12000.0
+custom_camera_far_mobile = 10000.0
+enable_depth_fog = false
+next_level_path = "res://scenes/stages/level_2.tscn"
+show_level_complete = true
+enable_level_end_cutscene = false
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = SubResource("Environment_space")
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
-transform = Transform3D(0.866025, -0.25, 0.433013, 0, 0.866025, 0.5, -0.5, -0.433013, 0.75, 0, 100, 0)
-light_color = Color(0.9, 0.95, 1, 1)
-light_energy = 2.0
+transform = Transform3D(-0.75, 0.28, -0.6, 0, 0.9, 0.43, 0.66, 0.32, -0.68, 0, 1500, 0)
+light_color = Color(1, 0.97, 0.92, 1)
+light_energy = 1.2
+shadow_enabled = true
+directional_shadow_blend_splits = true
+directional_shadow_max_distance = 1200.0
 
-[node name="Camera3D" type="Camera3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 10, 30)
+[node name="OrbitalPlanet" parent="." instance=ExtResource("6_orbital_planet")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -4200, 1600)
+planet_center_y = -4200.0
+
+[node name="FlightPath" type="Path3D" parent="."]
+curve = SubResource("Curve3D_boss")
+
+[node name="PathFollower" type="PathFollow3D" parent="FlightPath"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 100, -1200)
+script = ExtResource("2_path_follower")
+forward_speed = 130.0
+turn_smoothing = 4.5
+tilt_intensity = 0.25
+tilt_smoothing = 4.0
+enable_barrel_roll = false
+
+[node name="Camera3D" type="Camera3D" parent="FlightPath/PathFollower"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.0112, 0, 18)
 current = true
+fov = 56.25
 
-[node name="UI" type="CanvasLayer" parent="."]
+[node name="Player" parent="FlightPath/PathFollower" instance=ExtResource("3_player")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -40)
 
-[node name="VBoxContainer" type="VBoxContainer" parent="UI"]
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -300.0
-offset_top = -120.0
-offset_right = 300.0
-offset_bottom = 120.0
-grow_horizontal = 2
-grow_vertical = 2
-theme_override_constants/separation = 20
-
-[node name="Title" type="Label" parent="UI/VBoxContainer"]
-layout_mode = 2
-theme_override_colors/font_color = Color(1, 0.3, 0.2, 1)
-theme_override_font_sizes/font_size = 54
-text = "LEVEL 1 BOSS"
-horizontal_alignment = 1
-
-[node name="Subtitle" type="Label" parent="UI/VBoxContainer"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.7, 0.9, 1, 0.9)
-theme_override_font_sizes/font_size = 28
-text = "ORBITAL ENCOUNTER"
-horizontal_alignment = 1
-
-[node name="Status" type="Label" parent="UI/VBoxContainer"]
-layout_mode = 2
-theme_override_colors/font_color = Color(0.8, 0.8, 0.8, 0.6)
-theme_override_font_sizes/font_size = 18
-text = "(Fase do Boss em desenvolvimento)"
-horizontal_alignment = 1
-
-[node name="RestartBtn" type="Button" parent="UI/VBoxContainer"]
-custom_minimum_size = Vector2(220, 50)
-layout_mode = 2
-size_flags_horizontal = 4
-theme_override_font_sizes/font_size = 20
-text = "🔄 Jogar Novamente"
-
-[connection signal="pressed" from="UI/VBoxContainer/RestartBtn" to="." method="_on_restart_pressed"]
+[node name="Mothership" parent="." instance=ExtResource("4_mothership")]
+transform = Transform3D(-55, 0, -0.000143945, 0, 55, 0, 0.000143945, 0, -55, 80, 160, 800)
+script = ExtResource("5_boss_script")
+max_hp = 150
+score_value = 5000
