@@ -29,10 +29,26 @@ const MothershipMuzzleFlashScript := preload("res://scripts/effects/mothership_m
 
 var _crosshair: Control = null  ## Instância do crosshair UI
 
-@export_category("Áudio")
+@export_category("Áudio e Música")
+## Trilha sonora do nível.
+@export var background_music: AudioStream = preload("res://assets/audio/music_1_Aphelion.ogg")
 ## Volume da música de fundo em dB. 0 = 100%, -6 ≈ 50%, -12 ≈ 25%.
-## Ajuste direto no Inspector para regular o volume da trilha do nível.
 @export_range(-40.0, 0.0, 0.5) var music_volume_db: float = -9.7
+
+@export_category("Aviso Cinematográfico de Inimigos (HUD)")
+## Ativa o aviso cinematográfico de proximidade hostil no HUD
+@export var enable_cinematic_warning: bool = false
+## Ponto do Path3D onde o aviso de inimigos é exibido (-1 = desativado)
+@export var cinematic_warning_point: int = -1
+@export var cinematic_warning_title: String = "WARNING // INCOMING ENEMIES"
+@export var cinematic_warning_subtitle: String = "RADAR PROXIMITY ALERT // HOSTILE SQUADRONS DETECTED"
+@export var cinematic_warning_duration: float = 5.5
+
+@export_category("Sons de Manobra de Câmera")
+## Ativa sons de manobra em pontos específicos da pista
+@export var enable_maneuver_sounds: bool = false
+@export var maneuver_sound_p19_point: int = -1
+@export var maneuver_sound_p22_point: int = -1
 
 @export_category("Componentes")
 @export var path_follower: PathFollower = null
@@ -42,21 +58,21 @@ var _crosshair: Control = null  ## Instância do crosshair UI
 @export var mothership: Node3D = null
 
 @export_category("Mothership Animation")
-@export var mothership_start_point: int = 22
-@export var mothership_end_point: int = 29
-@export var mothership_rotation_deg: float = 20.0
-## Ponto do Path3D onde fica a origem do som da Mothership.
-@export var mothership_sound_point: int = 27
-## Pontos do Path3D onde a Mothership dispara seus 2 torpedos de energia.
-@export var mothership_fire_point_1: int = 25
-@export var mothership_fire_point_2: int = 27
+@export var mothership_start_point: int = -1
+@export var mothership_end_point: int = -1
+@export var mothership_rotation_deg: float = 30.0
+## Ponto do Path3D onde fica a origem do som da Mothership (-1 = desativado).
+@export var mothership_sound_point: int = -1
+## Pontos do Path3D onde a Mothership dispara seus 2 torpedos de energia (-1 = desativado).
+@export var mothership_fire_point_1: int = -1
+@export var mothership_fire_point_2: int = -1
 ## Volume do som da Mothership em dB (+3.0 dB ≈ +40% de volume).
 @export_range(-20.0, 10.0, 0.5) var mothership_sound_volume_db: float = 3.0
 
-@export_category("Comboio Terrestre (SmallBridgeConvoy)")
-@export var convoy_node_path: NodePath = "SmallBridgeConvoy"
-@export var convoy_move_start_point: int = 16  ## Ponto onde o comboio começa a se mover e os tanques disparam
-@export var convoy_move_end_point: int = 18    ## Ponto onde o comboio interrompe o movimento e os tanques cessam fogo
+@export_category("Comboio Terrestre")
+@export var convoy_node_path: NodePath = ""
+@export var convoy_move_start_point: int = -1  ## Ponto onde o comboio começa a se mover e os tanques disparam (-1 = desativado)
+@export var convoy_move_end_point: int = -1    ## Ponto onde o comboio interrompe o movimento e os tanques cessam fogo (-1 = desativado)
 
 @export_category("Intro Cinematica")
 @export var enable_cinematic_intro: bool = false
@@ -77,6 +93,34 @@ var _crosshair: Control = null  ## Instância do crosshair UI
 @export var next_level_path: String = ""  ## Caminho para próximo nível (vazio = não transiciona)
 @export var show_level_complete: bool = true  ## Mostrar tela ao terminar o nível
 
+@export_category("Cutscene de Fim de Nível")
+## Ativa a cutscene cinematográfica ao final do nível (câmera externa + nave subindo).
+@export var enable_level_end_cutscene: bool = true
+## Posição GLOBAL da câmera externa da cutscene (calculada para 780m a 260 u/s aos 3.0s).
+@export var cutscene_camera_position := Vector3(10143.0, 1242.0, -546.0)
+## Rotação inicial em graus da câmera externa.
+@export var cutscene_camera_rotation_deg := Vector3(-58.8, 79.9, 0.0)
+## Se true, a câmera acompanha a nave suavemente (look_at).
+@export var cutscene_camera_tracks_ship: bool = true
+## Velocidade constante de subida da nave (unidades/segundo).
+@export var cutscene_climb_speed: float = 260.0
+## Tempo exato em segundos para a nave alcançar e passar ao lado da câmera.
+@export var cutscene_flyby_target_time: float = 3.0
+## Deslocamento em relação à câmera no ponto de maior aproximação (efeito rasante).
+@export var cutscene_flyby_offset := Vector3(-20.0, -45.0, 18.0)
+## Ativa o efeito de Zoom contínuo durante toda a cutscene.
+@export var cutscene_enable_zoom: bool = true
+## FOV inicial da câmera (graus).
+@export var cutscene_initial_fov: float = 56.25
+## FOV final após o zoom (graus).
+@export var cutscene_target_zoom_fov: float = 36.0
+## Duração total da cutscene em segundos (3s até o rasante + 2s vivo + 1.2s fade).
+@export var cutscene_duration: float = 6.2
+## Fração da duração onde o fade-out para preto começa (aos ~5.0s).
+@export_range(0.3, 0.95, 0.05) var cutscene_fade_start: float = 0.8
+## Caminho da cena do boss para transicionar ao fim da cutscene.
+@export var cutscene_next_scene: String = "res://scenes/stages/level_1_boss.tscn"
+
 @export_category("Inimigos e Ondas")
 @export var wave_manager: WaveManager = null
 @export var enable_enemy_waves: bool = true
@@ -84,6 +128,14 @@ var _crosshair: Control = null  ## Instância do crosshair UI
 @export_category("HUD de Combate")
 @export var hud_scene: PackedScene = preload("res://scenes/ui/hud.tscn")
 @export var hud: CombatHUD = null
+
+@export_category("Debug e Teste de Trechos")
+## Ponto do Path3D onde o percurso deve iniciar ao dar Play (0 = início padrão, 15 = pula direto pro ponto 15, etc.).
+@export var debug_start_point: int = 0
+## Inicia a partir de uma porcentagem da pista (0.0 a 1.0). Se > 0.0, tem prioridade sobre debug_start_point.
+@export_range(0.0, 1.0) var debug_start_ratio: float = 0.0
+## Ponto final para loop de teste (se > debug_start_point, repete apenas o trecho selecionado continuamente).
+@export var debug_loop_point_end: int = -1
 
 # ---------------------------------------------------------------------------
 # Estado Interno
@@ -100,13 +152,17 @@ var _intro_timer: float = 0.0
 var _default_camera_pos: Vector3 = Vector3(-0.0112, 0.0, 18.0)
 var _default_camera_rot: Vector3 = Vector3.ZERO
 
-# Som de manobra tocado quando a câmera chega ao ponto 19.
+# Sons de manobra tocados quando a câmera chega aos pontos 19 e 22.
 const MANEUVER_2_SOUND := preload("res://assets/audio/maneuver2.ogg")
+const MANEUVER_2_SHORT_SOUND := preload("res://assets/audio/maneuver2_short.ogg")
 
-# Efeito sonoro da manobra 2 (ponto 19)
+# Efeito sonoro da manobra 2 (pontos 19 e 22)
 var _maneuver2_player: AudioStreamPlayer = null
-var _maneuver2_sound_played: bool = false
-var _maneuver2_point_offset: float = 0.0
+var _maneuver2_short_player: AudioStreamPlayer = null
+var _maneuver2_p19_played: bool = false
+var _maneuver2_p22_played: bool = false
+var _maneuver2_p19_offset: float = 0.0
+var _maneuver2_p22_offset: float = 0.0
 
 # Parâmetros de distância para a rotação da Mothership
 var _start_dist: float = 0.0
@@ -125,8 +181,10 @@ var _fire_shot_2_done: bool = false
 var _energy_ball_scene: PackedScene = preload("res://scenes/projectiles/energy_ball.tscn")
 
 # Convoy state & offsets
-var _convoy_move_start_dist: float = 0.0
-var _convoy_move_end_dist: float = 0.0
+var _convoy_move_start_dist: float = -1.0
+var _convoy_move_end_dist: float = -1.0
+var _bridge_tanks_start_dist: float = -1.0
+var _bridge_tanks_end_dist: float = -1.0
 var _convoy_node: Node3D = null
 
 # Sistema de tremor de câmera (Screen Shake)
@@ -136,6 +194,7 @@ var _shake_intensity: float = 0.0
 
 # Reproduz a trilha sonora do nível.
 var _music_player: AudioStreamPlayer = null
+var _dev_layer: CanvasLayer = null
 
 # ---------------------------------------------------------------------------
 # Ciclo de Vida
@@ -176,12 +235,13 @@ func _ready():
 	# Configura o ouvinte de áudio 3D na câmera.
 	_setup_audio_listener()
 	
-	# Player de áudio da Mothership: som 2D simples (+40% volume padrão).
-	_mothership_sound_player = AudioStreamPlayer.new()
-	_mothership_sound_player.stream = MOTHERSHIP_SOUND
-	_mothership_sound_player.bus = "Master"
-	_mothership_sound_player.volume_db = mothership_sound_volume_db
-	add_child(_mothership_sound_player)
+	# Player de áudio da Mothership (apenas se configurado e presente)
+	if mothership and mothership_sound_point >= 0:
+		_mothership_sound_player = AudioStreamPlayer.new()
+		_mothership_sound_player.stream = MOTHERSHIP_SOUND
+		_mothership_sound_player.bus = "Master"
+		_mothership_sound_player.volume_db = mothership_sound_volume_db
+		add_child(_mothership_sound_player)
 	_mothership_sound_played = false
 
 	# Pausa o movimento imediatamente durante a fase de pré-carregamento
@@ -191,43 +251,53 @@ func _ready():
 	if player and player.has_method("set_controls_enabled"):
 		player.set_controls_enabled(false)
 
-	# Calcular comprimento do path e distâncias dos pontos 22 a 29
+	# Calcular comprimento do path e distâncias de eventos configurados no nível
 	var flight_path := get_node_or_null("FlightPath") as Path3D
 	if flight_path and flight_path.curve:
 		var curve := flight_path.curve
 		_path_length = curve.get_baked_length()
-		
-		# Calcula a distância exata ao longo da curva dos pontos especificados
 		var point_count := curve.point_count
+
 		if point_count > 0:
-			var clamped_start := clampi(mothership_start_point, 0, point_count - 1)
-			var clamped_end := clampi(mothership_end_point, 0, point_count - 1)
-			_start_dist = curve.get_closest_offset(curve.get_point_position(clamped_start))
-			_end_dist = curve.get_closest_offset(curve.get_point_position(clamped_end))
+			if mothership and mothership_start_point >= 0 and mothership_end_point >= 0:
+				var clamped_start := clampi(mothership_start_point, 0, point_count - 1)
+				var clamped_end := clampi(mothership_end_point, 0, point_count - 1)
+				_start_dist = curve.get_closest_offset(curve.get_point_position(clamped_start))
+				_end_dist = curve.get_closest_offset(curve.get_point_position(clamped_end))
 
-			# Offsets exatos de disparo dos 2 torpedos da Mothership (pontos 25 e 27)
-			var fire_idx_1 := clampi(mothership_fire_point_1, 0, point_count - 1)
-			var fire_idx_2 := clampi(mothership_fire_point_2, 0, point_count - 1)
-			_fire_dist_1 = curve.get_closest_offset(curve.get_point_position(fire_idx_1))
-			_fire_dist_2 = curve.get_closest_offset(curve.get_point_position(fire_idx_2))
+			if mothership and mothership_fire_point_1 >= 0:
+				var fire_idx_1 := clampi(mothership_fire_point_1, 0, point_count - 1)
+				_fire_dist_1 = curve.get_closest_offset(curve.get_point_position(fire_idx_1))
+			if mothership and mothership_fire_point_2 >= 0:
+				var fire_idx_2 := clampi(mothership_fire_point_2, 0, point_count - 1)
+				_fire_dist_2 = curve.get_closest_offset(curve.get_point_position(fire_idx_2))
 
-			# Offset do ponto de som da Mothership.
-			var sound_idx := clampi(mothership_sound_point, 0, point_count - 1)
-			_mothership_sound_offset = curve.get_closest_offset(curve.get_point_position(sound_idx))
+			if mothership and mothership_sound_point >= 0:
+				var sound_idx := clampi(mothership_sound_point, 0, point_count - 1)
+				_mothership_sound_offset = curve.get_closest_offset(curve.get_point_position(sound_idx))
 
-			# Offset do ponto 19 para tocar maneuver2.ogg
-			var m2_idx := clampi(19, 0, point_count - 1)
-			_maneuver2_point_offset = curve.get_closest_offset(curve.get_point_position(m2_idx))
+			if enable_maneuver_sounds:
+				if maneuver_sound_p19_point >= 0:
+					var m2_p19_idx := clampi(maneuver_sound_p19_point, 0, point_count - 1)
+					_maneuver2_p19_offset = curve.get_closest_offset(curve.get_point_position(m2_p19_idx))
+				if maneuver_sound_p22_point >= 0:
+					var m2_p22_idx := clampi(maneuver_sound_p22_point, 0, point_count - 1)
+					_maneuver2_p22_offset = curve.get_closest_offset(curve.get_point_position(m2_p22_idx))
 
-			# Ponto 7 (imediatamente antes da Wave 1 no ponto 8) sincronizado com o alerta de áudio
-			var warning_point_idx := clampi(7, 0, point_count - 1)
-			_initial_warning_dist = curve.get_closest_offset(curve.get_point_position(warning_point_idx))
+			if enable_cinematic_warning and cinematic_warning_point >= 0:
+				var warning_point_idx := clampi(cinematic_warning_point, 0, point_count - 1)
+				_initial_warning_dist = curve.get_closest_offset(curve.get_point_position(warning_point_idx))
 
-			# Offsets do Comboio Terrestre (Movimento entre o ponto 16 e 18)
-			var c_move_start_idx := clampi(convoy_move_start_point, 0, point_count - 1)
-			var c_move_end_idx := clampi(convoy_move_end_point, 0, point_count - 1)
-			_convoy_move_start_dist = curve.get_closest_offset(curve.get_point_position(c_move_start_idx))
-			_convoy_move_end_dist = curve.get_closest_offset(curve.get_point_position(c_move_end_idx))
+			if convoy_node_path != ^"" and convoy_move_start_point >= 0 and convoy_move_end_point >= 0:
+				var c_move_start_idx := clampi(convoy_move_start_point, 0, point_count - 1)
+				var c_move_end_idx := clampi(convoy_move_end_point, 0, point_count - 1)
+				_convoy_move_start_dist = curve.get_closest_offset(curve.get_point_position(c_move_start_idx))
+				_convoy_move_end_dist = curve.get_closest_offset(curve.get_point_position(c_move_end_idx))
+
+			# Janela de disparo dos tanques da ponte (pontos 44 ao 46)
+			if point_count > 46:
+				_bridge_tanks_start_dist = curve.get_closest_offset(curve.get_point_position(44))
+				_bridge_tanks_end_dist = curve.get_closest_offset(curve.get_point_position(46))
 
 	if convoy_node_path != ^"":
 		_convoy_node = get_node_or_null(convoy_node_path) as Node3D
@@ -240,16 +310,11 @@ func _ready():
 		cloud_sky.name = "ProceduralCloudSky"
 		add_child(cloud_sky)
 
-	# Configura e inicializa o gerenciador de ondas de inimigos (Waves)
+	# Configura o gerenciador de ondas de inimigos (Waves) SE existir no nível
 	if enable_enemy_waves:
 		if not wave_manager:
 			wave_manager = get_node_or_null("WaveManager") as WaveManager
-		if not wave_manager:
-			wave_manager = WaveManager.new()
-			wave_manager.name = "WaveManager"
-			wave_manager.path_follower = path_follower
-			add_child(wave_manager)
-		elif not wave_manager.path_follower:
+		if wave_manager and not wave_manager.path_follower:
 			wave_manager.path_follower = path_follower
 
 	# Cria a cortina preta de pré-carregamento
@@ -292,9 +357,9 @@ func _ready():
 
 
 func _setup_dev_ui() -> void:
-	var dev_layer := CanvasLayer.new()
-	dev_layer.layer = 50
-	add_child(dev_layer)
+	_dev_layer = CanvasLayer.new()
+	_dev_layer.layer = 50
+	add_child(_dev_layer)
 
 	var dev_btn := Button.new()
 	dev_btn.text = "🔄 DEV: Olhar para Trás (F / B)"
@@ -320,7 +385,7 @@ func _setup_dev_ui() -> void:
 			player.toggle_look_back()
 	)
 
-	dev_layer.add_child(dev_btn)
+	_dev_layer.add_child(dev_btn)
 
 
 func _setup_hud() -> void:
@@ -341,23 +406,28 @@ func _process(delta: float) -> void:
 		if path_follower.progress_ratio >= 0.99 or path_follower.progress >= _path_length - 5.0:
 			_on_level_finished()
 	
-	# Animação de rotação da Mothership entre os pontos do Path3D
-	_update_mothership_rotation()
+	# Animação de rotação da Mothership entre os pontos do Path3D (se existir)
+	if mothership and _end_dist > _start_dist:
+		_update_mothership_rotation()
 
 	# Alerta Cinematográfico único antes da primeira onda de inimigos
-	if not _initial_warning_shown and _initial_warning_dist > 0.0 and path_follower:
+	if enable_cinematic_warning and not _initial_warning_shown and _initial_warning_dist > 0.0 and path_follower:
 		if path_follower.progress >= _initial_warning_dist:
 			_initial_warning_shown = true
 			if hud:
-				hud.show_cinematic_warning("WARNING // INCOMING ENEMIES", "RADAR PROXIMITY ALERT // HOSTILE SQUADRONS DETECTED", 5.5)
+				hud.show_cinematic_warning(cinematic_warning_title, cinematic_warning_subtitle, cinematic_warning_duration)
 
 	# Toca o som da Mothership e manobra 2 ao cruzar os pontos definidos.
-	_trigger_mothership_sound()
-	_trigger_maneuver2_sound()
-	_handle_mothership_firing()
+	if mothership and _mothership_sound_offset > 0.0:
+		_trigger_mothership_sound()
+	if enable_maneuver_sounds:
+		_trigger_maneuver2_sound()
+	if mothership and (_fire_dist_1 > 0.0 or _fire_dist_2 > 0.0):
+		_handle_mothership_firing()
 
 	# Gerencia o movimento lento e a janela de disparos do comboio terrestre
-	_handle_convoy_logic()
+	if _convoy_node and (_convoy_move_start_dist > 0.0 or _convoy_move_end_dist > 0.0):
+		_handle_convoy_logic()
 
 	# Processa tremor de câmera ativo
 	_process_camera_shake(delta)
@@ -527,15 +597,23 @@ func _handle_convoy_logic() -> void:
 	var current_prog: float = path_follower.progress
 	var min_dist := minf(_convoy_move_start_dist, _convoy_move_end_dist)
 	var max_dist := maxf(_convoy_move_start_dist, _convoy_move_end_dist)
-	var in_window: bool = (current_prog >= min_dist and current_prog <= max_dist)
+	var in_convoy_window: bool = (current_prog >= min_dist and current_prog <= max_dist)
+
+	var in_bridge_window: bool = false
+	if _bridge_tanks_start_dist >= 0.0 and _bridge_tanks_end_dist >= 0.0:
+		var min_b_dist := minf(_bridge_tanks_start_dist, _bridge_tanks_end_dist)
+		var max_b_dist := maxf(_bridge_tanks_start_dist, _bridge_tanks_end_dist)
+		in_bridge_window = (current_prog >= min_b_dist and current_prog <= max_b_dist)
 
 	for child in _convoy_node.get_children():
 		if not is_instance_valid(child):
 			continue
+		var is_bridge_tank: bool = child.name.begins_with("Tank1_Bridge")
+		var should_shoot: bool = in_bridge_window if is_bridge_tank else in_convoy_window
 		if "active_move" in child:
-			child.set("active_move", in_window)
+			child.set("active_move", in_convoy_window)
 		if "can_shoot" in child:
-			child.set("can_shoot", in_window)
+			child.set("can_shoot", should_shoot)
 
 
 func _update_mothership_rotation() -> void:
@@ -554,22 +632,67 @@ func _update_mothership_rotation() -> void:
 
 func _on_level_finished() -> void:
 	_level_completed = true
-	
+
+	# --- Cutscene cinematográfica de fim de nível (câmera externa + nave subindo) ---
+	if enable_level_end_cutscene:
+		_start_level_end_cutscene()
+		return
+
+	# --- Fluxo padrão: tela de Level Complete ---
 	# Pausar o movimento permanentemente no fim do percurso
 	if path_follower:
 		path_follower.set_paused(true)
-	
+
 	# Mostrar tela de level complete
 	if level_complete_scene:
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 		var target_next_level := next_level_path
 		if target_next_level == "":
 			target_next_level = "res://scenes/stages/level_2.tscn"
-		
+
 		var ui := level_complete_scene.instantiate() as LevelComplete
 		if ui:
 			add_child(ui)
 			ui.next_level_path = target_next_level
+
+
+func _start_level_end_cutscene() -> void:
+	var cutscene := CinematicLevelEnd.new()
+	cutscene.name = "CinematicLevelEnd"
+
+	# Configura os parâmetros da cutscene a partir dos exports do GameController
+	cutscene.cutscene_camera_position = cutscene_camera_position
+	cutscene.cutscene_camera_rotation_deg = cutscene_camera_rotation_deg
+	cutscene.camera_tracks_ship = cutscene_camera_tracks_ship
+	cutscene.climb_speed = cutscene_climb_speed
+	cutscene.flyby_target_time = cutscene_flyby_target_time
+	cutscene.flyby_offset = cutscene_flyby_offset
+	cutscene.enable_cinematic_zoom = cutscene_enable_zoom
+	cutscene.initial_fov = cutscene_initial_fov
+	cutscene.target_zoom_fov = cutscene_target_zoom_fov
+	cutscene.duration = cutscene_duration
+	cutscene.fade_start_ratio = cutscene_fade_start
+
+	# Determina a cena de destino (boss)
+	if cutscene_next_scene != "":
+		cutscene.next_scene_path = cutscene_next_scene
+	elif next_level_path != "":
+		cutscene.next_scene_path = next_level_path
+	else:
+		cutscene.next_scene_path = "res://scenes/stages/level_1_boss.tscn"
+
+	# Referências aos componentes
+	cutscene.path_follower = path_follower
+	cutscene.player = player
+	cutscene.camera = camera
+	cutscene.hud = hud
+
+	# Oculta UI de desenvolvimento e HUD durante a cutscene cinematográfica
+	if _dev_layer:
+		_dev_layer.visible = false
+
+	add_child(cutscene)
+	cutscene.start()
 
 
 func _get_terrain_node() -> Node:
@@ -683,12 +806,35 @@ func _run_preload_and_warmup(canvas_layer: CanvasLayer, curtain: ColorRect, intr
 	await get_tree().process_frame
 	await get_tree().process_frame
 
-	# 3. Reinicia o progresso para garantir início no ponto zero exato
+	# 3. Aplica pontos de teste e reinicia o progresso no ponto desejado
 	if path_follower:
+		if debug_start_ratio > 0.0:
+			path_follower.debug_start_ratio = debug_start_ratio
+		elif debug_start_point > 0:
+			path_follower.debug_start_point = debug_start_point
+		if debug_loop_point_end > 0:
+			path_follower.debug_loop_point_end = debug_loop_point_end
 		path_follower.reset_progress()
+		var start_offset: float = path_follower.progress
+		if start_offset > 1.0:
+			if _initial_warning_dist > 0.0 and start_offset >= _initial_warning_dist:
+				_initial_warning_shown = true
+			if _mothership_sound_offset > 0.0 and start_offset >= _mothership_sound_offset:
+				_mothership_sound_played = true
+			if _maneuver2_p19_offset > 0.0 and start_offset >= _maneuver2_p19_offset:
+				_maneuver2_p19_played = true
+			if _maneuver2_p22_offset > 0.0 and start_offset >= _maneuver2_p22_offset:
+				_maneuver2_p22_played = true
+			if _fire_dist_1 > 0.0 and start_offset >= _fire_dist_1:
+				_fire_shot_1_done = true
+			if _fire_dist_2 > 0.0 and start_offset >= _fire_dist_2:
+				_fire_shot_2_done = true
+		if wave_manager and wave_manager.has_method("_update_target_ratios"):
+			wave_manager._update_target_ratios()
 
-	# 4. Despausa o jogo / inicia a introdução cinematográfica
-	if intro:
+	# 4. Despausa o jogo / inicia a introdução cinematográfica (pula intro se estiver testando trecho específico)
+	var is_testing_section := (path_follower and (path_follower.debug_start_point > 0 or path_follower.debug_start_ratio > 0.0))
+	if intro and not is_testing_section:
 		intro.enabled = true
 		intro.start()
 		# A mira só aparece quando a intro terminar.
@@ -775,10 +921,10 @@ func _generate_all_world_collision_sync() -> void:
 # ---------------------------------------------------------------------------
 
 func _start_background_music() -> void:
-	if _music_player or MUSIC_LEVEL_1 == null:
+	if background_music == null:
 		return
 	_music_player = AudioStreamPlayer.new()
-	_music_player.stream = MUSIC_LEVEL_1
+	_music_player.stream = background_music
 	_music_player.bus = "Master"
 	_music_player.volume_db = music_volume_db  # regulável no Inspector (nome: Music Volume Db)
 	_music_player.finished.connect(_on_music_finished)
@@ -807,10 +953,9 @@ func _setup_audio_listener() -> void:
 		camera.add_child(listener)
 
 
-## Toca o som da Mothership uma única vez quando o progresso cruza o ponto
-## definido (mothership_sound_point, padrão = 32).
+## Toca o som da Mothership uma única vez quando o progresso cruza o ponto definido
 func _trigger_mothership_sound() -> void:
-	if _mothership_sound_player == null or _mothership_sound_played or not path_follower:
+	if _mothership_sound_player == null or _mothership_sound_played or not path_follower or mothership_sound_point < 0:
 		return
 
 	if _mothership_sound_offset <= 0.0:
@@ -824,9 +969,11 @@ func _trigger_mothership_sound() -> void:
 		_mothership_sound_played = true
 
 
-## Toca o som maneuver2.ogg uma única vez quando a câmera atinge o ponto 19 do Path3D.
+## Toca os sons de manobra nos pontos específicos configurados para o nível
 func _trigger_maneuver2_sound() -> void:
-	if _maneuver2_sound_played or not path_follower:
+	if not enable_maneuver_sounds or not path_follower:
+		return
+	if _maneuver2_p19_played and _maneuver2_p22_played:
 		return
 
 	if _maneuver2_player == null:
@@ -836,16 +983,46 @@ func _trigger_maneuver2_sound() -> void:
 		_maneuver2_player.volume_db = 0.0
 		add_child(_maneuver2_player)
 
-	if _maneuver2_point_offset <= 0.0:
+	if _maneuver2_short_player == null:
+		_maneuver2_short_player = AudioStreamPlayer.new()
+		_maneuver2_short_player.stream = MANEUVER_2_SHORT_SOUND
+		_maneuver2_short_player.bus = "Master"
+		_maneuver2_short_player.volume_db = 0.0
+		add_child(_maneuver2_short_player)
+
+	if _maneuver2_p19_offset <= 0.0 and maneuver_sound_p19_point >= 0:
 		var flight_path := get_node_or_null("FlightPath") as Path3D
 		if flight_path and flight_path.curve and flight_path.curve.point_count > 0:
-			var m2_idx := clampi(19, 0, flight_path.curve.point_count - 1)
-			_maneuver2_point_offset = flight_path.curve.get_closest_offset(flight_path.curve.get_point_position(m2_idx))
+			var m2_p19_idx := clampi(maneuver_sound_p19_point, 0, flight_path.curve.point_count - 1)
+			_maneuver2_p19_offset = flight_path.curve.get_closest_offset(flight_path.curve.get_point_position(m2_p19_idx))
 
-	if _maneuver2_point_offset > 0.0 and path_follower.progress >= _maneuver2_point_offset:
+	if _maneuver2_p22_offset <= 0.0 and maneuver_sound_p22_point >= 0:
+		var flight_path := get_node_or_null("FlightPath") as Path3D
+		if flight_path and flight_path.curve and flight_path.curve.point_count > 0:
+			var m2_p22_idx := clampi(maneuver_sound_p22_point, 0, flight_path.curve.point_count - 1)
+			_maneuver2_p22_offset = flight_path.curve.get_closest_offset(flight_path.curve.get_point_position(m2_p22_idx))
+
+	if not _maneuver2_p19_played and _maneuver2_p19_offset > 0.0 and path_follower.progress >= _maneuver2_p19_offset:
+		_maneuver2_player.play()
+		_maneuver2_p19_played = true
+
+	if not _maneuver2_p22_played and _maneuver2_p22_offset > 0.0 and path_follower.progress >= _maneuver2_p22_offset:
+		_maneuver2_short_player.play()
+		_maneuver2_p22_played = true
+
+	var prog := path_follower.progress
+
+	# Ponto 19 (maneuver2.ogg)
+	if not _maneuver2_p19_played and _maneuver2_p19_offset > 0.0 and prog >= _maneuver2_p19_offset:
 		_maneuver2_player.pitch_scale = randf_range(0.97, 1.03)
 		_maneuver2_player.play()
-		_maneuver2_sound_played = true
+		_maneuver2_p19_played = true
+
+	# Ponto 22 (maneuver2_short.ogg)
+	if not _maneuver2_p22_played and _maneuver2_p22_offset > 0.0 and prog >= _maneuver2_p22_offset:
+		_maneuver2_short_player.pitch_scale = randf_range(0.97, 1.03)
+		_maneuver2_short_player.play()
+		_maneuver2_p22_played = true
 
 
 # ---------------------------------------------------------------------------

@@ -19,7 +19,7 @@ const DefaultTankBulletScene := preload("res://scenes/enemies/tank_bullet.tscn")
 @export var turret_rotation_speed: float = 3.2
 @export var aim_at_player: bool = true
 @export var can_shoot: bool = false ## Ativado pelo GameController apenas quando o Player estiver entre os pontos 16 e 18
-@export var fire_interval: float = 2.8
+@export var fire_interval: float = 2.0
 @export var max_shoot_distance: float = 1600.0
 
 var _turret: Node3D = null
@@ -136,9 +136,18 @@ func _shoot_at_player() -> void:
 	fire_bullet(spawn_pos, forward_dir)
 
 
+const TankMuzzleFlashScript := preload("res://scripts/effects/tank_muzzle_flash.gd")
+
 func fire_bullet(from_pos: Vector3, dir: Vector3) -> void:
 	if not bullet_scene:
 		return
+
+	# Efeito cinematográfico realista de disparo de canhão (clarão ofuscante + fogo + fumaça na boca do canhão)
+	var muzzle_flash: Node3D = TankMuzzleFlashScript.new()
+	get_tree().current_scene.add_child(muzzle_flash)
+	muzzle_flash.global_position = from_pos
+	if muzzle_flash.has_method("setup"):
+		muzzle_flash.setup(dir)
 
 	var bullet: Node = bullet_scene.instantiate()
 	if not bullet or not bullet is Node3D:
@@ -150,7 +159,35 @@ func fire_bullet(from_pos: Vector3, dir: Vector3) -> void:
 		bullet.setup(dir)
 
 	if not _is_dead:
+		_play_firing_flash()
 		_play_tank_firing_sound()
+
+
+func _play_firing_flash() -> void:
+	if _is_dead:
+		return
+	if _flash_tween and _flash_tween.is_valid():
+		_flash_tween.kill()
+
+	if _mesh_instances.is_empty():
+		_collect_mesh_instances(self)
+
+	# Material emissivo alaranjado/dourado HDR para iluminar todo o tanque e a torreta no exato instante do disparo
+	var fire_flash_mat := StandardMaterial3D.new()
+	fire_flash_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	fire_flash_mat.albedo_color = Color(3.5, 2.2, 0.7, 1.0)
+
+	for mi: MeshInstance3D in _mesh_instances:
+		if is_instance_valid(mi):
+			mi.material_override = fire_flash_mat
+
+	_flash_tween = create_tween()
+	_flash_tween.tween_interval(0.08)
+	_flash_tween.tween_callback(func():
+		for mi: MeshInstance3D in _mesh_instances:
+			if is_instance_valid(mi):
+				mi.material_override = null
+	)
 
 
 func _play_tank_firing_sound() -> void:

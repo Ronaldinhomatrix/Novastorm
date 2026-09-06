@@ -47,6 +47,8 @@ var _th_2: float = 0.45
 var _th_3: float = 0.60
 var _th_4: float = 0.90
 
+var _bob_speed: float = 1.0
+var _bob_phase: float = 0.0
 
 func _ready() -> void:
 	max_hp = 1
@@ -61,6 +63,9 @@ func _ready() -> void:
 	_th_2 = _th_1 + randf_range(0.25, 0.35)
 	_th_3 = _th_2 + randf_range(0.12, 0.18)
 	_th_4 = randf_range(0.85, 0.93)
+	
+	_bob_speed = randf_range(0.7, 2.2)
+	_bob_phase = randf_range(0.0, TAU)
 	
 	super._ready()
 
@@ -91,10 +96,10 @@ func setup_fighter(_start_pos: Vector3, _dir: Vector3, b_type: int = 0, lane: in
 		_current_lateral = 0.0
 		_current_vertical = 45.0
 	else:
-		# Tipos 1 e 2: Entram pelas laterais fora da visão (65m de deslocamento)
-		_current_distance = 115.0
-		_current_lateral = -_side * 65.0
-		_current_vertical = 24.0
+		# Tipos 1 e 2: Entram pelas laterais distantes fora da visão
+		_current_distance = 250.0
+		_current_lateral = -_side * 400.0
+		_current_vertical = 35.0
 
 	_phase = Phase.ENTER
 	_phase_timer = 0.0
@@ -219,19 +224,20 @@ func _process_enter(_delta: float) -> void:
 		_orient_ship(frame["forward"] + Vector3(0, pitch_down, 0), frame["up"], 0.0)
 	else:
 		var eased := t * t * (3.0 - 2.0 * t)
-		# Entrada lateral curva vindo de fora da tela (±65m)
-		var start_lat := -_side * 65.0
+		# Entrada por mergulho distante: 250m de distância
+		var start_lat := -_side * 400.0
 		var target_lat := -lateral_span * _side
 		_current_lateral = lerpf(start_lat, target_lat, eased)
-		_current_distance = lerpf(115.0, combat_distance_ahead, eased)
-		_current_vertical = lerpf(24.0, base_height, eased)
+		_current_distance = lerpf(250.0, combat_distance_ahead, eased)
+		_current_vertical = lerpf(35.0, base_height, eased)
 
 		_curve_offset = _get_player_progress() + _current_distance
 		var frame := _sample_curve_frame(_curve_offset, _current_lateral, _current_vertical)
 		global_position = frame["position"]
 
-		var bank := -_side * lerpf(0.45, 0.15, eased)
-		_orient_ship(frame["forward"], frame["up"], bank)
+		var bank := -_side * lerpf(0.65, 0.15, eased)
+		var pitch := -lerpf(0.35, 0.0, eased)
+		_orient_ship(frame["forward"] + Vector3(0, pitch, 0), frame["up"], bank)
 
 	if t >= 1.0:
 		_phase = Phase.ENGAGE
@@ -254,6 +260,9 @@ func _process_engage(delta: float) -> void:
 	
 	var lat_span := lateral_span * _rnd_lat
 	
+	var independent_bob := sin(_phase_timer * _bob_speed + _bob_phase) * 2.5
+	t_vert += independent_bob
+	
 	if u >= _th_2:
 		var roll_len := maxf(0.01, _th_3 - _th_2)
 		var roll_t := clampf((u - _th_2) / roll_len, 0.0, 1.0)
@@ -267,13 +276,11 @@ func _process_engage(delta: float) -> void:
 		var t := u / _th_1
 		var ease_t := t * t * (3.0 - 2.0 * t)
 		t_lat = lerpf(-lat_span * _side, lat_span * _side * 0.4, ease_t)
-		t_vert += sin(ease_t * PI) * 3.0
 		t_bank = -_side * 0.6 * sin(ease_t * PI)
 	elif u < _th_2:
 		var len_th := maxf(0.01, _th_2 - _th_1)
 		var t := (u - _th_1) / len_th
 		t_lat = lerpf(lat_span * _side * 0.4, lat_span * _side * 0.8, t)
-		t_vert += sin(t * TAU) * 1.5
 		t_bank = -_side * 0.15 * sin(t * TAU)
 		is_shooting_phase = true
 	elif u < _th_3:
@@ -281,14 +288,12 @@ func _process_engage(delta: float) -> void:
 		var t := (u - _th_2) / len_th
 		var ease_t := t * t * (3.0 - 2.0 * t)
 		t_lat = lerpf(lat_span * _side * 0.8, -lat_span * _side * 0.4, ease_t)
-		t_vert -= sin(ease_t * PI) * 2.0
 		t_dist += sin(ease_t * PI) * 10.0
 		t_bank = -_side * 0.4 * sin(ease_t * PI)
 	elif u < _th_4:
 		var len_th := maxf(0.01, _th_4 - _th_3)
 		var t := (u - _th_3) / len_th
 		t_lat = lerpf(-lat_span * _side * 0.4, -lat_span * _side * 0.8, t)
-		t_vert += sin(t * TAU) * 1.5
 		t_bank = _side * 0.15 * sin(t * TAU)
 		is_shooting_phase = true
 	else:

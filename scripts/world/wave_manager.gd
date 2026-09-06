@@ -21,12 +21,16 @@ const AlertEnemyShipsSound := preload("res://assets/audio/alert_enemy_ships.wav"
 const WarningBattlecruiserSound := preload("res://assets/audio/warning_enemy_battlecruiser.mp3")
 
 @export_category("Gatilhos por Ponto do Path3D")
-@export var wave_1_point: int = 8   ## Ponto da curva Path3D onde a Wave 1 é disparada (Scouts)
-@export var wave_2_point: int = 15  ## Ponto da curva Path3D onde a Wave 2 é disparada (Fighters)
-@export var warning_battlecruiser_point: int = 21  ## Ponto 21 para o áudio warning_enemy_battlecruiser
-@export var wave_bomber_point: int = 25  ## Ponto 25 onde o Enemy Bomber é disparado
+@export var enable_audio_alerts: bool = true
+@export var wave_1_point: int = -1   ## Ponto da curva Path3D onde a Wave 1 é disparada (Scouts). -1 = desativado
+@export var wave_2_point: int = -1  ## Ponto da curva Path3D onde a Wave 2 é disparada (Fighters). -1 = desativado
+@export var warning_battlecruiser_point: int = -1  ## Ponto para o áudio warning_enemy_battlecruiser. -1 = desativado
+@export var wave_bomber_point: int = -1  ## Ponto onde o Enemy Bomber é disparado. -1 = desativado
 @export var bomber_dismiss_delay: float = 2.0  ## Tempo em segundos após o spawn do Bomber para as outras naves iniciarem a retirada cinematográfica
-@export var wave_3_point: int = 37  ## Ponto da curva Path3D onde a Wave 3 é disparada (2 pontos antes do 39)
+@export var wave_3_point: int = -1  ## Ponto da curva Path3D onde a Wave 3 é disparada. -1 = desativado
+@export var quiet_zone_1_point: int = -1  ## Ponto de limpeza 1 (ex: antes de mini-chefes). -1 = desativado
+@export var quiet_zone_2_point: int = -1  ## Ponto de limpeza 2 (ex: antes da nave-mãe). -1 = desativado
+@export var enable_penultimate_exit: bool = true  ## Faz inimigos remanescentes debandarem no fim do nível
 
 var _alert_enemy_ships_triggered: bool = false
 var _warning_battlecruiser_triggered: bool = false
@@ -36,16 +40,16 @@ var _wave_bomber_triggered: bool = false
 var _wave_3_triggered: bool = false
 var _penultimate_exit_triggered: bool = false
 
-var _target_ratio_1_alert: float = 0.10
-var _target_ratio_1: float = 0.14
-var _target_ratio_2: float = 0.35
-var _target_ratio_warning_battlecruiser: float = 0.50
-var _target_ratio_bomber: float = 0.53
-var _target_ratio_3: float = 0.88
-var _penultimate_ratio: float = 0.96
+var _target_ratio_1_alert: float = -1.0
+var _target_ratio_1: float = -1.0
+var _target_ratio_2: float = -1.0
+var _target_ratio_warning_battlecruiser: float = -1.0
+var _target_ratio_bomber: float = -1.0
+var _target_ratio_3: float = -1.0
+var _penultimate_ratio: float = -1.0
 
-var _quiet_zone_start_ratio: float = 0.48
-var _mothership_zone_clear_ratio: float = 0.65
+var _quiet_zone_start_ratio: float = -1.0
+var _mothership_zone_clear_ratio: float = -1.0
 var _quiet_zone_cleared: bool = false
 var _mothership_zone_cleared: bool = false
 
@@ -85,25 +89,48 @@ func _update_target_ratios() -> void:
 	var total_len: float = maxf(1.0, curve.get_baked_length())
 
 	_target_ratio_1 = _get_point_ratio(curve, wave_1_point, total_len)
-	_target_ratio_1_alert = _get_point_ratio(curve, maxi(0, wave_1_point - 1), total_len)
+	_target_ratio_1_alert = _get_point_ratio(curve, maxi(0, wave_1_point - 1), total_len) if wave_1_point >= 0 else -1.0
 	_target_ratio_2 = _get_point_ratio(curve, wave_2_point, total_len)
 	_target_ratio_warning_battlecruiser = _get_point_ratio(curve, warning_battlecruiser_point, total_len)
 	_target_ratio_bomber = _get_point_ratio(curve, wave_bomber_point, total_len)
 	_target_ratio_3 = _get_point_ratio(curve, wave_3_point, total_len)
 
-	# Limpeza de inimigos remanescentes no ponto 22 (antes do bomber)
-	_quiet_zone_start_ratio = _get_point_ratio(curve, 22, total_len)
-	# Limpeza antes da Mothership no ponto 30
-	_mothership_zone_clear_ratio = _get_point_ratio(curve, 30, total_len)
+	# Zonas de limpeza de inimigos remanescentes
+	_quiet_zone_start_ratio = _get_point_ratio(curve, quiet_zone_1_point, total_len)
+	_mothership_zone_clear_ratio = _get_point_ratio(curve, quiet_zone_2_point, total_len)
 
 	# Penúltimo ponto do nível para debandada dos inimigos restantes
-	var penultimate_idx: int = maxi(0, curve.point_count - 2)
-	_penultimate_ratio = _get_point_ratio(curve, penultimate_idx, total_len)
+	if enable_penultimate_exit and curve.point_count >= 2:
+		var penultimate_idx: int = maxi(0, curve.point_count - 2)
+		_penultimate_ratio = _get_point_ratio(curve, penultimate_idx, total_len)
+	else:
+		_penultimate_ratio = -1.0
+
+	# Se o jogo foi iniciado em um ponto de debug avançado, descarta ondas e alertas que ficaram para trás
+	var start_prog: float = path_follower.progress_ratio
+	if start_prog > 0.001:
+		if _target_ratio_1_alert >= 0.0 and start_prog >= _target_ratio_1_alert:
+			_alert_enemy_ships_triggered = true
+		if _target_ratio_warning_battlecruiser >= 0.0 and start_prog >= _target_ratio_warning_battlecruiser:
+			_warning_battlecruiser_triggered = true
+		if _quiet_zone_start_ratio >= 0.0 and start_prog >= _quiet_zone_start_ratio:
+			_quiet_zone_cleared = true
+		if _mothership_zone_clear_ratio >= 0.0 and start_prog >= _mothership_zone_clear_ratio:
+			_mothership_zone_cleared = true
+		if _target_ratio_1 >= 0.0 and start_prog >= _target_ratio_1:
+			_wave_1_triggered = true
+		if _target_ratio_2 >= 0.0 and start_prog >= _target_ratio_2:
+			_wave_2_triggered = true
+		if _target_ratio_bomber >= 0.0 and start_prog >= _target_ratio_bomber:
+			_wave_bomber_triggered = true
+		if _target_ratio_3 >= 0.0 and start_prog >= _target_ratio_3:
+			_wave_3_triggered = true
 
 
 func _get_point_ratio(curve: Curve3D, point_index: int, total_length: float) -> float:
-	var clamped_index: int = clampi(point_index, 0, curve.point_count - 1)
-	var pos: Vector3 = curve.get_point_position(clamped_index)
+	if point_index < 0 or point_index >= curve.point_count:
+		return -1.0
+	var pos: Vector3 = curve.get_point_position(point_index)
 	var offset: float = curve.get_closest_offset(pos)
 	return offset / total_length
 
@@ -152,44 +179,45 @@ func _process(_delta: float) -> void:
 	var current_progress: float = path_follower.progress_ratio
 
 	# 0. Áudio: Alerta de naves inimigas (ponto anterior à Wave 1)
-	if not _alert_enemy_ships_triggered and current_progress >= _target_ratio_1_alert:
+	if not _alert_enemy_ships_triggered and _target_ratio_1_alert >= 0.0 and current_progress >= _target_ratio_1_alert:
 		_alert_enemy_ships_triggered = true
-		_play_audio_alert(AlertEnemyShipsSound)
+		if enable_audio_alerts and AlertEnemyShipsSound:
+			_play_audio_alert(AlertEnemyShipsSound)
 
-	# 0.5 Áudio: Alerta de Battlecruiser no Ponto 21
-	if not _warning_battlecruiser_triggered and current_progress >= _target_ratio_warning_battlecruiser:
+	# 0.5 Áudio: Alerta de Battlecruiser
+	if not _warning_battlecruiser_triggered and _target_ratio_warning_battlecruiser >= 0.0 and current_progress >= _target_ratio_warning_battlecruiser:
 		_warning_battlecruiser_triggered = true
-		_play_audio_alert(WarningBattlecruiserSound)
+		if enable_audio_alerts and WarningBattlecruiserSound:
+			_play_audio_alert(WarningBattlecruiserSound)
 
 	# 1. Limpeza de inimigos remanescentes das waves anteriores antes de novos eventos
-	if not _quiet_zone_cleared and current_progress >= _quiet_zone_start_ratio:
+	if not _quiet_zone_cleared and _quiet_zone_start_ratio >= 0.0 and current_progress >= _quiet_zone_start_ratio:
 		_quiet_zone_cleared = true
 		_clear_all_active_enemies()
 
-	if not _mothership_zone_cleared and current_progress >= _mothership_zone_clear_ratio:
+	if not _mothership_zone_cleared and _mothership_zone_clear_ratio >= 0.0 and current_progress >= _mothership_zone_clear_ratio:
 		_mothership_zone_cleared = true
 		_clear_all_active_enemies()
 
 	# 2. Penúltimo ponto: os inimigos que restarem aceleram para fora do nível
-	if current_progress >= _penultimate_ratio:
-		if not _penultimate_exit_triggered:
-			_penultimate_exit_triggered = true
-			_dismiss_all_active_enemies()
+	if not _penultimate_exit_triggered and _penultimate_ratio >= 0.0 and current_progress >= _penultimate_ratio:
+		_penultimate_exit_triggered = true
+		_dismiss_all_active_enemies()
 
 	# 3. Gatilhos de ondas
-	if not _wave_1_triggered and current_progress >= _target_ratio_1:
+	if not _wave_1_triggered and _target_ratio_1 >= 0.0 and current_progress >= _target_ratio_1:
 		_wave_1_triggered = true
 		_spawn_wave_1()
 
-	if not _wave_2_triggered and current_progress >= _target_ratio_2:
+	if not _wave_2_triggered and _target_ratio_2 >= 0.0 and current_progress >= _target_ratio_2:
 		_wave_2_triggered = true
 		_spawn_wave_2()
 
-	if not _wave_bomber_triggered and current_progress >= _target_ratio_bomber:
+	if not _wave_bomber_triggered and _target_ratio_bomber >= 0.0 and current_progress >= _target_ratio_bomber:
 		_wave_bomber_triggered = true
 		_spawn_bomber()
 
-	if not _wave_3_triggered and current_progress >= _target_ratio_3:
+	if not _wave_3_triggered and _target_ratio_3 >= 0.0 and current_progress >= _target_ratio_3:
 		_wave_3_triggered = true
 		_spawn_wave_3()
 

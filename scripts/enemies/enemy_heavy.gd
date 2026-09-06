@@ -38,6 +38,9 @@ var _th_1: float = 0.20
 var _th_2: float = 0.50
 var _th_3: float = 0.80
 
+var _bob_speed: float = 1.0
+var _bob_phase: float = 0.0
+
 func _ready() -> void:
 	max_hp = 50
 	current_hp = 50
@@ -50,6 +53,9 @@ func _ready() -> void:
 	_th_1 = randf_range(0.15, 0.25)
 	_th_2 = _th_1 + randf_range(0.25, 0.35)
 	_th_3 = randf_range(0.75, 0.85)
+
+	_bob_speed = randf_range(0.5, 1.5)
+	_bob_phase = randf_range(0.0, TAU)
 	
 	super._ready()
 
@@ -132,33 +138,32 @@ func _process_engage(delta: float) -> void:
 	var t_pitch := 0.0
 	
 	var width_amp := width_amplitude * _rnd_lat
+	
+	var independent_bob := sin(_phase_timer * _bob_speed + _bob_phase) * 1.5
+	t_vert += independent_bob
 
 	# Padrão pesado orgânico
 	if u < _th_1:
 		var t := u / _th_1
 		var ease_t := t * t * (3.0 - 2.0 * t)
 		t_lat = lerpf(-width_amp * _side * 0.5, 0.0, ease_t)
-		t_vert = lerpf(14.0 + _rnd_vert, 18.0 + _rnd_vert, ease_t)
 		t_bank = -_side * 0.15 * sin(ease_t * PI)
 	elif u < _th_2:
 		var len_th := maxf(0.01, _th_2 - _th_1)
 		var t := (u - _th_1) / len_th
 		t_lat = lerpf(0.0, width_amp * _side * 0.3, t)
-		t_vert = 18.0 + _rnd_vert + sin(t * PI) * 1.5
 		t_bank = -_side * 0.05 * sin(t * PI)
 	elif u < _th_3:
 		var len_th := maxf(0.01, _th_3 - _th_2)
 		var t := (u - _th_2) / len_th
 		var ease_t := t * t * (3.0 - 2.0 * t)
 		t_lat = lerpf(width_amp * _side * 0.3, width_amp * _side * 0.8, ease_t)
-		t_vert = lerpf(18.0 + _rnd_vert, 12.0 + _rnd_vert, ease_t)
 		t_dist += sin(ease_t * PI) * 12.0
 		t_bank = -_side * 0.3 * sin(ease_t * PI)
 	elif u < 0.90:
 		var len_th := maxf(0.01, 0.90 - _th_3)
 		var t := (u - _th_3) / len_th
 		t_lat = lerpf(width_amp * _side * 0.8, width_amp * _side * 0.5, t)
-		t_vert = 12.0 + _rnd_vert + sin(t * PI) * 1.5
 		t_bank = _side * 0.05 * sin(t * PI)
 	else:
 		var len_th := maxf(0.01, 0.10)

@@ -20,13 +20,23 @@ extends PathFollow3D
 @export var speed_curve: Curve
 
 @export_category("Suavizacao da Curva")
-@export var look_ahead: float = 5.0  ## Distancia a frente (unidades) usada para mirar.
-@export var turn_smoothing: float = 4.0  ## Rapidez de suavizar a direcao
+@export var look_ahead: float = 1.0  ## Distancia a frente usada para obter a direcao imediata sem antecipacao.
+@export var turn_smoothing: float = 4.5  ## Rapidez de resposta da direcao (valores altos acompanham a pista fielmente).
 
-@export_category("Tilt da Curva (Bank)")
+@export_category("Tilt da Curva (Bank / Inclinacao Lateral)")
 @export var tilt_intensity: float = 0.25  ## Intensidade do tilt nas curvas
-@export var tilt_smoothing: float = 3.5  ## Suavizacao do tilt
-@export_range(0.0, 90.0) var max_tilt_degrees: float = 30.0  ## Angulo maximo de inclinacao (graus)
+@export var tilt_smoothing: float = 4.0  ## Suavizacao do tilt
+@export_range(0.0, 90.0) var max_tilt_degrees: float = 30.0  ## Angulo maximo de inclinacao lateral (graus)
+
+@export_category("Inclinacao Vertical (Pitch / Subidas e Descidas)")
+## Ativa a inclinação vertical acentuada da câmera e nave ao subir e descer a pista.
+@export var enable_vertical_pitch: bool = true
+## Multiplicador de intensidade da inclinação vertical (1.0 = ângulo original da pista, 1.35 = mergulhos e subidas bem visíveis e marcados).
+@export_range(0.5, 3.0, 0.05) var pitch_intensity: float = 1.35
+## Suavização da inclinação vertical para transições fluidas e precisas.
+@export var pitch_smoothing: float = 4.5
+## Ângulo máximo de inclinação vertical permitido (em graus).
+@export_range(10.0, 80.0, 1.0) var max_pitch_degrees: float = 55.0
 
 @export_category("Giro em Parafuso (Barrel Roll)")
 @export var enable_barrel_roll: bool = true  ## Ativa o efeito de giro em parafuso
@@ -35,6 +45,14 @@ extends PathFollow3D
 @export var roll_direction: float = 1.0  ## 1.0 = horario, -1.0 = anti-horario
 @export_range(0.0, 1.0) var roll_start_ratio: float = -1.0  ## Opcional: sobrescreve por ratio
 @export_range(0.0, 1.0) var roll_end_ratio: float = -1.0  ## Opcional: sobrescreve por ratio
+
+@export_category("Debug e Teste de Trechos")
+## Ponto inicial para testes (0 = início padrão do nível, 15 = pula direto pro ponto 15, etc.).
+@export var debug_start_point: int = 0
+## Inicia a partir de uma porcentagem da pista (0.0 a 1.0). Se > 0.0, tem prioridade sobre debug_start_point.
+@export_range(0.0, 1.0) var debug_start_ratio: float = 0.0
+## Ponto final para loop de teste (se > debug_start_point, o trajeto fica repetindo apenas este trecho).
+@export var debug_loop_point_end: int = -1
 
 # Som de manobra tocado quando o giro em parafuso (barrel roll) da câmera inicia.
 const ManeuverSound := preload("res://assets/audio/maneuver1.ogg")
@@ -48,8 +66,11 @@ var _speed_multiplier: float = 1.0
 var _smoothed_forward: Vector3 = Vector3.ZERO
 var _forward_initialized: bool = false
 var _smoothed_tilt: float = 0.0  ## Tilt suavizado (roll em radianos)
+var _smoothed_pitch: float = 0.0  ## Pitch suavizado (em radianos)
 var _prev_forward: Vector3 = Vector3.ZERO  ## Direcao anterior
 var _barrel_roll_angle: float = 0.0  ## Rotacao adicional de roll em radianos
+var _debug_loop_start_offset: float = -1.0
+var _debug_loop_end_offset: float = -1.0
 
 # Player de áudio da manobra (barrel roll) + controle de disparo único.
 var _maneuver_player: AudioStreamPlayer = null
@@ -70,7 +91,31 @@ func _ready() -> void:
 	_maneuver_player.bus = "Master"
 	_maneuver_player.volume_db = 0.0
 	add_child(_maneuver_player)
+	_setup_debug_offsets()
+	reset_progress()
 	_align_to_path(0.016)
+
+
+func _setup_debug_offsets() -> void:
+	var parent_path := get_parent() as Path3D
+	var c: Curve3D = parent_path.curve if parent_path else null
+	if not c or c.point_count < 2:
+		return
+
+	var total_len := c.get_baked_length()
+	if debug_start_ratio > 0.0:
+		_debug_loop_start_offset = clampf(debug_start_ratio * total_len, 0.0, total_len)
+	elif debug_start_point > 0:
+		var p_idx := clampi(debug_start_point, 0, c.point_count - 1)
+		_debug_loop_start_offset = c.get_closest_offset(c.get_point_position(p_idx))
+	else:
+		_debug_loop_start_offset = 0.0
+
+	if debug_loop_point_end > debug_start_point:
+		var end_idx := clampi(debug_loop_point_end, 0, c.point_count - 1)
+		_debug_loop_end_offset = c.get_closest_offset(c.get_point_position(end_idx))
+	else:
+		_debug_loop_end_offset = -1.0
 
 
 func _physics_process(delta: float) -> void:
@@ -80,6 +125,11 @@ func _physics_process(delta: float) -> void:
 	# Limita o delta para no máximo 50ms para evitar saltos bruscos no primeiro frame pós-carregamento
 	var dt := minf(delta, 0.05)
 	progress += _current_speed() * dt
+
+	# Modo Loop de Trecho de Teste (se configurado debug_loop_point_end)
+	if _debug_loop_end_offset > _debug_loop_start_offset and progress >= _debug_loop_end_offset:
+		progress = _debug_loop_start_offset
+
 	_align_to_path(dt)
 
 
@@ -148,8 +198,10 @@ func _align_to_path(delta: float) -> void:
 		if first_point.length_squared() < 0.0001:
 			return
 
+	# 1. Tangente Direta Imediata no Ponto Atual (sem antecipar centenas de metros à frente)
+	var sample_step := maxf(look_ahead, 0.5)
 	var here := c.sample_baked(progress, true)
-	var ahead := c.sample_baked(progress + look_ahead, true)
+	var ahead := c.sample_baked(progress + sample_step, true)
 	var raw_forward := ahead - here
 	if raw_forward.length_squared() < 0.000001:
 		return
@@ -163,50 +215,74 @@ func _align_to_path(delta: float) -> void:
 	_smoothed_forward = _smoothed_forward.slerp(raw_forward, t).normalized()
 	var forward := _smoothed_forward
 
-	# --- Bank / Tilt preditivo baseado na curvatura da pista ---
-	# Segmentos têm ~500m: amostramos à frente proporcionalmente à velocidade para capturar a curva completa
-	var look_dist := maxf(_current_speed() * 0.5, 150.0)
-	var ahead_sample := c.sample_baked(progress + look_dist, true)
-	var far_sample := c.sample_baked(progress + look_dist * 2.2, true)
+	# 2. Bank / Tilt Lateral Imediato no Ponto da Curva (sem antecipação de centenas de metros)
+	var short_ahead := c.sample_baked(progress + 8.0, true)
+	var ahead_tangent := (short_ahead - ahead).normalized()
 	
-	var here_tangent := raw_forward
-	var ahead_tangent := (far_sample - ahead_sample).normalized()
+	# Produto vetorial no plano horizontal (X e Z) para detectar a curva atual
+	var cross_y := raw_forward.z * ahead_tangent.x - raw_forward.x * ahead_tangent.z
+	var curve_curvature := clampf(cross_y * 12.0, -1.0, 1.0)
 	
-	# Produto vetorial no plano horizontal determina a direção e intensidade da curva
-	var cross_y := here_tangent.z * ahead_tangent.x - here_tangent.x * ahead_tangent.z
-	var curve_curvature := clampf(cross_y * 2.0, -1.0, 1.0)
-	
-	# Converte a curvatura em ângulo de inclinação (Bank forte nas curvas)
 	var speed_factor := clampf(_current_speed() / maxf(forward_speed * 0.3, 0.001), 0.0, 1.0)
 	var max_tilt_rad := deg_to_rad(max_tilt_degrees)
-	var target_tilt: float = -curve_curvature * max_tilt_rad * speed_factor
+	var target_tilt: float = -curve_curvature * max_tilt_rad * speed_factor * (tilt_intensity / 0.25)
 	
 	var tilt_t := 1.0 - exp(-tilt_smoothing * delta)
 	_smoothed_tilt = lerpf(_smoothed_tilt, target_tilt, tilt_t)
-	
-	# Giro em Parafuso (Barrel Roll)
+
+	# 3. Inclinação Vertical (Pitch / Subidas e Descidas bem visíveis)
+	var horiz_len := Vector2(forward.x, forward.z).length()
+	var raw_pitch_rad := atan2(forward.y, horiz_len)
+	var target_pitch := raw_pitch_rad
+	if enable_vertical_pitch:
+		var max_pitch_rad := deg_to_rad(max_pitch_degrees)
+		target_pitch = clampf(raw_pitch_rad * pitch_intensity, -max_pitch_rad, max_pitch_rad)
+
+	var pitch_t := 1.0 - exp(-pitch_smoothing * delta)
+	_smoothed_pitch = lerpf(_smoothed_pitch, target_pitch, pitch_t)
+
+	# 4. Construção da Direção 3D com Pitch Acentuado
+	var horiz_dir := Vector3(forward.x, 0.0, forward.z)
+	if horiz_dir.length_squared() > 0.0001:
+		horiz_dir = horiz_dir.normalized()
+	else:
+		horiz_dir = Vector3.FORWARD
+
+	var pitched_forward := (horiz_dir * cos(_smoothed_pitch) + Vector3.UP * sin(_smoothed_pitch)).normalized()
+
+	# 5. Giro em Parafuso (Barrel Roll) e Roll Total
 	var barrel_roll_angle := _calculate_barrel_roll_angle(c)
 	_barrel_roll_angle = barrel_roll_angle
 	_update_barrel_roll_sound(c)
 
-	var up := Vector3.UP
 	var total_roll := _smoothed_tilt + _barrel_roll_angle
-	var tilted_up := up.rotated(forward, total_roll)
+	var up := Vector3.UP
+	var tilted_up := up.rotated(pitched_forward, total_roll)
 
-	var right := forward.cross(tilted_up).normalized()
+	var right := pitched_forward.cross(tilted_up).normalized()
 	if right.length_squared() < 0.000001:
 		right = Vector3.RIGHT
-	var corrected_up := right.cross(forward).normalized()
+	var corrected_up := right.cross(pitched_forward).normalized()
 
-	global_transform.basis = Basis(right, corrected_up, -forward).orthonormalized()
+	global_transform.basis = Basis(right, corrected_up, -pitched_forward).orthonormalized()
 
 
-## Retorna o tilt da curva em radianos (inclinação pura nas curvas, sem barrel roll)
+## Retorna o pitch da curva em radianos (inclinação vertical para cima/baixo)
+func get_pitch() -> float:
+	return _smoothed_pitch
+
+
+## Retorna o pitch da curva em graus
+func get_pitch_degrees() -> float:
+	return rad_to_deg(_smoothed_pitch)
+
+
+## Retorna o tilt lateral da curva em radianos (inclinação pura nas curvas, sem barrel roll)
 func get_curve_tilt() -> float:
 	return _smoothed_tilt
 
 
-## Retorna o tilt da curva em radianos (inclinação nas curvas)
+## Retorna o tilt lateral da curva em radianos (inclinação nas curvas)
 func get_smoothed_tilt() -> float:
 	return _smoothed_tilt
 
@@ -307,6 +383,39 @@ func set_speed_multiplier(multiplier: float) -> void:
 
 
 func reset_progress() -> void:
-	progress = 0.0
+	if _debug_loop_start_offset < 0.0:
+		_setup_debug_offsets()
+	progress = maxf(_debug_loop_start_offset, 0.0)
 	_forward_initialized = false
 	_barrel_roll_sound_played = false
+	_smoothed_tilt = 0.0
+	_smoothed_pitch = 0.0
+	_align_to_path(0.016)
+
+
+## Teletransporta o follower diretamente para um ponto específico do Path3D
+func jump_to_point(point_index: int) -> void:
+	var parent_path := get_parent() as Path3D
+	var c: Curve3D = parent_path.curve if parent_path else null
+	if not c or c.point_count == 0:
+		return
+
+	var idx := clampi(point_index, 0, c.point_count - 1)
+	progress = c.get_closest_offset(c.get_point_position(idx))
+	_forward_initialized = false
+	_smoothed_tilt = 0.0
+	_smoothed_pitch = 0.0
+	_align_to_path(0.016)
+
+
+## Teletransporta o follower para uma porcentagem da pista (0.0 a 1.0)
+func jump_to_ratio(target_ratio: float) -> void:
+	var parent_path := get_parent() as Path3D
+	var c: Curve3D = parent_path.curve if parent_path else null
+	if not c or c.point_count == 0:
+		return
+
+	var total_len := c.get_baked_length()
+	progress = clampf(target_ratio * total_len, 0.0, total_len)
+	_forward_initialized = false
+	_align_to_path(0.016)

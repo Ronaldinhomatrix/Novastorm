@@ -39,6 +39,9 @@ var _th_1: float = 0.20
 var _th_2: float = 0.50
 var _th_3: float = 0.80
 
+var _bob_speed: float = 1.0
+var _bob_phase: float = 0.0
+
 func _ready() -> void:
 	max_hp = 1
 	current_hp = 1
@@ -51,6 +54,9 @@ func _ready() -> void:
 	_th_1 = randf_range(0.15, 0.25)
 	_th_2 = _th_1 + randf_range(0.25, 0.35)
 	_th_3 = randf_range(0.75, 0.85)
+
+	_bob_speed = randf_range(0.8, 2.5)
+	_bob_phase = randf_range(0.0, TAU)
 	
 	super._ready()
 
@@ -78,10 +84,10 @@ func setup_flight(_start_pos: Vector3, dir: Vector3, side: float = 1.0, _speed: 
 			_current_lateral = 0.0
 			_current_vertical = 3.4
 	else:
-		# Entrada pela lateral fora da tela (65m de offset lateral)
-		_current_distance = 110.0
-		_current_lateral = -_side * 65.0
-		_current_vertical = base_height + 6.0
+		# Entrada por mergulho distante: 300m à frente e alto e muuuito pro lado (fora da tela)
+		_current_distance = 300.0
+		_current_lateral = -_side * 400.0
+		_current_vertical = base_height + 40.0
 
 	_phase = Phase.ENTER
 	_phase_timer = 0.0
@@ -191,20 +197,21 @@ func _process_enter(_delta: float) -> void:
 			# Queda suave de pitch para o tom normal de voo (1.0)
 			set_engine_pitch(lerpf(1.22, 1.0, eased_settle))
 	else:
-		# Entrada lateral suave: surge de fora da visão lateral (-65m) e faz curva em direção ao centro do combate
+		# Entrada por mergulho distante: surgem de longe e do alto, entrando suavemente na área de combate
 		var eased := t * t * (3.0 - 2.0 * t)
-		var start_lat := -_side * 65.0
+		var start_lat := -_side * 400.0
 		var target_lat := -lateral_span * _side
 		_current_lateral = lerpf(start_lat, target_lat, eased)
-		_current_distance = lerpf(110.0, combat_distance_ahead, eased)
-		_current_vertical = lerpf(base_height + 6.0, base_height, eased)
+		_current_distance = lerpf(300.0, combat_distance_ahead, eased)
+		_current_vertical = lerpf(base_height + 40.0, base_height, eased)
 
 		_curve_offset = _get_player_progress() + _current_distance
 		var frame := _sample_curve_frame(_curve_offset, _current_lateral, _current_vertical)
 		global_position = frame["position"]
 
-		var bank := -_side * lerpf(0.45, 0.15, eased)
-		_orient_ship(frame["forward"], frame["up"], bank)
+		var bank := -_side * lerpf(0.65, 0.15, eased)
+		var pitch := -lerpf(0.4, 0.0, eased)
+		_orient_ship(frame["forward"] + Vector3(0, pitch, 0), frame["up"], bank)
 
 	if t >= 1.0:
 		_phase = Phase.ENGAGE
@@ -226,19 +233,21 @@ func _process_engage(delta: float) -> void:
 	var is_shooting_phase := false
 	
 	var lat_span := lateral_span * _rnd_lat
+	
+	# Adiciona um movimento orgânico contínuo de subida/descida
+	var independent_bob := sin(_phase_timer * _bob_speed + _bob_phase) * 2.5
+	t_vert += independent_bob
 
 	# Scout: Ágil orgânico
 	if u < _th_1:
 		var t := u / _th_1
 		var ease_t := t * t * (3.0 - 2.0 * t)
 		t_lat = lerpf(-lat_span * _side, lat_span * _side * 0.2, ease_t)
-		t_vert += 2.0
 		t_bank = -_side * 0.4 * sin(ease_t * PI)
 	elif u < _th_2:
 		var len_th := maxf(0.01, _th_2 - _th_1)
 		var t := (u - _th_1) / len_th
 		t_lat = lerpf(lat_span * _side * 0.2, -lat_span * _side * 0.2, t)
-		t_vert += sin(t * PI) * 2.5
 		t_bank = -_side * 0.2 * sin(t * PI)
 		is_shooting_phase = true
 	elif u < _th_3:
@@ -247,13 +256,11 @@ func _process_engage(delta: float) -> void:
 		var ease_t := t * t * (3.0 - 2.0 * t)
 		t_lat = lerpf(-lat_span * _side * 0.2, lat_span * _side * 0.7, ease_t)
 		t_dist -= sin(ease_t * PI) * 8.0
-		t_vert -= 1.0
 		t_bank = -_side * 0.6 * sin(ease_t * PI)
 	elif u < 0.90:
 		var len_th := maxf(0.01, 0.90 - _th_3)
 		var t := (u - _th_3) / len_th
 		t_lat = lerpf(lat_span * _side * 0.7, lat_span * _side * 0.9, t)
-		t_vert += sin(t * PI) * 1.5
 		t_bank = _side * 0.15 * sin(t * PI)
 		is_shooting_phase = true
 	else:
