@@ -40,6 +40,8 @@ extends CharacterBody3D
 @export_category("Combate")
 @export var fire_rate: float = 0.5
 @export var bullet_scene: PackedScene = null
+## Intensidade com que o tiro acompanha a inclinação/curva da nave (0.0 = tiro padrão, 0.5 = meio termo, 1.0 = direção total da nave).
+@export_range(0.0, 1.0) var aim_steering_bias: float = 0.45
 
 @export_category("Áudio")
 ## Volume do tiro laser em dB. 0 = 100% (padrão Godot), -6 ≈ 50%, -12 ≈ 25%.
@@ -68,6 +70,7 @@ const ExplosionScript := preload("res://scripts/effects/explosion.gd")
 const ShieldBubbleScene := preload("res://scenes/effects/shield_bubble.tscn")
 const DamageSmokeScript := preload("res://scripts/effects/damage_smoke.gd")
 const EnemyWreckageScript := preload("res://scripts/effects/enemy_wreckage.gd")
+const MuzzleFlashScript := preload("res://scripts/effects/muzzle_flash.gd")
 
 # Som de disparo do laser, explosão e alerta de escudo.
 const LaserSound := preload("res://assets/audio/laser1_player.ogg")
@@ -128,6 +131,7 @@ var _laser_player: AudioStreamPlayer = null
 # Estado Dev / Look Back (Olhar para trás)
 var _is_looking_back: bool = false
 var _shield_bubble: ShieldBubble = null
+var _muzzle_flash: Node3D = null
 
 @onready var ship_model: Node3D = $ShipModel
 
@@ -168,6 +172,15 @@ func _ready() -> void:
 			ship_model.add_child(_damage_smoke)
 		else:
 			add_child(_damage_smoke)
+
+	# Instancia o efeito de brilho e flash no disparo da nave
+	if not _muzzle_flash and MuzzleFlashScript:
+		_muzzle_flash = MuzzleFlashScript.new()
+		_muzzle_flash.name = "MuzzleFlashEffect"
+		if ship_model:
+			ship_model.add_child(_muzzle_flash)
+		else:
+			add_child(_muzzle_flash)
 
 	var col_shape := $CollisionShape3D as CollisionShape3D
 	if col_shape and col_shape.shape is BoxShape3D:
@@ -482,7 +495,7 @@ func _spawn_bullet() -> void:
 	if not bullet_scene:
 		return
 
-	# O tiro sai exatamente na direção em que a nave (ShipModel) está apontando naquele momento.
+	# O tiro sai acompanhando a posição e a direção de curva/inclinação da nave.
 	var aim_dir := _get_ship_aim_direction()
 	var spawn_pos: Vector3
 	if ship_model:
@@ -498,6 +511,10 @@ func _spawn_bullet() -> void:
 	bullet.global_position = spawn_pos
 	bullet.setup(aim_dir)
 
+	# Efeito visual de brilho e flare na nave no momento do disparo
+	if _muzzle_flash:
+		_muzzle_flash.trigger()
+
 	# Reproduz o som do disparo do laser.
 	if has_node("/root/SoundManager"):
 		get_node("/root/SoundManager").play_laser_player(laser_volume_db)
@@ -506,19 +523,28 @@ func _spawn_bullet() -> void:
 		_laser_player.play()
 
 
-## Retorna o vetor de direção do disparo.
-## Meio-termo: 65% da direção natural (câmera → posição da nave na tela)
-## + 35% do centro da tela. Isso dá um spread perceptível sem que o tiro
-## "abra" demais para os cantos — mantém uma tendência suave ao centro.
+## Retorna o vetor de direção do disparo:
+## Combina a projeção da tela com a inclinação/orientação real da nave
+## quando ela faz manobras (pitch para cima/baixo, yaw/roll para os lados).
 func _get_ship_aim_direction() -> Vector3:
+	var base_dir: Vector3
 	var cam := get_viewport().get_camera_3d()
 	if cam:
 		var ship_screen := cam.unproject_position(global_position)
 		var center_screen := get_viewport().get_visible_rect().size / 2.0
 		var dir_natural := cam.project_ray_normal(ship_screen).normalized()
 		var dir_center := cam.project_ray_normal(center_screen).normalized()
-		return dir_natural.slerp(dir_center, 0.35).normalized()
-	return -global_basis.z.normalized()
+		base_dir = dir_natural.slerp(dir_center, 0.35).normalized()
+	else:
+		base_dir = -global_basis.z.normalized()
+
+	# Se a nave possuir ShipModel e aim_steering_bias estiver ativo,
+	# mescla a direção base com a direção para onde o nariz da nave está apontando
+	if ship_model and aim_steering_bias > 0.001:
+		var ship_forward := -ship_model.global_transform.basis.z.normalized()
+		return base_dir.slerp(ship_forward, clampf(aim_steering_bias, 0.0, 1.0)).normalized()
+
+	return base_dir
 
 
 # ---------------------------------------------------------------------------
