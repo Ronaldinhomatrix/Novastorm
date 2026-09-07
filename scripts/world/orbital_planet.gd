@@ -111,7 +111,6 @@ func _setup_platform_filtering() -> void:
 	if mat:
 		var is_mobile := OS.has_feature("mobile") or OS.has_feature("web_android") or OS.has_feature("web_ios")
 		mat.set_shader_parameter("use_smooth_sampling", not is_mobile)
-		mat.set_shader_parameter("enable_procedural_detail", not is_mobile)
 
 
 func _process(delta: float) -> void:
