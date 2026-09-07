@@ -1,4 +1,4 @@
-﻿shader_type spatial;
+shader_type spatial;
 render_mode cull_back, depth_draw_opaque, diffuse_burley, specular_schlick_ggx;
 
 uniform sampler2D planet_texture : source_color, filter_linear_mipmap_anisotropic;
@@ -23,9 +23,12 @@ varying vec2 v_local_xz;
 varying vec3 v_world_pos;
 
 // ---------------------------------------------------------------------------
-// Bicubic suave: substitui cada texel por interpolação smoothstep entre
-// os 4 vizinhos mais próximos. Elimina serrilhado em magnification sem custo
-// perceptível de GPU (4 texture fetches adicionais em vez de 1).
+// Filtragem Quíntica C2-Contínua (Ken Perlin / Super-Smoothstep):
+// Substitui a interpolação linear/cúbica simples por um polinômio de 5ª ordem:
+// t = t * t * t * (t * (t * 6.0 - 15.0) + 10.0)
+// Isso zera tanto a velocidade (1ª derivada) quanto a aceleração (2ª derivada)
+// nas fronteiras entre texels, eliminando qualquer "quina", "degrau" ou serrilhado
+// visível mesmo em texturas 1K esticadas a distâncias colossais.
 // ---------------------------------------------------------------------------
 vec4 texture_bicubic(sampler2D tex, vec2 uv) {
     vec2 tex_size    = vec2(textureSize(tex, 0));
@@ -34,8 +37,8 @@ vec4 texture_bicubic(sampler2D tex, vec2 uv) {
     vec2 floor_uv    = (floor(pixel) + 0.5) / tex_size;
     vec2 step_uv     = 1.0 / tex_size;
 
-    // Smoothstep sobre a fração para interpolação cúbica suave
-    vec2 t = frac_part * frac_part * (3.0 - 2.0 * frac_part);
+    // Polinômio quíntico de 5ª ordem (suavidade contínua absoluta C2)
+    vec2 t = frac_part * frac_part * frac_part * (frac_part * (frac_part * 6.0 - 15.0) + 10.0);
 
     vec4 c00 = texture(tex, floor_uv);
     vec4 c10 = texture(tex, floor_uv + vec2(step_uv.x, 0.0));
