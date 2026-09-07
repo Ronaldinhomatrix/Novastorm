@@ -1,7 +1,7 @@
-[gd_scene load_steps=5 format=3 uid="uid://c_orbital_planet_scene"]
+﻿[gd_scene load_steps=5 format=3 uid="uid://c_orbital_planet_scene"]
 
 [ext_resource type="Script" path="res://scripts/world/orbital_planet.gd" id="1_planet_script"]
-[ext_resource type="Texture2D" path="res://assets/textures/orbital_planet_albedo_2k.webp" id="2_planet_albedo"]
+[ext_resource type="Texture2D" path="res://assets/textures/orbital_planet_albedo_4k.webp" id="2_planet_albedo"]
 [ext_resource type="Shader" path="res://scripts/shaders/orbital_planet.gdshader" id="3_planet_shader"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_surface"]
