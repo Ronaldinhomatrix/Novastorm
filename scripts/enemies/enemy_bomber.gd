@@ -20,13 +20,14 @@ const EnemyBombScript := preload("res://scripts/enemies/enemy_bomb.gd")
 const BomberEngineSound := preload("res://assets/audio/bomber_engine.wav")
 
 @export_category("Comportamento do Bomber")
-@export var enter_duration: float = 6.2           ## Entrada ainda mais lenta, pesada e imponente
+@export var enter_duration: float = 6.2           ## Entrada lenta, pesada e imponente
 @export var bomb_run_duration: float = 6.0
 @export var exit_duration: float = 2.5
 
-@export var combat_distance_ahead: float = 195.0  ## Distância ainda maior da nave Player (195m à frente na vanguarda)
-@export var lateral_span: float = 14.0            ## Amplitude de varredura lateral (±14m)
-@export var base_height: float = 6.0              ## Altura de voo no cânion
+@export var combat_distance_ahead: float = 195.0  ## Distância da nave Player (195m à frente na vanguarda)
+@export var lateral_span: float = 22.0            ## Amplitude de varredura lateral ampliada (±22m)
+@export var base_height: float = 8.0              ## Altura base de voo no cânion
+@export var vertical_span: float = 6.5            ## Amplitude de varredura vertical (±6.5m)
 @export var total_bombs: int = 24                 ## Fileira de 24 minas
 @export var drop_interval: float = 0.25           ## Cadência de 4 minas por segundo (1.0 / 4.0 = 0.25s)
 
@@ -168,14 +169,19 @@ func _process_enter(_delta: float) -> void:
 func _process_bomb_run(delta: float) -> void:
 	var u := clampf(_phase_timer / maxf(bomb_run_duration, 0.01), 0.0, 1.0)
 
-	# Trajetória senoidal contínua cortando o cânion de um lado ao outro (onda em S)
-	var sweep_angle := u * PI * 2.5
-	var target_lat := sin(sweep_angle) * lateral_span * _side
-	var target_vert := base_height + cos(sweep_angle * 0.8) * 1.8
-	var target_dist := combat_distance_ahead + sin(u * PI) * 8.0
-	var target_bank := -cos(sweep_angle) * 0.45 * _side
+	# Movimentação dinâmica e rápida: 5.5 ciclos completos de varredura lateral + onda vertical rápida
+	var sweep_angle := u * PI * 5.5
+	var vert_angle := u * PI * 4.0
 
-	var lerp_w := 1.0 - exp(-6.0 * delta)
+	var target_lat := sin(sweep_angle) * lateral_span * _side
+	var target_vert := base_height + sin(vert_angle) * vertical_span + cos(sweep_angle * 0.5) * 1.5
+	var target_dist := combat_distance_ahead + sin(u * PI * 2.0) * 12.0
+
+	var target_bank := -cos(sweep_angle) * 0.55 * _side
+	var target_pitch := cos(vert_angle) * 0.22
+
+	# Interpolação rápida e responsiva
+	var lerp_w := 1.0 - exp(-9.0 * delta)
 	_current_lateral = lerpf(_current_lateral, target_lat, lerp_w)
 	_current_vertical = lerpf(_current_vertical, target_vert, lerp_w)
 	_current_distance = lerpf(_current_distance, target_dist, lerp_w)
@@ -183,7 +189,7 @@ func _process_bomb_run(delta: float) -> void:
 	_curve_offset = _get_player_progress() + _current_distance
 	var frame := _sample_curve_frame(_curve_offset, _current_lateral, _current_vertical)
 	global_position = frame["position"]
-	_orient_ship(frame["forward"], frame["up"], target_bank)
+	_orient_ship(frame["forward"] + Vector3(0, target_pitch, 0), frame["up"], target_bank)
 
 	# Lançamento de bombas a intervalos regulares
 	if _bombs_dropped < total_bombs:
@@ -195,6 +201,7 @@ func _process_bomb_run(delta: float) -> void:
 	if u >= 1.0:
 		_phase = Phase.EXIT
 		_phase_timer = 0.0
+
 
 
 func _drop_bomb() -> void:

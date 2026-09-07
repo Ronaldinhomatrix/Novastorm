@@ -41,6 +41,14 @@ var _th_3: float = 0.80
 var _bob_speed: float = 1.0
 var _bob_phase: float = 0.0
 
+var is_curve_driven: bool = false
+var _r_trigger: float = 0.0
+var _r_spawn: float = 0.0
+var _r_meet: float = 0.0
+var _r_exit: float = 0.0
+var _curve_len: float = 0.0
+var _target_lateral: float = 0.0
+
 func _ready() -> void:
 	max_hp = 50
 	current_hp = 50
@@ -69,10 +77,10 @@ func setup_heavy(_start_pos: Vector3, dir: Vector3, side: float = 1.0) -> void:
 	flight_direction = dir.normalized()
 	_side = 1.0 if side >= 0.0 else -1.0
 
-	# Entrada vindo da lateral fora da tela (65m de deslocamento) e altitude superior (30m)
-	_current_distance = 135.0
-	_current_lateral = -_side * 65.0
-	_current_vertical = 30.0
+	# Entrada vindo da lateral fora da tela
+	_current_distance = 180.0
+	_current_lateral = -_side * 150.0
+	_current_vertical = 35.0
 
 	_phase = Phase.ENTER
 	_phase_timer = 0.0
@@ -85,6 +93,35 @@ func setup_heavy(_start_pos: Vector3, dir: Vector3, side: float = 1.0) -> void:
 	_orient_ship(frame["forward"], frame["up"], -_side * 0.35, true)
 
 
+func setup_heavy_curve_driven(dir: Vector3, side: float, r_trigger: float, r_spawn: float, r_meet: float, r_exit: float, c_len: float) -> void:
+	is_curve_driven = true
+	flight_direction = dir.normalized()
+	_side = 1.0 if side >= 0.0 else -1.0
+	
+	_r_trigger = r_trigger
+	_r_spawn = r_spawn
+	_r_meet = r_meet
+	_r_exit = r_exit
+	_curve_len = c_len
+	
+	_target_lateral = _side * 18.0 * randf_range(0.3, 0.9)
+	
+	_phase = Phase.ENGAGE
+	_phase_timer = 0.0
+	_attack_timer = 2.0
+	_attack_pattern_index = 0
+	
+	var c_prog = _get_player_progress()
+	_current_distance = (r_spawn * c_len) - c_prog
+	_current_lateral = -_side * 150.0
+	_current_vertical = 35.0
+	
+	_curve_offset = c_prog + _current_distance
+	var frame := _sample_curve_frame(_curve_offset, _current_lateral, _current_vertical)
+	global_position = frame["position"]
+	_orient_ship(frame["forward"], frame["up"], -_side * 0.35, true)
+
+
 func force_exit() -> void:
 	if _phase != Phase.EXIT:
 		_phase = Phase.EXIT
@@ -92,6 +129,10 @@ func force_exit() -> void:
 
 
 func _physics_process(delta: float) -> void:
+	if is_curve_driven:
+		_process_curve_driven(delta)
+		return
+		
 	_phase_timer += delta
 
 	match _phase:
@@ -106,7 +147,62 @@ func _physics_process(delta: float) -> void:
 		queue_free()
 
 
-func _process_enter(_delta: float) -> void:
+func _process_curve_driven(delta: float) -> void:
+	_phase_timer += delta
+	_attack_timer -= delta
+	
+	var c_prog = _get_player_progress()
+	var c_ratio = c_prog / maxf(_curve_len, 1.0)
+	
+	if c_ratio >= _r_exit:
+		queue_free()
+		return
+		
+	var t_dist := 0.0
+	var t_lat := 0.0
+	var t_vert := 15.0
+	var t_bank := 0.0
+	var t_pitch := 0.0
+	
+	var bob := sin(_phase_timer * _bob_speed + _bob_phase) * 1.5
+	
+	if c_ratio < _r_meet:
+		var meet_len = maxf(0.001, _r_meet - _r_trigger)
+		var t = clampf((c_ratio - _r_trigger) / meet_len, 0.0, 1.0)
+		var ease_t = t * t * (3.0 - 2.0 * t)
+		
+		var spawn_dist = (_r_spawn - _r_trigger) * _curve_len
+		t_dist = lerpf(spawn_dist, 0.0, ease_t)
+		t_lat = lerpf(-_side * 150.0, _target_lateral, ease_t)
+		t_vert = lerpf(40.0, 15.0 + bob, ease_t)
+		t_bank = -_side * 0.2 * sin(ease_t * PI)
+		
+		if t > 0.3 and t < 0.9 and _attack_timer <= 0.0:
+			_attack_timer = 2.0
+			_execute_attack()
+	else:
+		var exit_len = maxf(0.001, _r_exit - _r_meet)
+		var t = clampf((c_ratio - _r_meet) / exit_len, 0.0, 1.0)
+		var ease_t = t * t * (3.0 - 2.0 * t)
+		
+		t_dist = lerpf(0.0, -150.0, ease_t)
+		t_lat = lerpf(_target_lateral, _side * 150.0, ease_t)
+		t_vert = lerpf(15.0 + bob, 45.0, ease_t)
+		t_bank = _side * lerpf(0.0, 0.45, ease_t)
+		t_pitch = lerpf(0.0, 0.35, ease_t)
+		
+	var lerp_weight := 1.0 - exp(-3.0 * delta)
+	_current_lateral = lerpf(_current_lateral, t_lat, lerp_weight)
+	_current_vertical = lerpf(_current_vertical, t_vert, lerp_weight)
+	_current_distance = lerpf(_current_distance, t_dist, lerp_weight)
+	
+	_curve_offset = c_prog + _current_distance
+	var frame := _sample_curve_frame(_curve_offset, _current_lateral, _current_vertical)
+	global_position = frame["position"]
+	_orient_ship(frame["forward"] + Vector3(0, t_pitch, 0), frame["up"], t_bank)
+
+
+func _process_enter(delta: float) -> void:
 	var t := clampf(_phase_timer / maxf(enter_duration, 0.01), 0.0, 1.0)
 	var eased := t * t * (3.0 - 2.0 * t)
 

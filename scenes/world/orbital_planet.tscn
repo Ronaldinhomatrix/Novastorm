@@ -12,19 +12,22 @@ shader_parameter/atmosphere_limb_color = Color(0.2, 0.7, 1, 1)
 shader_parameter/twilight_limb_color = Color(0.95, 0.5, 0.2, 1)
 shader_parameter/rim_power = 4.2
 shader_parameter/rim_intensity = 2.0
-shader_parameter/curve_start_radius = 2800.0
-shader_parameter/curve_max_radius = 7800.0
-shader_parameter/curve_drop_height = 2200.0
+shader_parameter/curve_start_radius = 4500.0
+shader_parameter/curve_max_radius = 12500.0
+shader_parameter/curve_drop_height = 3500.0
 
 [sub_resource type="PlaneMesh" id="PlaneMesh_surface"]
-size = Vector2(16000, 16000)
+size = Vector2(26000, 26000)
 subdivide_width = 64
 subdivide_depth = 64
 
 [node name="OrbitalPlanet" type="Node3D" node_paths=PackedStringArray("planet_mesh")]
 script = ExtResource("1_planet_script")
 planet_mesh = NodePath("PlanetSurface")
-planet_center_y = -300.0
+parallax_weight = 1.0
+follow_camera_y = true
+parallax_weight_y = 1.0
+planet_center_y = -450.0
 
 [node name="PlanetSurface" type="MeshInstance3D" parent="."]
 material_override = SubResource("ShaderMaterial_surface")

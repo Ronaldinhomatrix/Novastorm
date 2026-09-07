@@ -35,6 +35,9 @@ func _ready() -> void:
 	_disable_all_shadows(self)
 	call_deferred("_disable_all_shadows", self)
 	_setup_hitboxes()
+	_setup_ship_lights()
+	_enhance_ship_materials(self)
+	call_deferred("_enhance_ship_materials", self)
 
 
 func _disable_all_shadows(node: Node) -> void:
@@ -42,6 +45,51 @@ func _disable_all_shadows(node: Node) -> void:
 		node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	for child in node.get_children():
 		_disable_all_shadows(child)
+
+
+func _enhance_ship_materials(node: Node) -> void:
+	if node is MeshInstance3D:
+		var mi := node as MeshInstance3D
+		if mi.mesh:
+			for i in range(mi.mesh.get_surface_count()):
+				var mat := mi.get_active_material(i) as StandardMaterial3D
+				if mat:
+					if not mi.get_surface_override_material(i):
+						mat = mat.duplicate() as StandardMaterial3D
+						mi.set_surface_override_material(i, mat)
+					
+					# Ilumina e realça todas as texturas e luzes de bordo da nave
+					if mat.emission_enabled or mat.emission_texture:
+						mat.emission_enabled = true
+						mat.emission_energy_multiplier = 4.5
+					
+					# Reduz a aspereza e aumenta o albedo para captar melhor a iluminação orbital
+					mat.roughness = clampf(mat.roughness * 0.85, 0.25, 0.85)
+	for child in node.get_children():
+		_enhance_ship_materials(child)
+
+
+func _setup_ship_lights() -> void:
+	# Adiciona luzes locais de serviço, navegação e iluminação das baias e conveses
+	# (OmniLights sem sombra, com custo de performance praticamente nulo)
+	var lights_data: Array[Dictionary] = [
+		{"pos": Vector3(0.0, -1.8, 12.0), "color": Color(0.3, 0.85, 1.0), "range": 12.0, "energy": 3.5}, # Hangar / proa frontal
+		{"pos": Vector3(0.0, 1.5, 15.0), "color": Color(0.9, 0.4, 1.0), "range": 10.0, "energy": 3.0},  # Torre de comando dianteira
+		{"pos": Vector3(4.8, 0.5, 5.0), "color": Color(0.2, 1.0, 0.5), "range": 14.0, "energy": 2.8},   # Flanco / asa estibordo
+		{"pos": Vector3(-4.8, 0.5, 5.0), "color": Color(1.0, 0.3, 0.3), "range": 14.0, "energy": 2.8},  # Flanco / asa bombordo
+		{"pos": Vector3(0.0, -2.5, 0.0), "color": Color(0.4, 0.7, 1.0), "range": 16.0, "energy": 2.5},  # Baia ventral (voltada para o planeta)
+		{"pos": Vector3(0.0, 2.8, -5.0), "color": Color(0.8, 0.9, 1.0), "range": 16.0, "energy": 2.8},  # Convés superior intermediário
+		{"pos": Vector3(0.0, 1.0, -25.0), "color": Color(1.0, 0.6, 0.2), "range": 22.0, "energy": 4.0}, # Conveses dos propulsores traseiros
+	]
+
+	for data in lights_data:
+		var light := OmniLight3D.new()
+		light.position = data["pos"]
+		light.light_color = data["color"]
+		light.omni_range = data["range"]
+		light.light_energy = data["energy"]
+		light.shadow_enabled = false
+		add_child(light)
 
 
 class BossHitboxArea extends Area3D:

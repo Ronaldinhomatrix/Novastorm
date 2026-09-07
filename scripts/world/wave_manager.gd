@@ -22,12 +22,15 @@ const WarningBattlecruiserSound := preload("res://assets/audio/warning_enemy_bat
 
 @export_category("Gatilhos por Ponto do Path3D")
 @export var enable_audio_alerts: bool = true
-@export var wave_1_point: int = -1   ## Ponto da curva Path3D onde a Wave 1 é disparada (Scouts). -1 = desativado
-@export var wave_2_point: int = -1  ## Ponto da curva Path3D onde a Wave 2 é disparada (Fighters). -1 = desativado
-@export var warning_battlecruiser_point: int = -1  ## Ponto para o áudio warning_enemy_battlecruiser. -1 = desativado
-@export var wave_bomber_point: int = -1  ## Ponto onde o Enemy Bomber é disparado. -1 = desativado
+@export var wave_1_point: int = 8   ## Ponto da curva Path3D onde a Wave 1 é disparada (Scouts). -1 = desativado
+@export var wave_2_point: int = 15  ## Ponto da curva Path3D onde a Wave 2 é disparada (Fighters). -1 = desativado
+@export var warning_battlecruiser_point: int = 21  ## Ponto para o áudio warning_enemy_battlecruiser. -1 = desativado
+@export var wave_bomber_point: int = 25  ## Ponto onde o Enemy Bomber é disparado. -1 = desativado
 @export var bomber_dismiss_delay: float = 2.0  ## Tempo em segundos após o spawn do Bomber para as outras naves iniciarem a retirada cinematográfica
-@export var wave_3_point: int = -1  ## Ponto da curva Path3D onde a Wave 3 é disparada. -1 = desativado
+@export var wave_3_trigger_point: int = 48  ## Ponto onde a Wave 3 é disparada
+@export var wave_3_spawn_point: int = 49    ## Ponto onde a Wave 3 surge
+@export var wave_3_meet_point: int = 50     ## Ponto de encontro entre a câmera e a Wave 3
+@export var wave_3_exit_point: int = 51     ## Ponto onde a Wave 3 desaparece
 @export var quiet_zone_1_point: int = -1  ## Ponto de limpeza 1 (ex: antes de mini-chefes). -1 = desativado
 @export var quiet_zone_2_point: int = -1  ## Ponto de limpeza 2 (ex: antes da nave-mãe). -1 = desativado
 @export var enable_penultimate_exit: bool = true  ## Faz inimigos remanescentes debandarem no fim do nível
@@ -45,7 +48,10 @@ var _target_ratio_1: float = -1.0
 var _target_ratio_2: float = -1.0
 var _target_ratio_warning_battlecruiser: float = -1.0
 var _target_ratio_bomber: float = -1.0
-var _target_ratio_3: float = -1.0
+var _target_ratio_3_trigger: float = -1.0
+var _ratio_3_spawn: float = -1.0
+var _ratio_3_meet: float = -1.0
+var _ratio_3_exit: float = -1.0
 var _penultimate_ratio: float = -1.0
 
 var _quiet_zone_start_ratio: float = -1.0
@@ -93,7 +99,11 @@ func _update_target_ratios() -> void:
 	_target_ratio_2 = _get_point_ratio(curve, wave_2_point, total_len)
 	_target_ratio_warning_battlecruiser = _get_point_ratio(curve, warning_battlecruiser_point, total_len)
 	_target_ratio_bomber = _get_point_ratio(curve, wave_bomber_point, total_len)
-	_target_ratio_3 = _get_point_ratio(curve, wave_3_point, total_len)
+	
+	_target_ratio_3_trigger = _get_point_ratio(curve, wave_3_trigger_point, total_len)
+	_ratio_3_spawn = _get_point_ratio(curve, wave_3_spawn_point, total_len)
+	_ratio_3_meet = _get_point_ratio(curve, wave_3_meet_point, total_len)
+	_ratio_3_exit = _get_point_ratio(curve, wave_3_exit_point, total_len)
 
 	# Zonas de limpeza de inimigos remanescentes
 	_quiet_zone_start_ratio = _get_point_ratio(curve, quiet_zone_1_point, total_len)
@@ -123,7 +133,7 @@ func _update_target_ratios() -> void:
 			_wave_2_triggered = true
 		if _target_ratio_bomber >= 0.0 and start_prog >= _target_ratio_bomber:
 			_wave_bomber_triggered = true
-		if _target_ratio_3 >= 0.0 and start_prog >= _target_ratio_3:
+		if _target_ratio_3_trigger >= 0.0 and start_prog >= _target_ratio_3_trigger:
 			_wave_3_triggered = true
 
 
@@ -217,7 +227,7 @@ func _process(_delta: float) -> void:
 		_wave_bomber_triggered = true
 		_spawn_bomber()
 
-	if not _wave_3_triggered and _target_ratio_3 >= 0.0 and current_progress >= _target_ratio_3:
+	if not _wave_3_triggered and _target_ratio_3_trigger >= 0.0 and current_progress >= _target_ratio_3_trigger:
 		_wave_3_triggered = true
 		_spawn_wave_3()
 
@@ -386,15 +396,19 @@ func _spawn_bomber() -> void:
 func _spawn_wave_3() -> void:
 	wave_started.emit(3, "Wave 3: Heavy Gunships")
 
-	var info: Dictionary = _get_point_info(wave_3_point)
+	var info: Dictionary = _get_point_info(wave_3_spawn_point)
 	var base_pos: Vector3 = info["position"]
 	var fwd: Vector3 = info["forward"]
 
 	var configs: Array[Dictionary] = [
 		{ "side": 1.0, "delay": 0.0 },
-		{ "side": -1.0, "delay": 1.8 },
-		{ "side": 1.0, "delay": 3.6 },
+		{ "side": -1.0, "delay": 1.5 },
+		{ "side": 1.0, "delay": 3.0 },
 	]
+	
+	var path3d: Path3D = path_follower.get_parent() as Path3D
+	var curve: Curve3D = path3d.curve
+	var total_len: float = maxf(1.0, curve.get_baked_length())
 
 	for cfg: Dictionary in configs:
 		var timer: SceneTreeTimer = get_tree().create_timer(cfg["delay"])
@@ -404,7 +418,15 @@ func _spawn_wave_3() -> void:
 				return
 
 			_add_enemy_to_world(heavy)
-			heavy.setup_heavy(base_pos, fwd, cfg["side"])
+			heavy.setup_heavy_curve_driven(
+				fwd, 
+				cfg["side"], 
+				_target_ratio_3_trigger, 
+				_ratio_3_spawn, 
+				_ratio_3_meet, 
+				_ratio_3_exit, 
+				total_len
+			)
 			_register_enemy(heavy)
 		)
 

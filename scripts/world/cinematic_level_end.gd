@@ -28,8 +28,8 @@ const FlybySound := preload("res://assets/audio/maneuver2.ogg")
 @export var cutscene_camera_rotation_deg := Vector3(-58.8, 79.9, 0.0)
 ## Se true, a câmera acompanha a nave suavemente durante toda a trajetória.
 @export var camera_tracks_ship: bool = true
-## Suavização do tracking da câmera (valores maiores = tracking mais rápido).
-@export var camera_tracking_smoothing: float = 6.0
+## Suavização do tracking da câmera (valores maiores = tracking mais rápido, menor atraso).
+@export var camera_tracking_smoothing: float = 11.0
 
 # ---------------------------------------------------------------------------
 # Exportações — Velocidade Constante e Timing Preciso
@@ -107,6 +107,7 @@ var _ship_basis: Basis = Basis.IDENTITY
 
 # Controle de áudio 3D
 var _maneuver_player: AudioStreamPlayer3D = null
+var _cutscene_audio_listener: AudioListener3D = null
 var _flyby_sound_played: bool = false
 var _flyby_player: AudioStreamPlayer = null
 
@@ -130,9 +131,9 @@ func start() -> void:
 	_maneuver_player = AudioStreamPlayer3D.new()
 	_maneuver_player.stream = ManeuverSound
 	_maneuver_player.bus = "Master"
-	_maneuver_player.volume_db = 6.0
-	_maneuver_player.unit_size = 40.0
-	_maneuver_player.max_distance = 4000.0
+	_maneuver_player.volume_db = 8.0
+	_maneuver_player.unit_size = 80.0
+	_maneuver_player.max_distance = 2500.0
 	_maneuver_player.attenuation_model = AudioStreamPlayer3D.ATTENUATION_INVERSE_DISTANCE
 	if player:
 		player.add_child(_maneuver_player)
@@ -186,6 +187,12 @@ func start() -> void:
 	_cutscene_cam.far = 14000.0
 	get_parent().add_child(_cutscene_cam)
 	_cutscene_cam.global_position = cutscene_camera_position
+
+	# Ouvinte 3D na câmera externa da cutscene para captar a distância real do som da nave
+	_cutscene_audio_listener = AudioListener3D.new()
+	_cutscene_audio_listener.name = "CutsceneAudioListener3D"
+	_cutscene_cam.add_child(_cutscene_audio_listener)
+	_cutscene_audio_listener.make_current()
 
 	# Orientação inicial da câmera
 	if camera_tracks_ship:

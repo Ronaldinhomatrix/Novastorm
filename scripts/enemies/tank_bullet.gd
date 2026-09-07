@@ -2,9 +2,9 @@ class_name TankBullet
 extends Area3D
 
 ## Projétil pesado de artilharia disparado por tanques de guerra (Tank1).
-## Viaja a alta velocidade (530 u/s) com rastro de fumaça, faíscas e formato de projétil balístico/tracer.
+## Viaja a alta velocidade (740 u/s) com rastro de fumaça, faíscas e formato de projétil balístico/tracer.
 
-const SPEED: float = 530.0
+const SPEED: float = 740.0
 const WORLD_LAYER_MASK: int = 1 << 3  # layer 4 ("world")
 const ExplosionScript := preload("res://scripts/effects/explosion.gd")
 

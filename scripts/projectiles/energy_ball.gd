@@ -7,7 +7,8 @@ extends Area3D
 ## Velocidade: lenta (configurável).
 
 const ExplosionScript := preload("res://scripts/effects/explosion.gd")
-const WORLD_LAYER_MASK: int = 1 << 3  # layer 4 ("world")
+const PLAYER_LAYER_MASK: int = 1       # layer 1 ("player")
+const WORLD_LAYER_MASK: int = 1 << 3   # layer 4 ("world")
 
 @export var speed: float = 420.0            # Velocidade do torpedo (unidades/segundo)
 @export var damage: int = 1                  # Dano de 1 HP
@@ -27,9 +28,9 @@ func _ready() -> void:
 
 	_ray = RayCast3D.new()
 	_ray.enabled = false
-	_ray.collision_mask = WORLD_LAYER_MASK
+	_ray.collision_mask = PLAYER_LAYER_MASK | WORLD_LAYER_MASK
 	_ray.collide_with_bodies = true
-	_ray.collide_with_areas = false
+	_ray.collide_with_areas = true
 	add_child(_ray)
 
 	_spawn_position = global_position
@@ -69,13 +70,13 @@ func _physics_process(delta: float) -> void:
 	_prev_position = global_position
 	global_position += _direction * speed * delta
 
-	_check_world_hit()
+	_check_hits()
 
 	if global_position.distance_squared_to(_spawn_position) > max_distance * max_distance:
 		queue_free()
 
 
-func _check_world_hit() -> void:
+func _check_hits() -> void:
 	if not _ray:
 		return
 
@@ -91,10 +92,15 @@ func _check_world_hit() -> void:
 		var hit_collider = _ray.get_collider()
 		if hit_collider and ("Mothership" in hit_collider.name or "mothership" in hit_collider.name.to_lower()):
 			return
+
+		if hit_collider and hit_collider.has_method("take_damage"):
+			hit_collider.take_damage(damage)
+
 		var hit_point := _ray.get_collision_point()
 		var hit_normal := _ray.get_collision_normal()
 		_spawn_explosion(hit_point, hit_normal)
 		queue_free()
+
 
 
 func _spawn_explosion(point: Vector3, normal: Vector3) -> void:
