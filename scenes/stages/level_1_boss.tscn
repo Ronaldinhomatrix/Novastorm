@@ -57,6 +57,7 @@ enable_cloud_sky = false
 custom_camera_far_pc = 12000.0
 custom_camera_far_mobile = 10000.0
 enable_depth_fog = false
+mothership_cast_shadow = false
 next_level_path = "res://scenes/stages/level_2.tscn"
 show_level_complete = true
 enable_level_end_cutscene = false

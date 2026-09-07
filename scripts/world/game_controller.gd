@@ -71,8 +71,10 @@ var _crosshair: Control = null  ## Instância do crosshair UI
 
 @export_category("Comboio Terrestre")
 @export var convoy_node_path: NodePath = ""
-@export var convoy_move_start_point: int = -1  ## Ponto onde o comboio começa a se mover e os tanques disparam (-1 = desativado)
-@export var convoy_move_end_point: int = -1    ## Ponto onde o comboio interrompe o movimento e os tanques cessam fogo (-1 = desativado)
+@export var convoy_move_start_point: int = -1  ## Ponto onde o comboio começa a se mover e os tanques padrão disparam (-1 = desativado)
+@export var convoy_move_end_point: int = -1    ## Ponto onde o comboio interrompe o movimento e os tanques padrão cessam fogo (-1 = desativado)
+@export var bridge_tanks_start_point: int = 44 ## Ponto onde os tanques da ponte (Tank1_Bridge_*) começam a disparar
+@export var bridge_tanks_end_point: int = 46   ## Ponto onde os tanques da ponte (Tank1_Bridge_*) cessam fogo
 
 @export_category("Intro Cinematica")
 @export var enable_cinematic_intro: bool = false
@@ -87,6 +89,7 @@ var _crosshair: Control = null  ## Instância do crosshair UI
 @export var custom_camera_far_pc: float = 4000.0  ## Alcance da câmera no PC em metros (6000m no Nível 1)
 @export var custom_camera_far_mobile: float = 3500.0  ## Alcance da câmera no Mobile em metros (5000m no Nível 1)
 @export var enable_depth_fog: bool = true  ## Névoa de profundidade automática (sem pop-in)
+@export var mothership_cast_shadow: bool = true  ## Define se a Mothership projeta sombra no cenário (desativar em fases de órbita)
 
 @export_category("Progressão de Nível")
 @export var level_complete_scene: PackedScene = preload("res://scenes/level_complete.tscn")
@@ -102,6 +105,8 @@ var _crosshair: Control = null  ## Instância do crosshair UI
 @export var cutscene_camera_rotation_deg := Vector3(-58.8, 79.9, 0.0)
 ## Se true, a câmera acompanha a nave suavemente (look_at).
 @export var cutscene_camera_tracks_ship: bool = true
+## Suavização do tracking da câmera (valores maiores = tracking mais rápido, menor atraso sem perder a nave de vista).
+@export var cutscene_camera_tracking_smoothing: float = 11.0
 ## Velocidade constante de subida da nave (unidades/segundo).
 @export var cutscene_climb_speed: float = 260.0
 ## Tempo exato em segundos para a nave alcançar e passar ao lado da câmera.
@@ -294,10 +299,12 @@ func _ready():
 				_convoy_move_start_dist = curve.get_closest_offset(curve.get_point_position(c_move_start_idx))
 				_convoy_move_end_dist = curve.get_closest_offset(curve.get_point_position(c_move_end_idx))
 
-			# Janela de disparo dos tanques da ponte (pontos 44 ao 46)
-			if point_count > 46:
-				_bridge_tanks_start_dist = curve.get_closest_offset(curve.get_point_position(44))
-				_bridge_tanks_end_dist = curve.get_closest_offset(curve.get_point_position(46))
+			# Janela de disparo dos tanques da ponte (Tank1_Bridge_*)
+			if bridge_tanks_start_point >= 0 and bridge_tanks_end_point >= 0 and point_count > bridge_tanks_start_point:
+				var b_start_idx := clampi(bridge_tanks_start_point, 0, point_count - 1)
+				var b_end_idx := clampi(bridge_tanks_end_point, 0, point_count - 1)
+				_bridge_tanks_start_dist = curve.get_closest_offset(curve.get_point_position(b_start_idx))
+				_bridge_tanks_end_dist = curve.get_closest_offset(curve.get_point_position(b_end_idx))
 
 	if convoy_node_path != ^"":
 		_convoy_node = get_node_or_null(convoy_node_path) as Node3D
@@ -611,7 +618,7 @@ func _handle_convoy_logic() -> void:
 		var is_bridge_tank: bool = child.name.begins_with("Tank1_Bridge")
 		var should_shoot: bool = in_bridge_window if is_bridge_tank else in_convoy_window
 		if "active_move" in child:
-			child.set("active_move", in_convoy_window)
+			child.set("active_move", false if is_bridge_tank else in_convoy_window)
 		if "can_shoot" in child:
 			child.set("can_shoot", should_shoot)
 
@@ -664,6 +671,7 @@ func _start_level_end_cutscene() -> void:
 	cutscene.cutscene_camera_position = cutscene_camera_position
 	cutscene.cutscene_camera_rotation_deg = cutscene_camera_rotation_deg
 	cutscene.camera_tracks_ship = cutscene_camera_tracks_ship
+	cutscene.camera_tracking_smoothing = cutscene_camera_tracking_smoothing
 	cutscene.climb_speed = cutscene_climb_speed
 	cutscene.flyby_target_time = cutscene_flyby_target_time
 	cutscene.flyby_offset = cutscene_flyby_offset
@@ -787,10 +795,13 @@ func _apply_scenery_materials_and_shadows(mat: Material, shadow_setting: Geometr
 	for sc_name in static_scenery:
 		var sc_node := get_node_or_null(sc_name)
 		if sc_node:
+			var effective_shadow := shadow_setting
+			if sc_name == "Mothership" and not mothership_cast_shadow:
+				effective_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			for child in sc_node.find_children("*", "MeshInstance3D", true, false):
 				var mi := child as MeshInstance3D
 				if mi:
-					mi.cast_shadow = shadow_setting
+					mi.cast_shadow = effective_shadow
 
 
 # ---------------------------------------------------------------------------
