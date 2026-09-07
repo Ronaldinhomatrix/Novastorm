@@ -42,6 +42,16 @@ func _ready() -> void:
 		planet_mesh = get_node_or_null("PlanetSurface") as MeshInstance3D
 
 	_update_atmosphere_sun_direction()
+	_setup_platform_filtering()
+
+
+func _setup_platform_filtering() -> void:
+	if not planet_mesh:
+		return
+	var mat := planet_mesh.get_active_material(0) as ShaderMaterial
+	if mat:
+		var is_mobile := OS.has_feature("mobile") or OS.has_feature("web_android") or OS.has_feature("web_ios")
+		mat.set_shader_parameter("use_smooth_sampling", not is_mobile)
 
 
 func _process(delta: float) -> void:
