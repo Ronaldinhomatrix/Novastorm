@@ -1,10 +1,10 @@
-shader_type spatial;
+﻿shader_type spatial;
 render_mode cull_back, depth_draw_opaque, diffuse_burley, specular_schlick_ggx;
 
 // Shader Planetário de Órbita: Cenário Plano com Bordas Arredondadas (Horizonte Curvo)
 // Cria o efeito visual de um planeta colossal em escala imensa, com máxima performance.
 
-uniform sampler2D planet_texture : source_color, filter_linear_mipmap;
+uniform sampler2D planet_texture : source_color, filter_linear_mipmap_anisotropic;
 uniform vec3 sun_direction = vec3(0.6, 0.4, 0.7);
 
 uniform vec4 atmosphere_limb_color : source_color = vec4(0.2, 0.7, 1.0, 1.0);
@@ -12,9 +12,13 @@ uniform vec4 twilight_limb_color : source_color = vec4(0.95, 0.5, 0.2, 1.0);
 uniform float rim_power : hint_range(1.0, 10.0) = 4.2;
 uniform float rim_intensity : hint_range(0.1, 4.0) = 2.0;
 
-uniform float curve_start_radius = 2800.0;
-uniform float curve_max_radius = 7800.0;
-uniform float curve_drop_height = 2200.0;
+// Escala UV: valores menores = textura maior no mundo = continentes colossais
+// 0.05 = cada continente ocupa 20x mais espaço → órbita realista
+uniform float uv_scale : hint_range(0.01, 1.0) = 0.05;
+
+uniform float curve_start_radius = 4500.0;
+uniform float curve_max_radius = 12500.0;
+uniform float curve_drop_height = 3500.0;
 
 varying vec3 v_world_pos;
 
@@ -36,7 +40,9 @@ void vertex() {
 }
 
 void fragment() {
-	vec4 tex = texture(planet_texture, UV);
+	// UV escalado: uv_scale pequeno = textura "esticada" no mundo → continentes imensos
+	vec2 scaled_uv = UV * uv_scale;
+	vec4 tex = texture(planet_texture, scaled_uv);
 	vec3 surface_albedo = tex.rgb;
 	float ocean_specular_mask = tex.a;
 
