@@ -25,9 +25,17 @@ extends Node3D
 ## Altitude base da superfície do planeta abaixo da zona de voo.
 @export var planet_center_y: float = -450.0
 
+@export_category("Comparação de Texturas (Debug / Comparador)")
+## Permite alternar entre 4K e 1K em tempo real com a tecla F7.
+@export var enable_texture_toggle: bool = true
+@export var texture_4k: Texture2D = preload("res://assets/textures/orbital_planet_albedo.png")
+@export var texture_1k: Texture2D = preload("res://assets/textures/orbital_planet_albedo_1k.png")
+
 var _sun_light: DirectionalLight3D = null
 var _camera: Camera3D = null
 var _initial_pos_xz: Vector2 = Vector2.ZERO
+var _is_4k_active: bool = true
+var _debug_label: Label = null
 
 
 func _ready() -> void:
@@ -43,6 +51,53 @@ func _ready() -> void:
 
 	_update_atmosphere_sun_direction()
 	_setup_platform_filtering()
+	_setup_comparison_ui()
+
+
+func _setup_comparison_ui() -> void:
+	if not enable_texture_toggle:
+		return
+	var canvas := CanvasLayer.new()
+	canvas.name = "TextureCompareCanvas"
+	canvas.layer = 120
+	add_child(canvas)
+
+	_debug_label = Label.new()
+	_debug_label.position = Vector2(24, 24)
+	_debug_label.add_theme_font_size_override("font_size", 16)
+	_debug_label.add_theme_color_override("font_color", Color(0.2, 1.0, 0.4, 1.0))
+	_debug_label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 1.0))
+	_debug_label.add_theme_constant_override("outline_size", 4)
+	canvas.add_child(_debug_label)
+	_update_ui_text()
+
+
+func _update_ui_text() -> void:
+	if not _debug_label:
+		return
+	var mode_str := "4K Ultra-HD (4096x2048 - 6.3 MB)" if _is_4k_active else "1K Standard (1024x512 - 508 KB)"
+	_debug_label.text = "[F7] Textura Atual: " + mode_str + "\n(Pressione F7 para alternar 4K vs 1K instantaneamente)"
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if not enable_texture_toggle:
+		return
+	if event is InputEventKey and event.pressed and not event.echo:
+		if event.keycode == KEY_F7:
+			_toggle_planet_texture()
+
+
+func _toggle_planet_texture() -> void:
+	_is_4k_active = not _is_4k_active
+	if not planet_mesh:
+		return
+	var mat := planet_mesh.get_active_material(0) as ShaderMaterial
+	if mat:
+		var target_tex := texture_4k if _is_4k_active else texture_1k
+		mat.set_shader_parameter("planet_texture", target_tex)
+	_update_ui_text()
+	var mode_name := "4K" if _is_4k_active else "1K"
+	print("[TextureCompare] Alternado para: ", mode_name)
 
 
 func _setup_platform_filtering() -> void:
