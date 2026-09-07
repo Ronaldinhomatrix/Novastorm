@@ -1,12 +1,12 @@
-[gd_scene load_steps=12 format=3 uid="uid://c_boss_level_1_orbital"]
+[gd_scene format=3 uid="uid://bugbfhkkeyx3j"]
 
-[ext_resource type="Script" path="res://scripts/world/game_controller.gd" id="1_game"]
-[ext_resource type="Script" path="res://scripts/world/path_follower.gd" id="2_path_follower"]
-[ext_resource type="PackedScene" path="res://scenes/player.tscn" id="3_player"]
+[ext_resource type="Script" uid="uid://btqr6og4j66xg" path="res://scripts/world/game_controller.gd" id="1_game"]
+[ext_resource type="Script" uid="uid://dw8luifwfy2lq" path="res://scripts/world/path_follower.gd" id="2_path_follower"]
+[ext_resource type="PackedScene" uid="uid://di8jrupvocyse" path="res://scenes/player.tscn" id="3_player"]
 [ext_resource type="PackedScene" path="res://scenes/world/mothership.tscn" id="4_mothership"]
-[ext_resource type="Script" path="res://scripts/world/mothership_boss.gd" id="5_boss_script"]
+[ext_resource type="Script" uid="uid://dqa55so7dc4g6" path="res://scripts/world/mothership_boss.gd" id="5_boss_script"]
 [ext_resource type="PackedScene" path="res://scenes/world/orbital_planet.tscn" id="6_orbital_planet"]
-[ext_resource type="Texture2D" path="res://assets/textures/space_stars_panorama.png" id="7_stars_texture"]
+[ext_resource type="Texture2D" uid="uid://cr2yec8g6i5tm" path="res://assets/textures/space_stars_panorama.png" id="7_stars_texture"]
 
 [sub_resource type="PanoramaSkyMaterial" id="PanoramaSkyMaterial_space"]
 panorama = ExtResource("7_stars_texture")
@@ -22,18 +22,26 @@ ambient_light_color = Color(0.35, 0.45, 0.65, 1)
 ambient_light_energy = 0.95
 reflected_light_source = 2
 glow_enabled = true
-glow_intensity = 0.8
-glow_bloom = 0.12
-glow_hdr_threshold = 1.05
+glow_intensity = 0.9
+glow_bloom = 0.15
+glow_hdr_threshold = 1.0
+ssao_enabled = true
+ssao_radius = 2.5
+ssao_intensity = 2.0
+ssao_power = 1.5
+ssao_detail = 0.6
+ssil_enabled = true
+ssil_radius = 4.5
+ssil_intensity = 1.2
 
 [sub_resource type="Curve3D" id="Curve3D_boss"]
 _data = {
-"points": PackedVector3Array(0, 0, 0, 0, 0, 250, 0, 100, -1200, 0, 0, -250, 0, 0, 250, 0, 100, -400, -30, -5, -250, 30, 5, 250, 60, 115, 300, -20, -5, -250, 20, 5, 250, 140, 135, 1000, 0, -5, -250, 0, 5, 250, 150, 155, 1600, 30, -5, -250, -30, 5, 250, 80, 165, 2200, 40, 0, -250, -40, 0, 250, -60, 150, 2800, 30, 5, -250, -30, -5, 250, -140, 130, 3400, -20, 5, -250, 20, -5, 250, -80, 115, 4000, -30, 5, -250, 30, -5, 250, 0, 100, 4600, 0, 0, -200, 0, 0, 0, 0, 100, 5200),
-"tilts": PackedFloat32Array(0, 0, 0.15, 0.2, 0.1, -0.2, -0.25, -0.15, 0.15, 0, 0)
+"points": PackedVector3Array(0, 0, 0, 0, 0, 250, 0, 100, -1200, 40.91273, -7.4568176, -70.63082, -40.91273, 7.4568176, 70.63082, -80.33527, 321.9823, -563.48224, 33.888634, 78.64748, -77.42308, -33.888634, -78.64748, 77.42308, -228.90753, 221.526, -452.52313, -4.179685, 67.62482, -132.23514, 4.179685, -67.62482, 132.23514, -283.66705, 78.94325, -98.94377, -23.08283, 26.015995, -166.2679, 23.08283, -26.015995, 166.2679, -203.82942, -91.40993, 340.88763, -9.776558, -2.376203, -92.96266, 9.776558, 2.376203, 92.96266, -145.17007, -77.15271, 898.6636),
+"tilts": PackedFloat32Array(0, 0, 0, 0, 0, 0)
 }
-point_count = 11
+point_count = 6
 
-[node name="Game" type="Node3D" node_paths=PackedStringArray("path_follower", "player", "camera", "mothership")]
+[node name="Game" type="Node3D" unique_id=1556485589 node_paths=PackedStringArray("path_follower", "player", "camera", "mothership")]
 script = ExtResource("1_game")
 music_volume_db = 0.0
 enable_cinematic_warning = true
@@ -59,51 +67,42 @@ custom_camera_far_mobile = 10000.0
 enable_depth_fog = false
 mothership_cast_shadow = false
 next_level_path = "res://scenes/stages/level_2.tscn"
-show_level_complete = true
 enable_level_end_cutscene = false
 
-[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=462839099]
 environment = SubResource("Environment_space")
 
-[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="." unique_id=1847031621]
 transform = Transform3D(-0.75, 0.28, -0.6, 0, 0.9, 0.43, 0.66, 0.32, -0.68, 0, 1500, 0)
 light_color = Color(1, 0.97, 0.92, 1)
 light_energy = 2.4
-shadow_enabled = false
-directional_shadow_blend_splits = false
 
-[node name="PlanetBounceLight" type="DirectionalLight3D" parent="."]
+[node name="PlanetBounceLight" type="DirectionalLight3D" parent="." unique_id=447500998]
 transform = Transform3D(1, 0, 0, 0, -0.258819, -0.965926, 0, 0.965926, -0.258819, 0, -400, 800)
 light_color = Color(0.4, 0.75, 1, 1)
 light_energy = 0.9
-shadow_enabled = false
 
-[node name="OrbitalPlanet" parent="." instance=ExtResource("6_orbital_planet")]
+[node name="OrbitalPlanet" parent="." unique_id=2071060312 instance=ExtResource("6_orbital_planet")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -450, 1600)
-planet_center_y = -450.0
 
-[node name="FlightPath" type="Path3D" parent="."]
+[node name="FlightPath" type="Path3D" parent="." unique_id=365662834]
 curve = SubResource("Curve3D_boss")
 
-[node name="PathFollower" type="PathFollow3D" parent="FlightPath"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 100, -1200)
+[node name="PathFollower" type="PathFollow3D" parent="FlightPath" unique_id=732175315]
+transform = Transform3D(-1, 0, -8.742278e-08, 0, 1, 0, 8.742278e-08, 0, -1, 0, 100, -1200)
 script = ExtResource("2_path_follower")
 forward_speed = 130.0
-turn_smoothing = 4.5
-tilt_intensity = 0.25
-tilt_smoothing = 4.0
 enable_barrel_roll = false
 
-[node name="Camera3D" type="Camera3D" parent="FlightPath/PathFollower"]
+[node name="Camera3D" type="Camera3D" parent="FlightPath/PathFollower" unique_id=187311361]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.0112, 0, 18)
 current = true
 fov = 56.25
 
-[node name="Player" parent="FlightPath/PathFollower" instance=ExtResource("3_player")]
+[node name="Player" parent="FlightPath/PathFollower" unique_id=1695591445 instance=ExtResource("3_player")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -40)
 
-[node name="Mothership" parent="." instance=ExtResource("4_mothership")]
+[node name="Mothership" parent="." unique_id=1564959869 instance=ExtResource("4_mothership")]
 transform = Transform3D(-55, 0, -0.000143945, 0, 55, 0, 0.000143945, 0, -55, 80, 160, 800)
 script = ExtResource("5_boss_script")
 max_hp = 150
-score_value = 5000
