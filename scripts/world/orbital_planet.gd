@@ -25,16 +25,20 @@ extends Node3D
 ## Altitude base da superfície do planeta abaixo da zona de voo.
 @export var planet_center_y: float = -450.0
 
+@export_category("Textura do Planeta")
+## Textura de alta fidelidade e ultra-leveza (2048x1024 WebP - apenas 469 KB).
+@export var default_planet_texture: Texture2D = preload("res://assets/textures/orbital_planet_albedo_2k.webp")
+
 @export_category("Comparação de Texturas (Debug / Comparador)")
-## Permite alternar entre 4K e 1K em tempo real com a tecla F7.
+## Permite alternar entre 2K e 1K em tempo real com a tecla F7.
 @export var enable_texture_toggle: bool = true
-@export var texture_4k: Texture2D = preload("res://assets/textures/orbital_planet_albedo.png")
+@export var texture_2k: Texture2D = preload("res://assets/textures/orbital_planet_albedo_2k.webp")
 @export var texture_1k: Texture2D = preload("res://assets/textures/orbital_planet_albedo_1k.png")
 
 var _sun_light: DirectionalLight3D = null
 var _camera: Camera3D = null
 var _initial_pos_xz: Vector2 = Vector2.ZERO
-var _is_4k_active: bool = true
+var _is_2k_active: bool = true
 var _debug_label: Label = null
 
 
@@ -75,8 +79,8 @@ func _setup_comparison_ui() -> void:
 func _update_ui_text() -> void:
 	if not _debug_label:
 		return
-	var mode_str := "4K Ultra-HD (4096x2048 - 6.3 MB)" if _is_4k_active else "1K Standard (1024x512 - 508 KB)"
-	_debug_label.text = "[F7] Textura Atual: " + mode_str + "\n(Pressione F7 para alternar 4K vs 1K instantaneamente)"
+	var mode_str := "2K Ultra-Light WebP (2048x1024 - 469 KB)" if _is_2k_active else "1K Standard (1024x512 - 508 KB)"
+	_debug_label.text = "[F7] Textura Atual: " + mode_str + "\n(Pressione F7 para alternar 2K vs 1K)"
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -88,15 +92,15 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _toggle_planet_texture() -> void:
-	_is_4k_active = not _is_4k_active
+	_is_2k_active = not _is_2k_active
 	if not planet_mesh:
 		return
 	var mat := planet_mesh.get_active_material(0) as ShaderMaterial
 	if mat:
-		var target_tex := texture_4k if _is_4k_active else texture_1k
+		var target_tex := texture_2k if _is_2k_active else texture_1k
 		mat.set_shader_parameter("planet_texture", target_tex)
 	_update_ui_text()
-	var mode_name := "4K" if _is_4k_active else "1K"
+	var mode_name := "2K WebP" if _is_2k_active else "1K"
 	print("[TextureCompare] Alternado para: ", mode_name)
 
 

@@ -1,7 +1,7 @@
-[gd_scene load_steps=5 format=3 uid="uid://c_orbital_planet_scene"]
+﻿[gd_scene load_steps=5 format=3 uid="uid://c_orbital_planet_scene"]
 
 [ext_resource type="Script" path="res://scripts/world/orbital_planet.gd" id="1_planet_script"]
-[ext_resource type="Texture2D" path="res://assets/textures/orbital_planet_albedo.png" id="2_planet_albedo"]
+[ext_resource type="Texture2D" path="res://assets/textures/orbital_planet_albedo_2k.webp" id="2_planet_albedo"]
 [ext_resource type="Shader" path="res://scripts/shaders/orbital_planet.gdshader" id="3_planet_shader"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_surface"]
@@ -17,6 +17,9 @@ shader_parameter/uv_offset = Vector2(0.475, 0.475)
 shader_parameter/curve_start_radius = 4500.0
 shader_parameter/curve_max_radius = 12500.0
 shader_parameter/curve_drop_height = 3500.0
+shader_parameter/use_smooth_sampling = true
+shader_parameter/enable_procedural_detail = true
+shader_parameter/detail_strength = 0.55
 
 [sub_resource type="PlaneMesh" id="PlaneMesh_surface"]
 size = Vector2(26000, 26000)
