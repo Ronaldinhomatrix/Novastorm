@@ -513,12 +513,65 @@ func _build_missile_pips() -> void:
 		child.queue_free()
 
 	for i in range(_max_missiles):
-		var pip := PanelContainer.new()
-		pip.custom_minimum_size = Vector2(0, 8)
-		pip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		pip.size_flags_vertical = Control.SIZE_FILL
-		pip.name = "MissilePip_%d" % i
-		missile_pips.add_child(pip)
+		var missile_icon := Control.new()
+		missile_icon.custom_minimum_size = Vector2(18, 22)
+		missile_icon.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		missile_icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		missile_icon.name = "MissileIcon_%d" % i
+		# Renderiza o desenho vetorial da silhueta do míssil
+		missile_icon.draw.connect(_draw_missile_icon.bind(missile_icon, i))
+		missile_pips.add_child(missile_icon)
+
+
+## Desenha a silhueta gráfica detalhada de um míssil militar
+func _draw_missile_icon(icon: Control, index: int) -> void:
+	var is_active := (index < _current_missiles and not _is_reloading_missiles)
+	var size := icon.size
+	var center_x := size.x * 0.5
+	
+	# Cores: Laranja neon brilhante com ogiva destacada quando ativo, cinza/escuro quando descarregado
+	var body_color: Color = Color(1.25, 0.55, 0.12, 1.0) if is_active else Color(0.22, 0.2, 0.22, 0.4)
+	var nose_color: Color = Color(1.4, 0.85, 0.25, 1.0) if is_active else Color(0.3, 0.28, 0.28, 0.5)
+	var fin_color: Color = Color(1.0, 0.35, 0.05, 0.95) if is_active else Color(0.18, 0.16, 0.18, 0.35)
+	var glow_color: Color = Color(1.0, 0.5, 0.1, 0.3) if is_active else Color(0, 0, 0, 0)
+
+	# 1. Glow sutil de fundo quando carregado
+	if is_active:
+		icon.draw_rect(Rect2(center_x - 7.0, 1.0, 14.0, 20.0), glow_color, false, 2.0)
+
+	# 2. Ogiva / Ponta do Míssil (Triângulo apontando para cima)
+	var nose_poly: PackedVector2Array = [
+		Vector2(center_x, 1.0),
+		Vector2(center_x + 3.5, 6.5),
+		Vector2(center_x - 3.5, 6.5)
+	]
+	icon.draw_colored_polygon(nose_poly, nose_color)
+
+	# 3. Corpo cilíndrico central do míssil
+	var body_rect := Rect2(center_x - 3.2, 6.5, 6.4, 11.0)
+	icon.draw_rect(body_rect, body_color, true)
+
+	# 4. Aletas traseiras estabilizadoras (Fins)
+	# Aleta esquerda
+	var left_fin: PackedVector2Array = [
+		Vector2(center_x - 3.2, 12.5),
+		Vector2(center_x - 7.0, 17.5),
+		Vector2(center_x - 3.2, 17.0)
+	]
+	icon.draw_colored_polygon(left_fin, fin_color)
+
+	# Aleta direita
+	var right_fin: PackedVector2Array = [
+		Vector2(center_x + 3.2, 12.5),
+		Vector2(center_x + 7.0, 17.5),
+		Vector2(center_x + 3.2, 17.0)
+	]
+	icon.draw_colored_polygon(right_fin, fin_color)
+
+	# 5. Bocal de propulsão na base (pequeno escape de motor)
+	var nozzle_rect := Rect2(center_x - 2.0, 17.5, 4.0, 2.2)
+	var nozzle_color := Color(1.4, 0.9, 0.3, 1.0) if is_active else Color(0.12, 0.12, 0.12, 0.5)
+	icon.draw_rect(nozzle_rect, nozzle_color, true)
 
 
 func _update_missile_display() -> void:
@@ -542,40 +595,9 @@ func _update_missile_display() -> void:
 				missile_status_label.text = "MISSILES [%d/3]" % _current_missiles
 				missile_status_label.modulate = Color(1.0, 0.65, 0.2, 0.95)
 
-	var children := missile_pips.get_children()
-	for i in range(children.size()):
-		var pip := children[i] as PanelContainer
-		if not pip:
-			continue
-
-		var is_active := (i < _current_missiles and not _is_reloading_missiles)
-		var sb := StyleBoxFlat.new()
-		sb.corner_radius_top_left = 2
-		sb.corner_radius_top_right = 2
-		sb.corner_radius_bottom_right = 2
-		sb.corner_radius_bottom_left = 2
-
-		if is_active:
-			sb.bg_color = Color(1.25, 0.5, 0.1, 1.0)
-			sb.border_width_left = 1
-			sb.border_width_top = 1
-			sb.border_width_right = 1
-			sb.border_width_bottom = 1
-			sb.border_color = Color(1.4, 0.85, 0.3, 1.0)
-			sb.shadow_color = Color(1.0, 0.35, 0.05, 0.85)
-			sb.shadow_size = 5
-			pip.modulate = Color(1.1, 1.1, 1.1, 1.0)
-		else:
-			sb.bg_color = Color(0.06, 0.03, 0.02, 0.85)
-			sb.border_width_left = 1
-			sb.border_width_top = 1
-			sb.border_width_right = 1
-			sb.border_width_bottom = 1
-			sb.border_color = Color(0.25, 0.12, 0.08, 0.35)
-			sb.shadow_size = 0
-			pip.modulate = Color(1.0, 1.0, 1.0, 0.4)
-
-		pip.add_theme_stylebox_override("panel", sb)
+	for child in missile_pips.get_children():
+		if child is Control:
+			(child as Control).queue_redraw()
 
 
 func _on_player_missile_fired(remaining: int, max_val: int) -> void:

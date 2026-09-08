@@ -1,19 +1,20 @@
 class_name LockOnReticle
 extends Control
 
-## Retículo computadorizado de Lock-On no estilo After Burner II.
-## Desenha caixas de mira tática sobre até 3 inimigos travados,
-## com cantoneiras animadas, indicador de LOCK e tracking em tempo real.
+## Retículo computadorizado de Lock-On estilo arcade militar.
+## Desenha um círculo com cruz central sobre cada inimigo travado,
+## com efeito estroboscópico/piscante (blink) pulsante em tempo real.
 
-@export var color_locked: Color = Color(1.0, 0.28, 0.1, 0.92)      # Laranja/Vermelho Alerta
-@export var color_tracking: Color = Color(1.0, 0.85, 0.15, 0.88)   # Amarelo Radar
-@export var reticle_size: float = 64.0
-@export var corner_size: float = 14.0
-@export var line_thickness: float = 2.5
+@export var color_locked: Color = Color(1.0, 0.22, 0.1, 0.95)       # Vermelho/Laranja Neon Alerta
+@export var color_cross: Color = Color(1.0, 0.9, 0.2, 0.95)         # Amarelo Radiante
+@export var reticle_radius: float = 28.0
+@export var line_thickness: float = 2.0
+@export var cross_length: float = 16.0
+@export var cross_gap: float = 6.0
+@export var blink_speed: float = 14.0                               # Velocidade do piscar
 
 var _camera: Camera3D = null
 var _targets: Array[Node3D] = []
-var _target_screen_positions: Dictionary = {}  # target -> Vector2
 var _anim_time: float = 0.0
 
 
@@ -35,7 +36,7 @@ func update_targets(targets: Array[Node3D]) -> void:
 
 
 func _process(delta: float) -> void:
-	_anim_time += delta * 6.0
+	_anim_time += delta * blink_speed
 	if not _targets.is_empty():
 		queue_redraw()
 
@@ -47,6 +48,13 @@ func _draw() -> void:
 	var vp_rect := get_viewport_rect()
 	var default_font := ThemeDB.fallback_font
 	var default_font_size: int = 12
+
+	# Efeito de piscar contínuo (Blink): modula transparência e intensidade luminosa
+	# Gera alternância rápida entre foco brilhante e semi-transparência
+	var blink_cycle := sin(_anim_time)
+	var is_blink_on := blink_cycle > -0.2
+	var blink_alpha := 1.0 if is_blink_on else 0.35
+	var outer_pulse := (blink_cycle + 1.0) * 0.5 * 4.0
 
 	for i in range(_targets.size()):
 		var target := _targets[i]
@@ -64,53 +72,50 @@ func _draw() -> void:
 
 		var screen_pos := _camera.unproject_position(target_pos)
 
-		# Verifica se está dentro dos limites da tela
+		# Ignora se estiver fora da tela
 		if not vp_rect.has_point(screen_pos):
 			continue
 
-		# Animação de pulso sutil da caixa
-		var pulse := sin(_anim_time + float(i) * 1.5) * 3.0
-		var current_size := reticle_size + pulse
-		var half_size := current_size * 0.5
-		var rect := Rect2(screen_pos.x - half_size, screen_pos.y - half_size, current_size, current_size)
+		var c_ring := color_locked
+		c_ring.a *= blink_alpha
+		var c_cross := color_cross
+		c_cross.a *= blink_alpha
 
-		_draw_tactical_brackets(rect, color_locked)
+		var r := reticle_radius + (outer_pulse if is_blink_on else 0.0)
 
-		# Desenha ponto central / diamante
-		var diamond_r := 3.5
-		var diamond_pts: PackedVector2Array = [
-			screen_pos + Vector2(0, -diamond_r),
-			screen_pos + Vector2(diamond_r, 0),
-			screen_pos + Vector2(0, diamond_r),
-			screen_pos + Vector2(-diamond_r, 0)
-		]
-		draw_colored_polygon(diamond_pts, color_locked)
+		# 1. Círculo principal da mira
+		draw_arc(screen_pos, r, 0.0, TAU, 36, c_ring, line_thickness, true)
 
-		# Rótulo de Lock "LOCK // T-1", "LOCK // T-2"
-		var label_text := "LOCK // T-%d" % (i + 1)
-		var text_pos := Vector2(rect.position.x, rect.end.y + 14.0)
-		if default_font:
-			draw_string(default_font, text_pos, label_text, HORIZONTAL_ALIGNMENT_LEFT, -1, default_font_size, color_locked)
+		# 2. Círculo interno tático (anel secundário pontilhado ou menor)
+		draw_arc(screen_pos, r * 0.45, 0.0, TAU, 24, Color(c_ring.r, c_ring.g, c_ring.b, c_ring.a * 0.6), 1.2, true)
 
+		# 3. Ponto central
+		draw_circle(screen_pos, 2.5, c_cross)
 
-func _draw_tactical_brackets(rect: Rect2, color: Color) -> void:
-	var c_len := corner_size
-	var t := line_thickness
-	var p1 := rect.position
-	var p2 := rect.end
+		# 4. Cruz da mira (4 segmentos saindo a partir de cross_gap até cross_length)
+		var t := line_thickness
+		var g := cross_gap
+		var l := cross_length
 
-	# Canto Superior Esquerdo
-	draw_line(Vector2(p1.x, p1.y), Vector2(p1.x + c_len, p1.y), color, t)
-	draw_line(Vector2(p1.x, p1.y), Vector2(p1.x, p1.y + c_len), color, t)
+		# Linha de Cima
+		draw_line(screen_pos + Vector2(0, -g), screen_pos + Vector2(0, -g - l), c_cross, t)
+		# Linha de Baixo
+		draw_line(screen_pos + Vector2(0, g), screen_pos + Vector2(0, g + l), c_cross, t)
+		# Linha da Esquerda
+		draw_line(screen_pos + Vector2(-g, 0), screen_pos + Vector2(-g - l, 0), c_cross, t)
+		# Linha da Direita
+		draw_line(screen_pos + Vector2(g, 0), screen_pos + Vector2(g + l, 0), c_cross, t)
 
-	# Canto Superior Direito
-	draw_line(Vector2(p2.x, p1.y), Vector2(p2.x - c_len, p1.y), color, t)
-	draw_line(Vector2(p2.x, p1.y), Vector2(p2.x, p1.y + c_len), color, t)
+		# 5. Marcadores angulares nos 4 cantos do círculo (marcações táticas militares)
+		var tick_len := 4.5
+		draw_line(screen_pos + Vector2(0, -r), screen_pos + Vector2(0, -r + tick_len), c_cross, t)
+		draw_line(screen_pos + Vector2(0, r), screen_pos + Vector2(0, r - tick_len), c_cross, t)
+		draw_line(screen_pos + Vector2(-r, 0), screen_pos + Vector2(-r + tick_len, 0), c_cross, t)
+		draw_line(screen_pos + Vector2(r, 0), screen_pos + Vector2(r - tick_len, 0), c_cross, t)
 
-	# Canto Inferior Esquerdo
-	draw_line(Vector2(p1.x, p2.y), Vector2(p1.x + c_len, p2.y), color, t)
-	draw_line(Vector2(p1.x, p2.y), Vector2(p1.x, p2.y - c_len), color, t)
-
-	# Canto Inferior Direito
-	draw_line(Vector2(p2.x, p2.y), Vector2(p2.x - c_len, p2.y), color, t)
-	draw_line(Vector2(p2.x, p2.y), Vector2(p2.x, p2.y - c_len), color, t)
+		# 6. Rótulo de travamento com ordem de disparo (T-1, T-2, T-3)
+		if is_blink_on:
+			var label_text := "LOCK // T-%d" % (i + 1)
+			var text_pos := Vector2(screen_pos.x - 30.0, screen_pos.y + r + 16.0)
+			if default_font:
+				draw_string(default_font, text_pos, label_text, HORIZONTAL_ALIGNMENT_CENTER, 60, default_font_size, c_ring)
