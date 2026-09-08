@@ -48,9 +48,9 @@ extends CharacterBody3D
 @export var lock_on_max_targets: int = 3
 @export var lock_on_range: float = 650.0
 ## Som de bip ao travar alvo (lock-on). Se vazio, usa gerador de áudio arcade procedural.
-@export var lock_on_sound: AudioStream = null
+@export var lock_on_sound: AudioStream = preload("res://assets/audio/lock_on.ogg")
 ## Som de lançamento do míssil. Se vazio, usa gerador de ignição procedural.
-@export var missile_fire_sound: AudioStream = null
+@export var missile_fire_sound: AudioStream = preload("res://assets/audio/missile.ogg")
 @export var lock_on_volume_db: float = -3.0
 @export var missile_volume_db: float = -2.0
 

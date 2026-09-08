@@ -41,6 +41,14 @@ var _spawn_position: Vector3 = Vector3.ZERO
 var _prev_position: Vector3 = Vector3.ZERO
 var _ray: RayCast3D = null
 
+# --- Visuais (juice) — não afetam a mecânica de colisão/dano ---
+var _light: OmniLight3D = null
+var _light_base_energy: float = 6.5
+var _visual_root: Node3D = null
+var _age: float = 0.0
+var _flicker_seed: float = 0.0
+const SPAWN_PULSE_DURATION: float = 0.07
+
 func _ready() -> void:
 	collision_layer = 2
 	collision_mask = 2
@@ -60,6 +68,51 @@ func _ready() -> void:
 	_ray.collide_with_areas = false
 	add_child(_ray)
 	_prev_position = global_position
+
+	_setup_visuals()
+
+
+func _setup_visuals() -> void:
+	## Cacheia referências visuais e prepara o pulso de "nascimento" do tiro.
+	_light = get_node_or_null("OmniLight3D") as OmniLight3D
+	if _light:
+		_light_base_energy = _light.light_energy
+	_flicker_seed = randf() * 100.0
+
+	# Agrupa os meshes visuais para animar o pulso de disparo sem tocar
+	# na CollisionShape (a hitbox permanece constante).
+	_visual_root = Node3D.new()
+	_visual_root.name = "VisualRoot"
+	var meshes: Array[Node] = []
+	for child in get_children():
+		if child is MeshInstance3D or child is CPUParticles3D or child is OmniLight3D:
+			meshes.append(child)
+	for child in meshes:
+		remove_child(child)
+		_visual_root.add_child(child)
+	add_child(_visual_root)
+
+	# Nasce levemente "esticado" e brilhante, assentando no tamanho real.
+	_visual_root.scale = Vector3(1.35, 1.35, 1.15)
+	if _light:
+		_light.light_energy = _light_base_energy * 2.2
+
+
+func _process(delta: float) -> void:
+	_age += delta
+
+	# Pulso de nascimento: escala e luz decaem rapidamente ao valor base.
+	if _age < SPAWN_PULSE_DURATION and _visual_root:
+		var t := _age / SPAWN_PULSE_DURATION
+		var s := lerpf(1.35, 1.0, t * t)
+		_visual_root.scale = Vector3(s, s, lerpf(1.15, 1.0, t))
+		if _light:
+			_light.light_energy = lerpf(_light_base_energy * 2.2, _light_base_energy, t)
+
+	# Flicker orgânico da luz (plasma instável), barato e sem ruído externo.
+	if _light and _age >= SPAWN_PULSE_DURATION:
+		var f := sin(_age * 53.0 + _flicker_seed) * 0.5 + sin(_age * 91.0 + _flicker_seed * 2.0) * 0.5
+		_light.light_energy = _light_base_energy * (0.88 + 0.18 * f)
 
 
 # ---------------------------------------------------------------------------
