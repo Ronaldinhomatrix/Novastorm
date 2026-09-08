@@ -6,11 +6,11 @@ extends Area3D
 ## Gera esteira densa e volumosa de fumaça suspensa no ar (world coords).
 
 @export_category("Desempenho e Voo")
-@export var initial_speed: float = 240.0
-@export var max_speed: float = 720.0
-@export var acceleration: float = 800.0
+@export var initial_speed: float = 144.0
+@export var max_speed: float = 432.0
+@export var acceleration: float = 480.0
 @export var turn_rate: float = 11.0  ## Velocidade angular de perseguição (rad/s)
-@export var max_lifetime: float = 5.5
+@export var max_lifetime: float = 7.5
 @export var damage: int = 3
 
 const WORLD_LAYER_MASK: int = 1 << 3  ## Layer 4: "World" (terreno/paredes)
