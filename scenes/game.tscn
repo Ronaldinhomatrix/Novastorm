@@ -5,3 +5,4 @@
 [node name="Game" type="Node" unique_id=1653191334]
 
 [node name="Level1" parent="." unique_id=1020232386 instance=ExtResource("1_level1")]
+maneuver_sound_p22_point = -1

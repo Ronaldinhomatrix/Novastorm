@@ -13,27 +13,30 @@ shader_parameter/outer_radius = 0.85
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_tactical_panel"]
 bg_color = Color(0.02, 0.04, 0.08, 0.75)
-border_width_left = 2
+border_width_right = 2
 border_color = Color(0, 0.88, 1, 0.6)
-corner_radius_top_left = 2
-corner_radius_top_right = 4
-corner_radius_bottom_right = 4
-corner_radius_bottom_left = 2
+corner_radius_top_left = 4
+corner_radius_top_right = 2
+corner_radius_bottom_right = 2
+corner_radius_bottom_left = 4
 shadow_color = Color(0, 0, 0, 0.5)
 shadow_size = 8
 shadow_offset = Vector2(0, 2)
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_missile_panel"]
-bg_color = Color(0.03, 0.04, 0.07, 0.78)
+bg_color = Color(0.02, 0.04, 0.07, 0.85)
 border_width_left = 2
-border_color = Color(1, 0.45, 0.1, 0.75)
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.1, 1.2, 0.45, 1)
 corner_radius_top_left = 4
 corner_radius_top_right = 4
-corner_radius_bottom_right = 2
-corner_radius_bottom_left = 2
-shadow_color = Color(0, 0, 0, 0.5)
-shadow_size = 8
-shadow_offset = Vector2(0, 2)
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+shadow_color = Color(0.1, 1, 0.4, 0.75)
+shadow_size = 10
+shadow_offset = Vector2(0, 0)
 
 [sub_resource type="SystemFont" id="SystemFont_computer_bold"]
 font_names = PackedStringArray("Consolas", "Cascadia Code", "Courier New", "Lucida Console", "Monospace")
@@ -83,6 +86,72 @@ theme_override_constants/margin_top = 32
 theme_override_constants/margin_right = 32
 theme_override_constants/margin_bottom = 32
 
+[node name="TopRight" type="Control" parent="SafeArea"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="TacticalPanel" type="PanelContainer" parent="SafeArea/TopRight"]
+custom_minimum_size = Vector2(230, 64)
+layout_mode = 1
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -230.0
+offset_bottom = 64.0
+grow_horizontal = 0
+theme_override_styles/panel = SubResource("StyleBoxFlat_tactical_panel")
+
+[node name="Margin" type="MarginContainer" parent="SafeArea/TopRight/TacticalPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 10
+
+[node name="StatusVBox" type="VBoxContainer" parent="SafeArea/TopRight/TacticalPanel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="ShieldRow" type="HBoxContainer" parent="SafeArea/TopRight/TacticalPanel/Margin/StatusVBox"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="ShieldLabel" type="Label" parent="SafeArea/TopRight/TacticalPanel/Margin/StatusVBox/ShieldRow"]
+custom_minimum_size = Vector2(56, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0.88, 1, 0.95)
+theme_override_fonts/font = SubResource("SystemFont_computer_bold")
+theme_override_font_sizes/font_size = 11
+text = "Shields"
+vertical_alignment = 1
+
+[node name="ShieldPips" type="HBoxContainer" parent="SafeArea/TopRight/TacticalPanel/Margin/StatusVBox/ShieldRow"]
+custom_minimum_size = Vector2(0, 10)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+theme_override_constants/separation = 4
+
+[node name="HullRow" type="HBoxContainer" parent="SafeArea/TopRight/TacticalPanel/Margin/StatusVBox"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="HullLabel" type="Label" parent="SafeArea/TopRight/TacticalPanel/Margin/StatusVBox/HullRow"]
+custom_minimum_size = Vector2(56, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.08, 0.92, 0.48, 0.95)
+theme_override_fonts/font = SubResource("SystemFont_computer_bold")
+theme_override_font_sizes/font_size = 11
+text = "Hull"
+vertical_alignment = 1
+
+[node name="HullPips" type="HBoxContainer" parent="SafeArea/TopRight/TacticalPanel/Margin/StatusVBox/HullRow"]
+custom_minimum_size = Vector2(0, 10)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+theme_override_constants/separation = 4
+
 [node name="BottomLeft" type="Control" parent="SafeArea"]
 layout_mode = 2
 mouse_filter = 2
@@ -93,122 +162,50 @@ layout_mode = 1
 anchors_preset = 2
 anchor_top = 1.0
 anchor_bottom = 1.0
-offset_top = -140.0
+offset_top = -64.0
 offset_right = 230.0
-offset_bottom = -74.0
 grow_vertical = 0
 theme_override_styles/panel = SubResource("StyleBoxFlat_missile_panel")
 
 [node name="Margin" type="MarginContainer" parent="SafeArea/BottomLeft/MissilePanel"]
 layout_mode = 2
-theme_override_constants/margin_left = 10
+theme_override_constants/margin_left = 12
 theme_override_constants/margin_top = 8
-theme_override_constants/margin_right = 10
+theme_override_constants/margin_right = 12
 theme_override_constants/margin_bottom = 8
 
-[node name="HBox" type="HBoxContainer" parent="SafeArea/BottomLeft/MissilePanel/Margin"]
+[node name="CenterBox" type="Control" parent="SafeArea/BottomLeft/MissilePanel/Margin"]
 layout_mode = 2
-theme_override_constants/separation = 10
 
-[node name="LaunchButton" type="Button" parent="SafeArea/BottomLeft/MissilePanel/Margin/HBox"]
-custom_minimum_size = Vector2(76, 46)
-layout_mode = 2
-size_flags_vertical = 3
-focus_mode = 0
-theme_override_fonts/font = SubResource("SystemFont_computer_bold")
-theme_override_font_sizes/font_size = 11
-text = "🚀 MISSILE"
-
-[node name="InfoVBox" type="VBoxContainer" parent="SafeArea/BottomLeft/MissilePanel/Margin/HBox"]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_constants/separation = 5
-alignment = 1
-
-[node name="StatusLabel" type="Label" parent="SafeArea/BottomLeft/MissilePanel/Margin/HBox/InfoVBox"]
-layout_mode = 2
-theme_override_colors/font_color = Color(1, 0.55, 0.1, 0.95)
-theme_override_fonts/font = SubResource("SystemFont_computer_bold")
-theme_override_font_sizes/font_size = 10
-text = "MISSILES [READY]"
-vertical_alignment = 1
-
-[node name="MissilePips" type="HBoxContainer" parent="SafeArea/BottomLeft/MissilePanel/Margin/HBox/InfoVBox"]
-custom_minimum_size = Vector2(0, 22)
-layout_mode = 2
-size_flags_horizontal = 3
-size_flags_vertical = 4
-theme_override_constants/separation = 6
-
-[node name="ReloadBar" type="ProgressBar" parent="SafeArea/BottomLeft/MissilePanel/Margin/HBox/InfoVBox"]
-visible = false
-custom_minimum_size = Vector2(0, 6)
-layout_mode = 2
-size_flags_horizontal = 3
-max_value = 1.0
-show_percentage = false
-
-[node name="TacticalPanel" type="PanelContainer" parent="SafeArea/BottomLeft"]
-custom_minimum_size = Vector2(230, 64)
+[node name="MissilePips" type="HBoxContainer" parent="SafeArea/BottomLeft/MissilePanel/Margin/CenterBox"]
 layout_mode = 1
-anchors_preset = 2
-anchor_top = 1.0
+anchors_preset = 15
+anchor_right = 1.0
 anchor_bottom = 1.0
-offset_top = -64.0
-offset_right = 230.0
-grow_vertical = 0
-theme_override_styles/panel = SubResource("StyleBoxFlat_tactical_panel")
+grow_horizontal = 2
+grow_vertical = 2
+alignment = 1
+theme_override_constants/separation = 20
 
-[node name="Margin" type="MarginContainer" parent="SafeArea/BottomLeft/TacticalPanel"]
-layout_mode = 2
-theme_override_constants/margin_left = 14
-theme_override_constants/margin_top = 10
-theme_override_constants/margin_right = 14
-theme_override_constants/margin_bottom = 10
-
-[node name="StatusVBox" type="VBoxContainer" parent="SafeArea/BottomLeft/TacticalPanel/Margin"]
-layout_mode = 2
-theme_override_constants/separation = 8
-
-[node name="ShieldRow" type="HBoxContainer" parent="SafeArea/BottomLeft/TacticalPanel/Margin/StatusVBox"]
-layout_mode = 2
-theme_override_constants/separation = 10
-
-[node name="ShieldLabel" type="Label" parent="SafeArea/BottomLeft/TacticalPanel/Margin/StatusVBox/ShieldRow"]
-custom_minimum_size = Vector2(56, 0)
-layout_mode = 2
-theme_override_colors/font_color = Color(0, 0.88, 1, 0.95)
+[node name="ReloadLabel" type="Label" parent="SafeArea/BottomLeft/MissilePanel/Margin/CenterBox"]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_colors/font_color = Color(1, 0.25, 0.2, 1)
 theme_override_fonts/font = SubResource("SystemFont_computer_bold")
-theme_override_font_sizes/font_size = 11
-text = "Shields"
+theme_override_font_sizes/font_size = 14
+text = "RELOADING"
+horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="ShieldPips" type="HBoxContainer" parent="SafeArea/BottomLeft/TacticalPanel/Margin/StatusVBox/ShieldRow"]
-custom_minimum_size = Vector2(0, 10)
+[node name="MissileButton" type="Button" parent="SafeArea/BottomLeft/MissilePanel"]
 layout_mode = 2
-size_flags_horizontal = 3
-size_flags_vertical = 4
-theme_override_constants/separation = 4
-
-[node name="HullRow" type="HBoxContainer" parent="SafeArea/BottomLeft/TacticalPanel/Margin/StatusVBox"]
-layout_mode = 2
-theme_override_constants/separation = 10
-
-[node name="HullLabel" type="Label" parent="SafeArea/BottomLeft/TacticalPanel/Margin/StatusVBox/HullRow"]
-custom_minimum_size = Vector2(56, 0)
-layout_mode = 2
-theme_override_colors/font_color = Color(0.08, 0.92, 0.48, 0.95)
-theme_override_fonts/font = SubResource("SystemFont_computer_bold")
-theme_override_font_sizes/font_size = 11
-text = "Hull"
-vertical_alignment = 1
-
-[node name="HullPips" type="HBoxContainer" parent="SafeArea/BottomLeft/TacticalPanel/Margin/StatusVBox/HullRow"]
-custom_minimum_size = Vector2(0, 10)
-layout_mode = 2
-size_flags_horizontal = 3
-size_flags_vertical = 4
-theme_override_constants/separation = 4
+focus_mode = 0
+flat = true
 
 [node name="TopCenter" type="Control" parent="SafeArea"]
 layout_mode = 2

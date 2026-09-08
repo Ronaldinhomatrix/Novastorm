@@ -17,21 +17,20 @@ extends CanvasLayer
 @export var color_missile_empty: Color = Color(0.16, 0.08, 0.05, 0.85)     # Descarregado
 
 # Referências de nós na cena
-@onready var tactical_panel: PanelContainer = $SafeArea/BottomLeft/TacticalPanel
-@onready var shield_row: HBoxContainer = $SafeArea/BottomLeft/TacticalPanel/Margin/StatusVBox/ShieldRow
-@onready var shield_label: Label = $SafeArea/BottomLeft/TacticalPanel/Margin/StatusVBox/ShieldRow/ShieldLabel
-@onready var shield_pips: HBoxContainer = $SafeArea/BottomLeft/TacticalPanel/Margin/StatusVBox/ShieldRow/ShieldPips
+@onready var tactical_panel: PanelContainer = get_node_or_null("SafeArea/TopRight/TacticalPanel")
+@onready var shield_row: HBoxContainer = get_node_or_null("SafeArea/TopRight/TacticalPanel/Margin/StatusVBox/ShieldRow")
+@onready var shield_label: Label = get_node_or_null("SafeArea/TopRight/TacticalPanel/Margin/StatusVBox/ShieldRow/ShieldLabel")
+@onready var shield_pips: HBoxContainer = get_node_or_null("SafeArea/TopRight/TacticalPanel/Margin/StatusVBox/ShieldRow/ShieldPips")
 
-@onready var hull_row: HBoxContainer = $SafeArea/BottomLeft/TacticalPanel/Margin/StatusVBox/HullRow
-@onready var hull_label: Label = $SafeArea/BottomLeft/TacticalPanel/Margin/StatusVBox/HullRow/HullLabel
-@onready var hull_pips: HBoxContainer = $SafeArea/BottomLeft/TacticalPanel/Margin/StatusVBox/HullRow/HullPips
+@onready var hull_row: HBoxContainer = get_node_or_null("SafeArea/TopRight/TacticalPanel/Margin/StatusVBox/HullRow")
+@onready var hull_label: Label = get_node_or_null("SafeArea/TopRight/TacticalPanel/Margin/StatusVBox/HullRow/HullLabel")
+@onready var hull_pips: HBoxContainer = get_node_or_null("SafeArea/TopRight/TacticalPanel/Margin/StatusVBox/HullRow/HullPips")
 
 # Módulo de Mísseis e Botão Mobile
 @onready var missile_panel: PanelContainer = get_node_or_null("SafeArea/BottomLeft/MissilePanel")
-@onready var missile_btn: Button = get_node_or_null("SafeArea/BottomLeft/MissilePanel/Margin/HBox/LaunchButton")
-@onready var missile_pips: HBoxContainer = get_node_or_null("SafeArea/BottomLeft/MissilePanel/Margin/HBox/InfoVBox/MissilePips")
-@onready var missile_status_label: Label = get_node_or_null("SafeArea/BottomLeft/MissilePanel/Margin/HBox/InfoVBox/StatusLabel")
-@onready var missile_reload_bar: ProgressBar = get_node_or_null("SafeArea/BottomLeft/MissilePanel/Margin/HBox/InfoVBox/ReloadBar")
+@onready var missile_btn: Button = get_node_or_null("SafeArea/BottomLeft/MissilePanel/MissileButton")
+@onready var missile_pips: HBoxContainer = get_node_or_null("SafeArea/BottomLeft/MissilePanel/Margin/CenterBox/MissilePips")
+@onready var missile_reload_label: Label = get_node_or_null("SafeArea/BottomLeft/MissilePanel/Margin/CenterBox/ReloadLabel")
 @onready var lock_on_reticle: LockOnReticle = get_node_or_null("LockOnReticle")
 
 @onready var damage_vignette: ColorRect = $DamageVignette
@@ -530,74 +529,94 @@ func _draw_missile_icon(icon: Control, index: int) -> void:
 	var center_x := size.x * 0.5
 	
 	# Cores: Laranja neon brilhante com ogiva destacada quando ativo, cinza/escuro quando descarregado
-	var body_color: Color = Color(1.25, 0.55, 0.12, 1.0) if is_active else Color(0.22, 0.2, 0.22, 0.4)
-	var nose_color: Color = Color(1.4, 0.85, 0.25, 1.0) if is_active else Color(0.3, 0.28, 0.28, 0.5)
-	var fin_color: Color = Color(1.0, 0.35, 0.05, 0.95) if is_active else Color(0.18, 0.16, 0.18, 0.35)
-	var glow_color: Color = Color(1.0, 0.5, 0.1, 0.3) if is_active else Color(0, 0, 0, 0)
+	var body_color: Color = Color(1.3, 0.6, 0.15, 1.0) if is_active else Color(0.25, 0.22, 0.25, 0.35)
+	var nose_color: Color = Color(1.4, 0.9, 0.3, 1.0) if is_active else Color(0.35, 0.3, 0.3, 0.45)
+	var fin_color: Color = Color(1.1, 0.4, 0.08, 0.95) if is_active else Color(0.2, 0.18, 0.2, 0.3)
+	var glow_color: Color = Color(1.0, 0.6, 0.1, 0.4) if is_active else Color(0, 0, 0, 0)
 
 	# 1. Glow sutil de fundo quando carregado
 	if is_active:
-		icon.draw_rect(Rect2(center_x - 7.0, 1.0, 14.0, 20.0), glow_color, false, 2.0)
+		icon.draw_rect(Rect2(center_x - 8.0, 2.0, 16.0, 24.0), glow_color, false, 2.0)
 
 	# 2. Ogiva / Ponta do Míssil (Triângulo apontando para cima)
 	var nose_poly: PackedVector2Array = [
-		Vector2(center_x, 1.0),
-		Vector2(center_x + 3.5, 6.5),
-		Vector2(center_x - 3.5, 6.5)
+		Vector2(center_x, 2.0),
+		Vector2(center_x + 4.0, 8.0),
+		Vector2(center_x - 4.0, 8.0)
 	]
 	icon.draw_colored_polygon(nose_poly, nose_color)
 
 	# 3. Corpo cilíndrico central do míssil
-	var body_rect := Rect2(center_x - 3.2, 6.5, 6.4, 11.0)
+	var body_rect := Rect2(center_x - 3.5, 8.0, 7.0, 13.0)
 	icon.draw_rect(body_rect, body_color, true)
 
 	# 4. Aletas traseiras estabilizadoras (Fins)
-	# Aleta esquerda
 	var left_fin: PackedVector2Array = [
-		Vector2(center_x - 3.2, 12.5),
-		Vector2(center_x - 7.0, 17.5),
-		Vector2(center_x - 3.2, 17.0)
+		Vector2(center_x - 3.5, 14.0),
+		Vector2(center_x - 8.0, 20.0),
+		Vector2(center_x - 3.5, 19.5)
 	]
 	icon.draw_colored_polygon(left_fin, fin_color)
 
-	# Aleta direita
 	var right_fin: PackedVector2Array = [
-		Vector2(center_x + 3.2, 12.5),
-		Vector2(center_x + 7.0, 17.5),
-		Vector2(center_x + 3.2, 17.0)
+		Vector2(center_x + 3.5, 14.0),
+		Vector2(center_x + 8.0, 20.0),
+		Vector2(center_x + 3.5, 19.5)
 	]
 	icon.draw_colored_polygon(right_fin, fin_color)
 
-	# 5. Bocal de propulsão na base (pequeno escape de motor)
-	var nozzle_rect := Rect2(center_x - 2.0, 17.5, 4.0, 2.2)
-	var nozzle_color := Color(1.4, 0.9, 0.3, 1.0) if is_active else Color(0.12, 0.12, 0.12, 0.5)
+	# 5. Bocal de propulsão na base
+	var nozzle_rect := Rect2(center_x - 2.2, 21.0, 4.4, 2.5)
+	var nozzle_color := Color(1.4, 0.9, 0.3, 1.0) if is_active else Color(0.15, 0.15, 0.15, 0.4)
 	icon.draw_rect(nozzle_rect, nozzle_color, true)
 
 
 func _update_missile_display() -> void:
-	if not missile_pips:
-		return
+	if missile_panel:
+		var sb := StyleBoxFlat.new()
+		sb.corner_radius_top_left = 4
+		sb.corner_radius_top_right = 4
+		sb.corner_radius_bottom_right = 4
+		sb.corner_radius_bottom_left = 4
+		sb.border_width_left = 2
+		sb.border_width_top = 2
+		sb.border_width_right = 2
+		sb.border_width_bottom = 2
+		sb.bg_color = Color(0.02, 0.04, 0.07, 0.85)
+
+		if _is_reloading_missiles:
+			# Moldura vermelha neon durante reload
+			sb.border_color = Color(1.4, 0.2, 0.2, 1.0)
+			sb.shadow_color = Color(1.0, 0.15, 0.15, 0.8)
+			sb.shadow_size = 12
+		elif _current_missiles > 0:
+			# Moldura verde neon brilhante com mísseis disponíveis
+			sb.border_color = Color(0.1, 1.4, 0.45, 1.0)
+			sb.shadow_color = Color(0.1, 1.0, 0.4, 0.8)
+			sb.shadow_size = 12
+		else:
+			# Descarregado
+			sb.border_color = Color(0.4, 0.2, 0.2, 0.6)
+			sb.shadow_color = Color(0, 0, 0, 0.4)
+			sb.shadow_size = 4
+
+		missile_panel.add_theme_stylebox_override("panel", sb)
 
 	if _is_reloading_missiles:
-		if missile_reload_bar:
-			missile_reload_bar.visible = true
-		if missile_status_label:
-			missile_status_label.text = "RELOADING // 5.0s"
-			missile_status_label.modulate = Color(1.2, 0.3, 0.2, 0.95)
+		if missile_reload_label:
+			missile_reload_label.visible = true
+		if missile_pips:
+			missile_pips.modulate.a = 0.25
 	else:
-		if missile_reload_bar:
-			missile_reload_bar.visible = false
-		if missile_status_label:
-			if _has_locked_targets:
-				missile_status_label.text = "LOCK ACQUIRED [%d/3]" % _current_missiles
-				missile_status_label.modulate = Color(1.35, 0.45, 0.1, 1.0)
-			else:
-				missile_status_label.text = "MISSILES [%d/3]" % _current_missiles
-				missile_status_label.modulate = Color(1.0, 0.65, 0.2, 0.95)
+		if missile_reload_label:
+			missile_reload_label.visible = false
+		if missile_pips:
+			missile_pips.modulate.a = 1.0
 
-	for child in missile_pips.get_children():
-		if child is Control:
-			(child as Control).queue_redraw()
+	if missile_pips:
+		for child in missile_pips.get_children():
+			if child is Control:
+				(child as Control).queue_redraw()
 
 
 func _on_player_missile_fired(remaining: int, max_val: int) -> void:
@@ -607,35 +626,29 @@ func _on_player_missile_fired(remaining: int, max_val: int) -> void:
 		_is_reloading_missiles = true
 	_update_missile_display()
 
-	if missile_btn:
+	if missile_panel:
 		var fire_tween := create_tween()
-		missile_btn.scale = Vector2(0.92, 0.92)
-		fire_tween.tween_property(missile_btn, "scale", Vector2.ONE, 0.12).set_trans(Tween.TRANS_BACK)
+		missile_panel.scale = Vector2(0.94, 0.94)
+		fire_tween.tween_property(missile_panel, "scale", Vector2.ONE, 0.12).set_trans(Tween.TRANS_BACK)
 
 
 func _on_player_missile_reloaded(current: int, max_val: int) -> void:
 	_max_missiles = max_val
 	_current_missiles = current
 	_is_reloading_missiles = false
-	if missile_reload_bar:
-		missile_reload_bar.visible = false
 	_update_missile_display()
 
 	# Brilho de recarga concluída
 	if missile_panel:
 		var reload_tween := create_tween()
-		missile_panel.modulate = Color(2.0, 1.5, 1.0, 1.0)
+		missile_panel.modulate = Color(1.5, 2.0, 1.5, 1.0)
 		reload_tween.tween_property(missile_panel, "modulate", Color.WHITE, 0.35)
 
 
-func _on_player_missile_reload_progress(progress: float) -> void:
-	if missile_reload_bar:
-		missile_reload_bar.visible = true
-		missile_reload_bar.value = progress
-
-	if missile_status_label and _is_reloading_missiles:
-		var remaining_time := (1.0 - progress) * 5.0
-		missile_status_label.text = "RELOAD // %.1fs" % remaining_time
+func _on_player_missile_reload_progress(_progress: float) -> void:
+	if not _is_reloading_missiles:
+		_is_reloading_missiles = true
+		_update_missile_display()
 
 
 func _on_player_missile_targets_changed(targets: Array[Node3D]) -> void:

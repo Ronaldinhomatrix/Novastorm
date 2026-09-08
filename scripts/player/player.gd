@@ -51,7 +51,7 @@ extends CharacterBody3D
 @export var lock_on_sound: AudioStream = preload("res://assets/audio/lock_on.ogg")
 ## Som de lançamento do míssil.
 @export var missile_fire_sound: AudioStream = preload("res://assets/audio/missile.ogg")
-@export var lock_on_volume_db: float = -3.0
+@export var lock_on_volume_db: float = 0.5
 @export var missile_volume_db: float = -2.0
 
 @export_category("Áudio")
