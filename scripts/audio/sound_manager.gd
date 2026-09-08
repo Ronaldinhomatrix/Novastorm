@@ -16,7 +16,7 @@ const POOL_SIZE_SFX: int = 8
 
 const SND_EXPLOSION_1 := preload("res://assets/audio/explosion1.ogg")
 const SND_EXPLOSION_2 := preload("res://assets/audio/explosion2.ogg")
-const SND_LASER_PLAYER := preload("res://assets/audio/laser1_player.ogg")
+const SND_LASER_PLAYER := preload("res://assets/audio/laser0.wav")
 const SND_LASER_ENEMY := preload("res://assets/audio/laser1.ogg")
 const SND_MANEUVER := preload("res://assets/audio/maneuver1.ogg")
 const SND_MOTHERSHIP := preload("res://assets/audio/mothership1.ogg")

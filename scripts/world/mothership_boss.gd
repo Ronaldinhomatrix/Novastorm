@@ -10,7 +10,7 @@ signal boss_defeated
 
 const SparkScript := preload("res://scripts/effects/spark.gd")
 const ExplosionScript := preload("res://scripts/effects/explosion.gd")
-const HitSound := preload("res://assets/audio/laser0.ogg")
+const HitSound := preload("res://assets/audio/laser0.wav")
 const ShieldDownSound := preload("res://assets/audio/shield_offline.ogg")
 
 @export_category("Vida e Pontuação")

@@ -88,7 +88,7 @@ const EnemyWreckageScript := preload("res://scripts/effects/enemy_wreckage.gd")
 const MuzzleFlashScript := preload("res://scripts/effects/muzzle_flash.gd")
 
 # Som de disparo do laser, explosão e alerta de escudo.
-const LaserSound := preload("res://assets/audio/laser1_player.ogg")
+const LaserSound := preload("res://assets/audio/laser0.wav")
 const ShieldOfflineSound := preload("res://assets/audio/shield_offline.ogg")
 const ExplosionSound := preload("res://assets/audio/explosion1.ogg")
 
@@ -976,12 +976,12 @@ func _play_missile_fire_sound() -> void:
 	_missile_audio_player.play()
 
 
-## Dispara salva de mísseis nos alvos travados (acessível via PC ou botão Mobile)
+## Dispara um único míssil por acionamento (seguindo a ordem em que os alvos foram travados)
 func fire_missiles() -> void:
 	if _is_reloading_missiles or current_missiles <= 0 or not _controls_enabled or _is_dying:
 		return
 
-	# Remove alvos que possam ter morrido antes do clique
+	# Remove alvos que possam ter morrido ou sido liberados antes do clique
 	var active_targets: Array[Node3D] = []
 	for t in _locked_targets:
 		if is_instance_valid(t) and not t.is_queued_for_deletion():
@@ -991,15 +991,11 @@ func fire_missiles() -> void:
 	if _locked_targets.is_empty():
 		return
 
-	var count_to_fire := mini(_locked_targets.size(), current_missiles)
-	var targets_to_shoot := _locked_targets.slice(0, count_to_fire)
+	# Dispara somente no alvo que travou primeiro (o mais antigo da fila FIFO)
+	var target: Node3D = _locked_targets.pop_front()
+	_spawn_single_missile(target, 0)
 
-	for i in range(count_to_fire):
-		var target: Node3D = targets_to_shoot[i]
-		_spawn_single_missile(target, i)
-
-	current_missiles -= count_to_fire
-	_locked_targets = _locked_targets.slice(count_to_fire)
+	current_missiles -= 1
 
 	missile_fired.emit(current_missiles, max_missiles)
 	missile_targets_changed.emit(_locked_targets)
@@ -1043,4 +1039,3 @@ func _spawn_single_missile(target: Node3D, _index: int) -> void:
 	missile.setup(target, initial_launch_dir)
 
 	_play_missile_fire_sound()
-
