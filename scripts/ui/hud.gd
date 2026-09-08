@@ -657,6 +657,9 @@ func _on_player_missile_reloaded(current: int, max_val: int) -> void:
 
 
 func _on_player_missile_reload_progress(progress: float) -> void:
+	if progress >= 1.0:
+		return
+
 	if not _is_reloading_missiles:
 		_is_reloading_missiles = true
 		_update_missile_display()

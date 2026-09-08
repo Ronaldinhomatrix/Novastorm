@@ -156,10 +156,16 @@ func _process_enter(_delta: float) -> void:
 		# Pitch normal grave de nave pesada
 		set_engine_pitch(lerpf(0.98, 0.82, eased))
 
+	# Começa a soltar as minas 1.0s após entrar em cena
+	if _phase_timer >= 1.0 and _bombs_dropped < total_bombs:
+		_drop_timer -= _delta
+		if _drop_timer <= 0.0:
+			_drop_timer = drop_interval
+			_drop_bomb()
+
 	if t >= 1.0:
 		_phase = Phase.BOMB_RUN
 		_phase_timer = 0.0
-		_drop_timer = drop_interval
 
 
 # ---------------------------------------------------------------------------
@@ -201,6 +207,7 @@ func _process_bomb_run(delta: float) -> void:
 	if u >= 1.0:
 		_phase = Phase.EXIT
 		_phase_timer = 0.0
+
 
 
 
