@@ -1,4 +1,4 @@
-﻿class_name MuzzleFlashEffect
+class_name MuzzleFlashEffect
 extends Node3D
 
 ## Efeito de flash / brilho da nave no momento do disparo laser:

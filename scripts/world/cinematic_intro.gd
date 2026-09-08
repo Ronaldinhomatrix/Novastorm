@@ -156,7 +156,7 @@ func _end() -> void:
 		player.set_controls_enabled(true)
 
 	# Mantém o cursor do mouse oculto durante o gameplay no PC.
-	var is_mobile := OS.has_feature("android") or OS.has_feature("ios")
+	var is_mobile := GameConfig.is_mobile
 	if not is_mobile:
 		Input.mouse_mode = Input.MOUSE_MODE_HIDDEN
 

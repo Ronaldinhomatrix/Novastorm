@@ -31,6 +31,7 @@ extends CanvasLayer
 @onready var missile_btn: Button = get_node_or_null("SafeArea/BottomLeft/MissilePanel/MissileButton")
 @onready var missile_pips: HBoxContainer = get_node_or_null("SafeArea/BottomLeft/MissilePanel/Margin/CenterBox/MissilePips")
 @onready var missile_reload_label: Label = get_node_or_null("SafeArea/BottomLeft/MissilePanel/Margin/CenterBox/ReloadLabel")
+@onready var missile_reload_bar: ProgressBar = get_node_or_null("SafeArea/BottomLeft/MissilePanel/ReloadProgress")
 @onready var lock_on_reticle: LockOnReticle = get_node_or_null("LockOnReticle")
 
 @onready var damage_vignette: ColorRect = $DamageVignette
@@ -605,11 +606,16 @@ func _update_missile_display() -> void:
 	if _is_reloading_missiles:
 		if missile_reload_label:
 			missile_reload_label.visible = true
+		if missile_reload_bar:
+			missile_reload_bar.visible = true
 		if missile_pips:
 			missile_pips.modulate.a = 0.25
 	else:
 		if missile_reload_label:
 			missile_reload_label.visible = false
+		if missile_reload_bar:
+			missile_reload_bar.visible = false
+			missile_reload_bar.value = 0.0
 		if missile_pips:
 			missile_pips.modulate.a = 1.0
 
@@ -624,6 +630,8 @@ func _on_player_missile_fired(remaining: int, max_val: int) -> void:
 	_current_missiles = remaining
 	if remaining <= 0:
 		_is_reloading_missiles = true
+		if missile_reload_bar:
+			missile_reload_bar.value = 0.0
 	_update_missile_display()
 
 	if missile_panel:
@@ -636,6 +644,9 @@ func _on_player_missile_reloaded(current: int, max_val: int) -> void:
 	_max_missiles = max_val
 	_current_missiles = current
 	_is_reloading_missiles = false
+	if missile_reload_bar:
+		missile_reload_bar.visible = false
+		missile_reload_bar.value = 1.0
 	_update_missile_display()
 
 	# Brilho de recarga concluída
@@ -645,10 +656,18 @@ func _on_player_missile_reloaded(current: int, max_val: int) -> void:
 		reload_tween.tween_property(missile_panel, "modulate", Color.WHITE, 0.35)
 
 
-func _on_player_missile_reload_progress(_progress: float) -> void:
+func _on_player_missile_reload_progress(progress: float) -> void:
 	if not _is_reloading_missiles:
 		_is_reloading_missiles = true
 		_update_missile_display()
+
+	if missile_reload_bar:
+		missile_reload_bar.visible = true
+		missile_reload_bar.value = progress
+
+	if missile_reload_label:
+		var remaining_sec := maxf(0.0, (1.0 - progress) * 5.0)
+		missile_reload_label.text = "RELOADING (%.1fs)" % remaining_sec
 
 
 func _on_player_missile_targets_changed(targets: Array[Node3D]) -> void:

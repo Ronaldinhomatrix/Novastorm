@@ -27,7 +27,7 @@ const WarningBattlecruiserSound := preload("res://assets/audio/warning_enemy_bat
 @export var wave_1_exit_point: int = 16    ## Ponto onde os Scouts da Wave 1 remanescentes se retiram. -1 = desativado
 @export var wave_2_point: int = 21         ## Ponto da curva Path3D onde a Wave 2 é disparada (Fighters). -1 = desativado
 @export var wave_2_exit_point: int = 28    ## Ponto onde os Fighters da Wave 2 remanescentes se retiram. -1 = desativado
-@export var warning_battlecruiser_point: int = 21  ## Ponto para o áudio warning_enemy_battlecruiser. -1 = desativado
+@export var warning_battlecruiser_point: int = 28  ## Ponto para o áudio warning_enemy_battlecruiser. -1 = desativado
 @export var wave_bomber_point: int = 23    ## Ponto onde o Enemy Bomber é disparado. -1 = desativado
 @export var wave_bomber_exit_point: int = 27 ## Ponto onde o Enemy Bomber se retira. -1 = desativado
 @export var bomber_dismiss_delay: float = 2.0  ## Tempo em segundos após o spawn do Bomber para as outras naves iniciarem a retirada cinematográfica

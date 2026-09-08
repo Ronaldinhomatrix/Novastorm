@@ -1,4 +1,4 @@
-﻿class_name PathSpeedZone
+class_name PathSpeedZone
 extends Resource
 
 ## Define um trecho entre dois pontos da curva Path3D com velocidade personalizada.

@@ -25,11 +25,9 @@ extends Node3D
 ## Altitude base da superfície do planeta abaixo da zona de voo.
 @export var planet_center_y: float = -450.0
 
-@export_category("Texturas Planetárias por Plataforma")
-## Textura Ultra-HD para PC (4096x2048 WebP - apenas 883 KB em disco).
-@export var texture_pc_4k: Texture2D = preload("res://assets/textures/orbital_planet_albedo_4k.webp")
-## Textura Leve para Mobile (2048x1024 WebP - apenas 383 KB em disco e 8 MB VRAM).
-@export var texture_mobile_2k: Texture2D = preload("res://assets/textures/orbital_planet_albedo_2k.webp")
+# Texturas planetárias carregadas sob demanda por plataforma (evita 4K no mobile).
+const TEXTURE_4K_PATH := "res://assets/textures/orbital_planet_albedo_4k.webp"
+const TEXTURE_2K_PATH := "res://assets/textures/orbital_planet_albedo_2k.webp"
 
 var _sun_light: DirectionalLight3D = null
 var _camera: Camera3D = null
@@ -56,12 +54,12 @@ func _setup_platform_texture_and_filtering() -> void:
 		return
 	var mat := planet_mesh.get_active_material(0) as ShaderMaterial
 	if mat:
-		var is_mobile := OS.has_feature("mobile") or OS.has_feature("web_android") or OS.has_feature("web_ios")
+		var is_mobile := GameConfig.is_mobile
 		
 		# Seleciona automaticamente a textura adequada para a plataforma:
 		# PC: 4K Ultra-HD WebP (883 KB em disco, sem serrilhado)
 		# Mobile: 2K WebP (383 KB em disco, apenas 8 MB VRAM, 60 FPS garantidos)
-		var chosen_texture := texture_mobile_2k if is_mobile else texture_pc_4k
+		var chosen_texture: Texture2D = load(TEXTURE_2K_PATH) if is_mobile else load(TEXTURE_4K_PATH)
 		mat.set_shader_parameter("planet_texture", chosen_texture)
 		
 		# Filtro suave bicúbico apenas no PC

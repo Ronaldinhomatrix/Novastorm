@@ -48,7 +48,7 @@ extends CharacterBody3D
 @export var lock_on_max_targets: int = 3
 @export var lock_on_range: float = 650.0
 ## Som de bip ao travar alvo (lock-on).
-@export var lock_on_sound: AudioStream = preload("res://assets/audio/lock_on.ogg")
+@export var lock_on_sound: AudioStream = preload("res://assets/audio/lock_on.wav")
 ## Som de lançamento do míssil.
 @export var missile_fire_sound: AudioStream = preload("res://assets/audio/missile.ogg")
 @export var lock_on_volume_db: float = 0.5
@@ -129,8 +129,6 @@ var _damage_smoke: DamageSmokeEffect = null
 var _is_firing: bool = false
 var _fire_timer: float = 0.0
 
-var _is_mobile: bool = false
-
 var _pointer_active: bool = false
 var _pointer_pos: Vector2 = Vector2.ZERO
 
@@ -167,7 +165,12 @@ var _muzzle_flash: Node3D = null
 func _ready() -> void:
 	add_to_group("player")
 	current_health = max_health
-	_is_mobile = OS.has_feature("android") or OS.has_feature("ios")
+
+	# Mobile: usa a variante leve do projétil (sem OmniLight por tiro,
+	# flares menores e menos partículas) para economizar fill-rate/shading.
+	# Carregada sob demanda (load) para não ocupar memória no PC.
+	if GameConfig.is_mobile:
+		bullet_scene = load("res://scenes/bullet_mobile.tscn") as PackedScene
 
 	# Áudio de disparo: som 2D com volume fixo padrão (nave sempre na câmera).
 	_laser_player = AudioStreamPlayer.new()
@@ -252,7 +255,7 @@ func set_controls_enabled(enabled: bool) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if not _controls_enabled:
 		return
-	if _is_mobile:
+	if GameConfig.is_mobile:
 		_handle_mobile_input(event)
 	else:
 		_handle_desktop_input(event)
@@ -804,7 +807,7 @@ func _on_death_sequence_finished() -> void:
 # Sistema de Mísseis Secundários e Lock-On (After Burner II)
 # ---------------------------------------------------------------------------
 
-const LockOnSound := preload("res://assets/audio/lock_on.ogg")
+const LockOnSound := preload("res://assets/audio/lock_on.wav")
 const MissileSound := preload("res://assets/audio/missile.ogg")
 
 func _setup_missile_audio() -> void:
@@ -908,7 +911,7 @@ func _scan_for_new_targets(cam: Camera3D, vp_rect: Rect2) -> bool:
 	# No PC: segue o cursor do mouse / ponteiro
 	# No Mobile: centro da tela / cone frontal da nave
 	var aim_screen_pos: Vector2
-	if _is_mobile:
+	if GameConfig.is_mobile:
 		aim_screen_pos = cam.unproject_position(global_position + (-global_basis.z * 120.0))
 	elif _pointer_active:
 		aim_screen_pos = _pointer_pos
@@ -948,7 +951,7 @@ func _scan_for_new_targets(cam: Camera3D, vp_rect: Rect2) -> bool:
 			continue
 
 		var screen_dist := s_pos.distance_to(aim_screen_pos)
-		var max_dist := 520.0 if _is_mobile else 400.0
+		var max_dist := 520.0 if GameConfig.is_mobile else 400.0
 		if screen_dist <= max_dist:
 			candidates.append({
 				"node": enemy,

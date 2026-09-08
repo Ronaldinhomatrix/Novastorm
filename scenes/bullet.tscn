@@ -1,4 +1,4 @@
-﻿[gd_scene format=3 uid="uid://dqfqikorgtjr"]
+[gd_scene format=3 uid="uid://dqfqikorgtjr"]
 
 [ext_resource type="Script" uid="uid://b3jrjk5vl57p3" path="res://scripts/projectiles/bullet.gd" id="1_bullet"]
 
@@ -188,6 +188,10 @@ light_color = Color(0.25, 0.85, 1, 1)
 light_energy = 6.5
 omni_range = 14.0
 omni_attenuation = 1.6
+distance_fade_enabled = true
+distance_fade_begin = 300.0
+distance_fade_shadow = 400.0
+distance_fade_cutoff = 600.0
 
 [node name="SparkTrail" type="CPUParticles3D" parent="." unique_id=1987876024]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 4.5)

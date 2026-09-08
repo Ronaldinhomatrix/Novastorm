@@ -85,9 +85,9 @@ var _crosshair: Control = null  ## Instância do crosshair UI
 
 @export_category("Cenario")
 @export var enable_cloud_sky: bool = true  ## Gera nuvens estáticas no céu do nível
-@export var terrain_detail_material: Material = preload("res://assets/materials/terrain_detailed_pc.tres")
-@export var custom_camera_far_pc: float = 4000.0  ## Alcance da câmera no PC em metros (6000m no Nível 1)
-@export var custom_camera_far_mobile: float = 3500.0  ## Alcance da câmera no Mobile em metros (5000m no Nível 1)
+@export var terrain_detail_material: Material  # PC: sobrescrito por nível; carregado sob demanda se vazio
+@export var custom_camera_far_pc: float = GameConfig.CAMERA_FAR_PC  ## Alcance da câmera no PC em metros (sobrescrito por nível)
+@export var custom_camera_far_mobile: float = GameConfig.CAMERA_FAR_MOBILE  ## Alcance da câmera no Mobile em metros (sobrescrito por nível)
 @export var enable_depth_fog: bool = true  ## Névoa de profundidade automática (sem pop-in)
 @export var mothership_cast_shadow: bool = true  ## Define se a Mothership projeta sombra no cenário (desativar em fases de órbita)
 
@@ -309,8 +309,10 @@ func _ready():
 	if convoy_node_path != ^"":
 		_convoy_node = get_node_or_null(convoy_node_path) as Node3D
 
-	# Configuração gráfica dinâmica: PC Ultra vs Mobile Otimizado
-	_apply_platform_graphics_settings()
+	# Configuração gráfica dinâmica: PC Ultra vs Mobile Otimizado + escolhas do usuário.
+	_apply_graphics_settings()
+	# Re-aplica os gráficos na hora quando o usuário muda uma opção no menu.
+	UserSettings.settings_changed.connect(_apply_graphics_settings)
 
 	if enable_cloud_sky and not get_node_or_null("ProceduralCloudSky"):
 		var cloud_sky := ProceduralCloudSky.new()
@@ -713,65 +715,75 @@ func _get_terrain_node() -> Node:
 	return get_node_or_null("Terrain")
 
 
-const TerrainMobileMaterial := preload("res://assets/materials/terrain_detailed_mobile.tres")
+const TERRAIN_PC_PATH := "res://assets/materials/terrain_detailed_pc.tres"
+const TERRAIN_MOBILE_PATH := "res://assets/materials/terrain_detailed_mobile.tres"
+const SettingsMenuScript := preload("res://scripts/ui/settings_menu.gd")
 
-func _apply_platform_graphics_settings() -> void:
-	var is_mobile := OS.has_feature("mobile") or OS.has_feature("android") or OS.has_feature("ios")
+var _settings_menu: CanvasLayer = null
+
+func _apply_graphics_settings() -> void:
+	var is_mobile := GameConfig.is_mobile
 	var sun := get_node_or_null("DirectionalLight3D") as DirectionalLight3D
 	
 	var target_far := custom_camera_far_mobile if is_mobile else custom_camera_far_pc
 	if camera:
 		camera.far = target_far
 
+	# FPS e escala de render: baseline por plataforma (não exposto ao usuário por ora).
+	Engine.max_fps = GameConfig.MAX_FPS_MOBILE if is_mobile else GameConfig.MAX_FPS_PC
 	if is_mobile:
-		# --- CONFIGURAÇÃO MOBILE (Alta Performance - 60 FPS) ---
-		Engine.max_fps = 60
 		get_viewport().scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR
-		get_viewport().scaling_3d_scale = 0.75
-		get_viewport().fsr_sharpness = 0.3
-		
-		# Sol e Sombras no Mobile: sombra focal de 100m focada na nave (leve e ultra nítida)
-		if sun:
-			sun.directional_shadow_max_distance = 100.0
-			sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
-			sun.directional_shadow_blend_splits = false
-			sun.shadow_blur = 1.0
-		
-		# Terreno no Mobile: material leve sem triplanar e sem projeção de sombras no cenário
-		_apply_scenery_materials_and_shadows(TerrainMobileMaterial, GeometryInstance3D.SHADOW_CASTING_SETTING_OFF)
+		get_viewport().scaling_3d_scale = GameConfig.RENDER_SCALE_MOBILE
+		get_viewport().fsr_sharpness = GameConfig.FSR_SHARPNESS_MOBILE
 	else:
-		# --- CONFIGURAÇÃO PC / DESKTOP (Ultra Visuals - 144Hz+) ---
-		Engine.max_fps = 0
 		get_viewport().scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR
-		get_viewport().scaling_3d_scale = 1.0
-		
-		# Sol e Sombras no PC: 1200m de alcance, 4 divisões e sombras nítidas
-		if sun:
-			sun.directional_shadow_max_distance = 1200.0
-			sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
-			sun.directional_shadow_blend_splits = true
-			sun.shadow_blur = 1.0
-		
-		# Terreno no PC: material ultra detalhado com Triplanar e sombras ativas
-		_apply_scenery_materials_and_shadows(terrain_detail_material, GeometryInstance3D.SHADOW_CASTING_SETTING_ON)
+		get_viewport().scaling_3d_scale = GameConfig.RENDER_SCALE_PC
 
-	# Aplica a névoa suave de profundidade automática e perfil de Glow / SSAO / SSIL no WorldEnvironment
+	# Sombras: qualidade por plataforma, mas ligar/desligar é escolha do usuário.
+	var shadows_on := UserSettings.get_shadows()
+	if sun:
+		sun.shadow_enabled = shadows_on
+		if shadows_on:
+			if is_mobile:
+				# Sombra focal de 100m na nave (leve e nítida)
+				sun.directional_shadow_max_distance = GameConfig.SHADOW_MAX_DISTANCE_MOBILE
+				sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
+				sun.directional_shadow_blend_splits = false
+			else:
+				# 1200m de alcance, 4 divisões, sombras nítidas
+				sun.directional_shadow_max_distance = GameConfig.SHADOW_MAX_DISTANCE_PC
+				sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
+				sun.directional_shadow_blend_splits = true
+			sun.shadow_blur = 1.0
+
+	# Terreno: material por plataforma. Mobile nunca projeta sombra no cenário
+	# (otimização); PC projeta apenas se o usuário deixou sombras ligadas.
+	var terrain_cast := GeometryInstance3D.SHADOW_CASTING_SETTING_ON if (shadows_on and not is_mobile) else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	if is_mobile:
+		_apply_scenery_materials_and_shadows(load(TERRAIN_MOBILE_PATH), terrain_cast)
+	else:
+		_apply_scenery_materials_and_shadows(terrain_detail_material if terrain_detail_material else load(TERRAIN_PC_PATH), terrain_cast)
+
+	# Pós-processamento (Glow / SSAO / SSIL): escolha do usuário, default por plataforma.
 	var world_env := get_node_or_null("WorldEnvironment") as WorldEnvironment
 	if world_env and world_env.environment:
 		if enable_depth_fog:
 			CameraConfig.apply_depth_fog(world_env.environment, target_far)
-		# No Mobile: desativa pós-processamento pesado para economizar bateria e garantir 60 FPS
-		# No PC: ativa Glow, SSAO e SSIL com máxima fidelidade
-		world_env.environment.glow_enabled = not is_mobile
-		world_env.environment.ssao_enabled = not is_mobile
-		if not is_mobile:
+		world_env.environment.glow_enabled = UserSettings.get_glow()
+		if UserSettings.get_glow() and is_mobile:
+			# Glow mais leve no mobile (menos intensidade/bloom), preservando o
+			# brilho do projétil sem pesar o pós-processamento.
+			world_env.environment.glow_intensity = GameConfig.GLOW_INTENSITY_MOBILE
+			world_env.environment.glow_bloom = GameConfig.GLOW_BLOOM_MOBILE
+		world_env.environment.ssao_enabled = UserSettings.get_ssao()
+		world_env.environment.ssil_enabled = UserSettings.get_ssil()
+		if UserSettings.get_ssao():
 			world_env.environment.ssao_radius = 2.0
 			world_env.environment.ssao_intensity = 2.2
 			world_env.environment.ssao_power = 1.5
 			world_env.environment.ssao_detail = 0.5
 			world_env.environment.ssao_horizon = 0.06
-		world_env.environment.ssil_enabled = not is_mobile
-		if not is_mobile:
+		if UserSettings.get_ssil():
 			world_env.environment.ssil_radius = 4.0
 			world_env.environment.ssil_intensity = 1.0
 
@@ -859,7 +871,7 @@ func _run_preload_and_warmup(canvas_layer: CanvasLayer, curtain: ColorRect, intr
 		if player and player.has_method("set_controls_enabled"):
 			player.set_controls_enabled(true)
 		# Sem intro → oculta o cursor imediatamente durante gameplay no PC
-		var is_mobile := OS.has_feature("android") or OS.has_feature("ios")
+		var is_mobile := GameConfig.is_mobile
 		if not is_mobile:
 			Input.mouse_mode = Input.MOUSE_MODE_HIDDEN
 		if _crosshair:
@@ -1054,7 +1066,7 @@ func _setup_crosshair() -> void:
 
 	_crosshair = CrosshairScript.new()
 	_crosshair.name = "Crosshair"
-	var is_mobile := OS.has_feature("android") or OS.has_feature("ios")
+	var is_mobile := GameConfig.is_mobile
 	if _crosshair.has_method("set_mobile_mode"):
 		_crosshair.set_mobile_mode(is_mobile)
 	if _crosshair.has_method("set_camera"):
@@ -1067,5 +1079,5 @@ func _setup_crosshair() -> void:
 ## No mobile a mira nunca aparece — a nave é a referência de tiro.
 func _show_crosshair() -> void:
 	if _crosshair:
-		var is_mobile := OS.has_feature("android") or OS.has_feature("ios")
+		var is_mobile := GameConfig.is_mobile
 		_crosshair.visible = not is_mobile

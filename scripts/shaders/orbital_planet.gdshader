@@ -1,4 +1,4 @@
-﻿shader_type spatial;
+shader_type spatial;
 render_mode cull_back, depth_draw_opaque, diffuse_burley, specular_schlick_ggx;
 
 uniform sampler2D planet_texture : source_color, filter_linear_mipmap_anisotropic;

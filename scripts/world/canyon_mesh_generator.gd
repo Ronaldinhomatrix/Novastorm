@@ -15,7 +15,7 @@ enum GenerationMode {
 @export_group("Path & Mesh References")
 @export var path_node: Path3D
 @export var terrain_material: Material
-@export var mobile_material: Material = preload("res://assets/materials/terrain_detailed_mobile.tres")
+@export var mobile_material: Material  # mobile: carregado sob demanda se vazio
 @export var auto_generate_on_ready: bool = true
 @export var generate_collision: bool = true
 
@@ -68,10 +68,12 @@ func _ready() -> void:
 			generate_canyon_mesh()
 
 func _apply_platform_material() -> void:
-	var is_mobile = OS.has_feature("mobile") or OS.has_feature("android") or OS.has_feature("ios")
+	var is_mobile := GameConfig.is_mobile
 	var base_mat: Material = null
 	
-	if is_mobile and mobile_material:
+	if is_mobile:
+		if mobile_material == null:
+			mobile_material = load("res://assets/materials/terrain_detailed_mobile.tres")
 		base_mat = mobile_material
 	elif terrain_material:
 		base_mat = terrain_material
