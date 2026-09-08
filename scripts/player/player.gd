@@ -47,9 +47,9 @@ extends CharacterBody3D
 @export var missile_reload_time: float = 5.0
 @export var lock_on_max_targets: int = 3
 @export var lock_on_range: float = 650.0
-## Som de bip ao travar alvo (lock-on). Se vazio, usa gerador de áudio arcade procedural.
+## Som de bip ao travar alvo (lock-on).
 @export var lock_on_sound: AudioStream = preload("res://assets/audio/lock_on.ogg")
-## Som de lançamento do míssil. Se vazio, usa gerador de ignição procedural.
+## Som de lançamento do míssil.
 @export var missile_fire_sound: AudioStream = preload("res://assets/audio/missile.ogg")
 @export var lock_on_volume_db: float = -3.0
 @export var missile_volume_db: float = -2.0
@@ -804,66 +804,23 @@ func _on_death_sequence_finished() -> void:
 # Sistema de Mísseis Secundários e Lock-On (After Burner II)
 # ---------------------------------------------------------------------------
 
+const LockOnSound := preload("res://assets/audio/lock_on.ogg")
+const MissileSound := preload("res://assets/audio/missile.ogg")
+
 func _setup_missile_audio() -> void:
 	_lock_audio_player = AudioStreamPlayer.new()
 	_lock_audio_player.name = "LockOnAudioPlayer"
 	_lock_audio_player.bus = "Master"
 	_lock_audio_player.volume_db = lock_on_volume_db
-	if lock_on_sound:
-		_lock_audio_player.stream = lock_on_sound
-	else:
-		_lock_audio_player.stream = _create_procedural_beep()
+	_lock_audio_player.stream = lock_on_sound if lock_on_sound else LockOnSound
 	add_child(_lock_audio_player)
 
 	_missile_audio_player = AudioStreamPlayer.new()
 	_missile_audio_player.name = "MissileAudioPlayer"
 	_missile_audio_player.bus = "Master"
 	_missile_audio_player.volume_db = missile_volume_db
-	if missile_fire_sound:
-		_missile_audio_player.stream = missile_fire_sound
-	else:
-		_missile_audio_player.stream = _create_procedural_rocket_launch()
+	_missile_audio_player.stream = missile_fire_sound if missile_fire_sound else MissileSound
 	add_child(_missile_audio_player)
-
-
-## Gerador de som de bip agudo arcade para Lock-On (procedural se arquivo customizado não for passado)
-func _create_procedural_beep() -> AudioStreamWav:
-	var wav := AudioStreamWav.new()
-	wav.format = AudioStreamWav.FORMAT_16_BITS
-	wav.mix_rate = 22050
-	wav.stereo = false
-	var sample_count := int(22050.0 * 0.08)  # 80ms
-	var data := PackedByteArray()
-	data.resize(sample_count * 2)
-	for i in range(sample_count):
-		var t := float(i) / 22050.0
-		var freq := 1150.0 if t < 0.04 else 1450.0
-		var env := 1.0 - (t / 0.08)
-		var s := int(sin(t * freq * TAU) * env * 22000.0)
-		data.encode_s16(i * 2, s)
-	wav.data = data
-	return wav
-
-
-## Gerador de som de disparo de foguete (procedural se arquivo customizado não for passado)
-func _create_procedural_rocket_launch() -> AudioStreamWav:
-	var wav := AudioStreamWav.new()
-	wav.format = AudioStreamWav.FORMAT_16_BITS
-	wav.mix_rate = 22050
-	wav.stereo = false
-	var sample_count := int(22050.0 * 0.32)  # 320ms
-	var data := PackedByteArray()
-	data.resize(sample_count * 2)
-	for i in range(sample_count):
-		var t := float(i) / 22050.0
-		var noise := randf_range(-1.0, 1.0)
-		var rumble := sin(t * 85.0 * TAU) * 0.7
-		var env := pow(1.0 - (t / 0.32), 0.75)
-		var sample_val := clampf((noise * 0.45 + rumble * 0.55) * env, -1.0, 1.0)
-		var s := int(sample_val * 24000.0)
-		data.encode_s16(i * 2, s)
-	wav.data = data
-	return wav
 
 
 func _process_missiles_and_lock_on(delta: float) -> void:
@@ -1038,7 +995,7 @@ func fire_missiles() -> void:
 	var targets_to_shoot := _locked_targets.slice(0, count_to_fire)
 
 	for i in range(count_to_fire):
-		var target := targets_to_shoot[i]
+		var target: Node3D = targets_to_shoot[i]
 		_spawn_single_missile(target, i)
 
 	current_missiles -= count_to_fire

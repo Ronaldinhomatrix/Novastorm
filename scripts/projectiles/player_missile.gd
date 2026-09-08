@@ -167,7 +167,11 @@ func _explode() -> void:
 		var scene_root := get_tree().current_scene
 		if not scene_root:
 			scene_root = get_parent()
-		ExplosionScript.create(scene_root, global_position, 1.4)
+		var explosion: Node3D = ExplosionScript.new()
+		scene_root.add_child(explosion)
+		explosion.global_position = global_position
+		if explosion.has_method("set"):
+			explosion.set("size_scale", 1.4)
 
 	# Áudio de impacto / explosão
 	if has_node("/root/SoundManager"):
