@@ -71,7 +71,7 @@ fov = 58.0
 
 [node name="Player" parent="FlightPath/PathFollower" instance=ExtResource("4_player")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -40)
-fire_rate = 0.5
+fire_rate = 0.25
 bounce_strength = 320.0
 bounce_damping = 15.0
 

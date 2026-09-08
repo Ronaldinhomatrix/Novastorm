@@ -22,10 +22,14 @@ const WarningBattlecruiserSound := preload("res://assets/audio/warning_enemy_bat
 
 @export_category("Gatilhos por Ponto do Path3D")
 @export var enable_audio_alerts: bool = true
-@export var wave_1_point: int = 8   ## Ponto da curva Path3D onde a Wave 1 é disparada (Scouts). -1 = desativado
-@export var wave_2_point: int = 15  ## Ponto da curva Path3D onde a Wave 2 é disparada (Fighters). -1 = desativado
+@export var wave_1_point: int = 8         ## Ponto onde os 3 primeiros Scouts entram em rasante (Wave 1 Parte 1). -1 = desativado
+@export var wave_1_part2_point: int = 13   ## Ponto onde os 3 Scouts restantes entram (Wave 1 Parte 2). -1 = desativado
+@export var wave_1_exit_point: int = 16    ## Ponto onde os Scouts da Wave 1 remanescentes se retiram. -1 = desativado
+@export var wave_2_point: int = 21         ## Ponto da curva Path3D onde a Wave 2 é disparada (Fighters). -1 = desativado
+@export var wave_2_exit_point: int = 28    ## Ponto onde os Fighters da Wave 2 remanescentes se retiram. -1 = desativado
 @export var warning_battlecruiser_point: int = 21  ## Ponto para o áudio warning_enemy_battlecruiser. -1 = desativado
-@export var wave_bomber_point: int = 25  ## Ponto onde o Enemy Bomber é disparado. -1 = desativado
+@export var wave_bomber_point: int = 23    ## Ponto onde o Enemy Bomber é disparado. -1 = desativado
+@export var wave_bomber_exit_point: int = 27 ## Ponto onde o Enemy Bomber se retira. -1 = desativado
 @export var bomber_dismiss_delay: float = 2.0  ## Tempo em segundos após o spawn do Bomber para as outras naves iniciarem a retirada cinematográfica
 @export var wave_3_trigger_point: int = 48  ## Ponto onde a Wave 3 é disparada
 @export var wave_3_spawn_point: int = 49    ## Ponto onde a Wave 3 surge
@@ -38,16 +42,24 @@ const WarningBattlecruiserSound := preload("res://assets/audio/warning_enemy_bat
 var _alert_enemy_ships_triggered: bool = false
 var _warning_battlecruiser_triggered: bool = false
 var _wave_1_triggered: bool = false
+var _wave_1_part2_triggered: bool = false
+var _wave_1_exit_triggered: bool = false
 var _wave_2_triggered: bool = false
+var _wave_2_exit_triggered: bool = false
 var _wave_bomber_triggered: bool = false
+var _wave_bomber_exit_triggered: bool = false
 var _wave_3_triggered: bool = false
 var _penultimate_exit_triggered: bool = false
 
 var _target_ratio_1_alert: float = -1.0
 var _target_ratio_1: float = -1.0
+var _target_ratio_1_part2: float = -1.0
+var _target_ratio_1_exit: float = -1.0
 var _target_ratio_2: float = -1.0
+var _target_ratio_2_exit: float = -1.0
 var _target_ratio_warning_battlecruiser: float = -1.0
 var _target_ratio_bomber: float = -1.0
+var _target_ratio_bomber_exit: float = -1.0
 var _target_ratio_3_trigger: float = -1.0
 var _ratio_3_spawn: float = -1.0
 var _ratio_3_meet: float = -1.0
@@ -95,10 +107,16 @@ func _update_target_ratios() -> void:
 	var total_len: float = maxf(1.0, curve.get_baked_length())
 
 	_target_ratio_1 = _get_point_ratio(curve, wave_1_point, total_len)
+	_target_ratio_1_part2 = _get_point_ratio(curve, wave_1_part2_point, total_len)
+	_target_ratio_1_exit = _get_point_ratio(curve, wave_1_exit_point, total_len)
 	_target_ratio_1_alert = _get_point_ratio(curve, maxi(0, wave_1_point - 1), total_len) if wave_1_point >= 0 else -1.0
+	
 	_target_ratio_2 = _get_point_ratio(curve, wave_2_point, total_len)
+	_target_ratio_2_exit = _get_point_ratio(curve, wave_2_exit_point, total_len)
+
 	_target_ratio_warning_battlecruiser = _get_point_ratio(curve, warning_battlecruiser_point, total_len)
 	_target_ratio_bomber = _get_point_ratio(curve, wave_bomber_point, total_len)
+	_target_ratio_bomber_exit = _get_point_ratio(curve, wave_bomber_exit_point, total_len)
 	
 	_target_ratio_3_trigger = _get_point_ratio(curve, wave_3_trigger_point, total_len)
 	_ratio_3_spawn = _get_point_ratio(curve, wave_3_spawn_point, total_len)
@@ -129,10 +147,18 @@ func _update_target_ratios() -> void:
 			_mothership_zone_cleared = true
 		if _target_ratio_1 >= 0.0 and start_prog >= _target_ratio_1:
 			_wave_1_triggered = true
+		if _target_ratio_1_part2 >= 0.0 and start_prog >= _target_ratio_1_part2:
+			_wave_1_part2_triggered = true
+		if _target_ratio_1_exit >= 0.0 and start_prog >= _target_ratio_1_exit:
+			_wave_1_exit_triggered = true
 		if _target_ratio_2 >= 0.0 and start_prog >= _target_ratio_2:
 			_wave_2_triggered = true
+		if _target_ratio_2_exit >= 0.0 and start_prog >= _target_ratio_2_exit:
+			_wave_2_exit_triggered = true
 		if _target_ratio_bomber >= 0.0 and start_prog >= _target_ratio_bomber:
 			_wave_bomber_triggered = true
+		if _target_ratio_bomber_exit >= 0.0 and start_prog >= _target_ratio_bomber_exit:
+			_wave_bomber_exit_triggered = true
 		if _target_ratio_3_trigger >= 0.0 and start_prog >= _target_ratio_3_trigger:
 			_wave_3_triggered = true
 
@@ -214,10 +240,18 @@ func _process(_delta: float) -> void:
 		_penultimate_exit_triggered = true
 		_dismiss_all_active_enemies()
 
-	# 3. Gatilhos de ondas
+	# 3. Gatilhos de ondas e retiradas específicas
 	if not _wave_1_triggered and _target_ratio_1 >= 0.0 and current_progress >= _target_ratio_1:
 		_wave_1_triggered = true
 		_spawn_wave_1()
+
+	if not _wave_1_part2_triggered and _target_ratio_1_part2 >= 0.0 and current_progress >= _target_ratio_1_part2:
+		_wave_1_part2_triggered = true
+		_spawn_wave_1_part2()
+
+	if not _wave_1_exit_triggered and _target_ratio_1_exit >= 0.0 and current_progress >= _target_ratio_1_exit:
+		_wave_1_exit_triggered = true
+		_dismiss_scouts()
 
 	if not _wave_2_triggered and _target_ratio_2 >= 0.0 and current_progress >= _target_ratio_2:
 		_wave_2_triggered = true
@@ -226,6 +260,14 @@ func _process(_delta: float) -> void:
 	if not _wave_bomber_triggered and _target_ratio_bomber >= 0.0 and current_progress >= _target_ratio_bomber:
 		_wave_bomber_triggered = true
 		_spawn_bomber()
+
+	if not _wave_bomber_exit_triggered and _target_ratio_bomber_exit >= 0.0 and current_progress >= _target_ratio_bomber_exit:
+		_wave_bomber_exit_triggered = true
+		_dismiss_bombers()
+
+	if not _wave_2_exit_triggered and _target_ratio_2_exit >= 0.0 and current_progress >= _target_ratio_2_exit:
+		_wave_2_exit_triggered = true
+		_dismiss_fighters()
 
 	if not _wave_3_triggered and _target_ratio_3_trigger >= 0.0 and current_progress >= _target_ratio_3_trigger:
 		_wave_3_triggered = true
@@ -246,6 +288,27 @@ func _dismiss_all_active_enemies() -> void:
 				enemy.force_exit()
 
 
+func _dismiss_scouts() -> void:
+	for enemy in _active_enemies:
+		if is_instance_valid(enemy) and (enemy is EnemyScout or enemy.name.to_lower().contains("scout")):
+			if enemy.has_method("force_exit"):
+				enemy.force_exit()
+
+
+func _dismiss_fighters() -> void:
+	for enemy in _active_enemies:
+		if is_instance_valid(enemy) and (enemy is EnemyFighter or enemy.name.to_lower().contains("fighter")):
+			if enemy.has_method("force_exit"):
+				enemy.force_exit()
+
+
+func _dismiss_bombers() -> void:
+	for enemy in _active_enemies:
+		if is_instance_valid(enemy) and (enemy is EnemyBomber or enemy.name.to_lower().contains("bomber")):
+			if enemy.has_method("force_exit"):
+				enemy.force_exit()
+
+
 func _dismiss_non_bomber_enemies() -> void:
 	for enemy in _active_enemies:
 		if is_instance_valid(enemy) and not (enemy is EnemyBomber or enemy.name.to_lower().contains("bomber")):
@@ -254,12 +317,11 @@ func _dismiss_non_bomber_enemies() -> void:
 
 
 # ---------------------------------------------------------------------------
-# Wave 1: 5 Scouts (Starship.002) no Mundo 3D (3 Líderes com rasante Direita/Esquerda/Cima)
+# Wave 1 Parte 1: 3 Scouts no Ponto 8 (3 Líderes com rasante Direita/Esquerda/Cima)
 # ---------------------------------------------------------------------------
 
-
 func _spawn_wave_1() -> void:
-	wave_started.emit(1, "Wave 1: Scout Squadron")
+	wave_started.emit(1, "Wave 1: Scout Squadron - Part 1")
 
 	var info: Dictionary = _get_point_info(wave_1_point)
 	var base_pos: Vector3 = info["position"]
@@ -269,8 +331,39 @@ func _spawn_wave_1() -> void:
 		{ "side": 1.0, "delay": 0.0, "cinematic_lead": true, "lane": 0 },   # Líder 1: Rasante Direita
 		{ "side": -1.0, "delay": 0.45, "cinematic_lead": true, "lane": 1 }, # Líder 2: Rasante Esquerda
 		{ "side": 1.0, "delay": 0.90, "cinematic_lead": true, "lane": 2 },  # Líder 3: Rasante por Cima
-		{ "side": -1.0, "delay": 2.8, "cinematic_lead": false, "lane": 0 }, # Flanco Esquerdo
-		{ "side": 1.0, "delay": 4.2, "cinematic_lead": false, "lane": 0 },  # Flanco Direito
+	]
+
+	for cfg: Dictionary in configs:
+		var timer: SceneTreeTimer = get_tree().create_timer(cfg["delay"])
+		timer.timeout.connect(func():
+			var scout: EnemyScout = scout_scene.instantiate() as EnemyScout
+			if not scout:
+				return
+
+			if cfg["cinematic_lead"]:
+				scout.is_cinematic_entrance = true
+
+			_add_enemy_to_world(scout)
+			scout.setup_flight(base_pos, fwd, cfg["side"], 55.0, cfg["lane"])
+			_register_enemy(scout)
+		)
+
+
+# ---------------------------------------------------------------------------
+# Wave 1 Parte 2: 3 Scouts no Ponto 13
+# ---------------------------------------------------------------------------
+
+func _spawn_wave_1_part2() -> void:
+	wave_started.emit(1, "Wave 1: Scout Squadron - Part 2")
+
+	var info: Dictionary = _get_point_info(wave_1_part2_point)
+	var base_pos: Vector3 = info["position"]
+	var fwd: Vector3 = info["forward"]
+
+	var configs: Array[Dictionary] = [
+		{ "side": -1.0, "delay": 0.0, "cinematic_lead": false, "lane": 0 }, # Flanco Esquerdo
+		{ "side": 1.0, "delay": 0.8, "cinematic_lead": false, "lane": 0 },  # Flanco Direito
+		{ "side": -1.0, "delay": 1.6, "cinematic_lead": false, "lane": 1 }, # Flanco Central/Esquerdo
 	]
 
 	for cfg: Dictionary in configs:

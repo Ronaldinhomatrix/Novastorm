@@ -38,7 +38,7 @@ extends CharacterBody3D
 @export var path_tilt_amount: float = 1.4
 
 @export_category("Combate")
-@export var fire_rate: float = 0.5
+@export var fire_rate: float = 0.25
 @export var bullet_scene: PackedScene = null
 
 @export_category("Mísseis e Lock-on (Secundário)")
@@ -841,7 +841,8 @@ func _process_missiles_and_lock_on(delta: float) -> void:
 
 
 func _update_lock_on_system(delta: float) -> void:
-	if not _controls_enabled or _is_dying:
+	# O lock-on só funciona se houver mísseis disponíveis para disparo e o jogador estiver ativo
+	if not _controls_enabled or _is_dying or current_missiles <= 0 or _is_reloading_missiles:
 		if not _locked_targets.is_empty():
 			_locked_targets.clear()
 			missile_targets_changed.emit(_locked_targets)
@@ -877,8 +878,16 @@ func _update_lock_on_system(delta: float) -> void:
 	var targets_modified := (valid_list.size() != _locked_targets.size())
 	_locked_targets = valid_list
 
+	# Não pode travar mais alvos do que a quantidade de mísseis atualmente disponíveis
+	var max_allowed_locks := mini(lock_on_max_targets, current_missiles)
+
+	# Se por ventura tivermos mais alvos travados do que mísseis disponíveis, ajusta a lista
+	if _locked_targets.size() > max_allowed_locks:
+		_locked_targets = _locked_targets.slice(0, max_allowed_locks)
+		targets_modified = true
+
 	# Varredura para encontrar novos alvos se houver vaga
-	if _locked_targets.size() < lock_on_max_targets:
+	if _locked_targets.size() < max_allowed_locks:
 		_lock_scan_timer -= delta
 		if _lock_scan_timer <= 0.0:
 			_lock_scan_timer = 0.05
@@ -920,6 +929,12 @@ func _scan_for_new_targets(cam: Camera3D, vp_rect: Rect2) -> bool:
 		if "_is_dead" in enemy and enemy._is_dead:
 			continue
 
+		# O Bomber e as minas de aproximação não devem ser travados no alvo pelos mísseis
+		if enemy is EnemyBomber or enemy.is_in_group("enemy_hazards") or enemy.name.to_lower().contains("bomber") or enemy.name.to_lower().contains("bomb"):
+			continue
+		if "is_invulnerable" in enemy and enemy.is_invulnerable:
+			continue
+
 		var enemy_pos: Vector3 = enemy.global_position
 		if cam.is_position_behind(enemy_pos):
 			continue
@@ -946,8 +961,9 @@ func _scan_for_new_targets(cam: Camera3D, vp_rect: Rect2) -> bool:
 	candidates.sort_custom(func(a, b): return a["score"] < b["score"])
 
 	var newly_added := false
+	var max_allowed := mini(lock_on_max_targets, current_missiles)
 	for item in candidates:
-		if _locked_targets.size() >= lock_on_max_targets:
+		if _locked_targets.size() >= max_allowed:
 			break
 		_locked_targets.append(item["node"])
 		newly_added = true
