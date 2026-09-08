@@ -40,8 +40,19 @@ extends CharacterBody3D
 @export_category("Combate")
 @export var fire_rate: float = 0.5
 @export var bullet_scene: PackedScene = null
-## Intensidade com que o tiro acompanha a inclinação/curva da nave (0.0 = tiro padrão, 0.5 = meio termo, 1.0 = direção total da nave).
-@export_range(0.0, 1.0) var aim_steering_bias: float = 0.45
+
+@export_category("Mísseis e Lock-on (Secundário)")
+@export var missile_scene: PackedScene = preload("res://scenes/projectiles/player_missile.tscn")
+@export var max_missiles: int = 3
+@export var missile_reload_time: float = 5.0
+@export var lock_on_max_targets: int = 3
+@export var lock_on_range: float = 650.0
+## Som de bip ao travar alvo (lock-on). Se vazio, usa gerador de áudio arcade procedural.
+@export var lock_on_sound: AudioStream = null
+## Som de lançamento do míssil. Se vazio, usa gerador de ignição procedural.
+@export var missile_fire_sound: AudioStream = null
+@export var lock_on_volume_db: float = -3.0
+@export var missile_volume_db: float = -2.0
 
 @export_category("Áudio")
 ## Volume do tiro laser em dB. 0 = 100% (padrão Godot), -6 ≈ 50%, -12 ≈ 25%.
@@ -63,6 +74,10 @@ signal shield_changed(current: int, max_val: int)
 signal hull_changed(current: int, max_val: int)
 signal health_changed(current: int, max_val: int)
 signal damage_taken(amount: int)
+signal missile_fired(remaining: int, max_val: int)
+signal missile_reloaded(current: int, max_val: int)
+signal missile_reload_progress(progress: float)
+signal missile_targets_changed(targets: Array[Node3D])
 
 # Scripts procedurais
 const SparkScript := preload("res://scripts/effects/spark.gd")
@@ -83,6 +98,16 @@ const ExplosionSound := preload("res://assets/audio/explosion1.ogg")
 
 var current_shield: int = 3
 var current_hull: int = 3
+
+# Mísseis e Lock-on
+var current_missiles: int = 3
+var _locked_targets: Array[Node3D] = []
+var _missile_reload_timer: float = 0.0
+var _is_reloading_missiles: bool = false
+var _lock_scan_timer: float = 0.0
+var _missile_wing_side: int = 0
+var _lock_audio_player: AudioStreamPlayer = null
+var _missile_audio_player: AudioStreamPlayer = null
 
 var current_health: int:
 	get:
@@ -192,6 +217,11 @@ func _ready() -> void:
 	hull_changed.emit(current_hull, max_hull)
 	health_changed.emit(current_hull, max_hull)
 
+	# Inicializa mísseis secundários
+	current_missiles = max_missiles
+	_setup_missile_audio()
+	missile_fired.emit(current_missiles, max_missiles)
+
 	# Só reposiciona a nave quando ela é filha de um PathFollow3D (modo rail
 	# shooter), onde a posição local deve ficar fixa à frente da câmera.
 	# Quando a nave é filha direta do nível/Level (ex.: nível em edição, sem
@@ -241,8 +271,11 @@ func _handle_desktop_input(event: InputEvent) -> void:
 		_pointer_pos = event.position
 		_pointer_active = true
 
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
-		_is_firing = event.pressed
+	if event is InputEventMouseButton:
+		if event.button_index == MOUSE_BUTTON_LEFT:
+			_is_firing = event.pressed
+		elif event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
+			fire_missiles()
 
 
 func _handle_mobile_input(event: InputEvent) -> void:
@@ -334,6 +367,8 @@ func _physics_process(delta: float) -> void:
 			_spawn_bullet()
 	else:
 		_fire_timer = maxf(0.0, _fire_timer - delta)
+
+	_process_missiles_and_lock_on(delta)
 
 
 # ---------------------------------------------------------------------------
@@ -523,28 +558,19 @@ func _spawn_bullet() -> void:
 		_laser_player.play()
 
 
-## Retorna o vetor de direção do disparo:
-## Combina a projeção da tela com a inclinação/orientação real da nave
-## quando ela faz manobras (pitch para cima/baixo, yaw/roll para os lados).
+## Retorna o vetor de direção do disparo.
+## Meio-termo: 65% da direção natural (câmera → posição da nave na tela)
+## + 35% do centro da tela. Isso dá um spread perceptível sem que o tiro
+## "abra" demais para os cantos — mantém uma tendência suave ao centro.
 func _get_ship_aim_direction() -> Vector3:
-	var base_dir: Vector3
 	var cam := get_viewport().get_camera_3d()
 	if cam:
 		var ship_screen := cam.unproject_position(global_position)
 		var center_screen := get_viewport().get_visible_rect().size / 2.0
 		var dir_natural := cam.project_ray_normal(ship_screen).normalized()
 		var dir_center := cam.project_ray_normal(center_screen).normalized()
-		base_dir = dir_natural.slerp(dir_center, 0.35).normalized()
-	else:
-		base_dir = -global_basis.z.normalized()
-
-	# Se a nave possuir ShipModel e aim_steering_bias estiver ativo,
-	# mescla a direção base com a direção para onde o nariz da nave está apontando
-	if ship_model and aim_steering_bias > 0.001:
-		var ship_forward := -ship_model.global_transform.basis.z.normalized()
-		return base_dir.slerp(ship_forward, clampf(aim_steering_bias, 0.0, 1.0)).normalized()
-
-	return base_dir
+		return dir_natural.slerp(dir_center, 0.35).normalized()
+	return -global_basis.z.normalized()
 
 
 # ---------------------------------------------------------------------------
@@ -772,3 +798,292 @@ func _on_death_sequence_finished() -> void:
 	_invulnerability_timer = invulnerability_duration * 1.5
 	if _shield_bubble:
 		_shield_bubble.activate(_invulnerability_timer)
+
+
+# ---------------------------------------------------------------------------
+# Sistema de Mísseis Secundários e Lock-On (After Burner II)
+# ---------------------------------------------------------------------------
+
+func _setup_missile_audio() -> void:
+	_lock_audio_player = AudioStreamPlayer.new()
+	_lock_audio_player.name = "LockOnAudioPlayer"
+	_lock_audio_player.bus = "Master"
+	_lock_audio_player.volume_db = lock_on_volume_db
+	if lock_on_sound:
+		_lock_audio_player.stream = lock_on_sound
+	else:
+		_lock_audio_player.stream = _create_procedural_beep()
+	add_child(_lock_audio_player)
+
+	_missile_audio_player = AudioStreamPlayer.new()
+	_missile_audio_player.name = "MissileAudioPlayer"
+	_missile_audio_player.bus = "Master"
+	_missile_audio_player.volume_db = missile_volume_db
+	if missile_fire_sound:
+		_missile_audio_player.stream = missile_fire_sound
+	else:
+		_missile_audio_player.stream = _create_procedural_rocket_launch()
+	add_child(_missile_audio_player)
+
+
+## Gerador de som de bip agudo arcade para Lock-On (procedural se arquivo customizado não for passado)
+func _create_procedural_beep() -> AudioStreamWav:
+	var wav := AudioStreamWav.new()
+	wav.format = AudioStreamWav.FORMAT_16_BITS
+	wav.mix_rate = 22050
+	wav.stereo = false
+	var sample_count := int(22050.0 * 0.08)  # 80ms
+	var data := PackedByteArray()
+	data.resize(sample_count * 2)
+	for i in range(sample_count):
+		var t := float(i) / 22050.0
+		var freq := 1150.0 if t < 0.04 else 1450.0
+		var env := 1.0 - (t / 0.08)
+		var s := int(sin(t * freq * TAU) * env * 22000.0)
+		data.encode_s16(i * 2, s)
+	wav.data = data
+	return wav
+
+
+## Gerador de som de disparo de foguete (procedural se arquivo customizado não for passado)
+func _create_procedural_rocket_launch() -> AudioStreamWav:
+	var wav := AudioStreamWav.new()
+	wav.format = AudioStreamWav.FORMAT_16_BITS
+	wav.mix_rate = 22050
+	wav.stereo = false
+	var sample_count := int(22050.0 * 0.32)  # 320ms
+	var data := PackedByteArray()
+	data.resize(sample_count * 2)
+	for i in range(sample_count):
+		var t := float(i) / 22050.0
+		var noise := randf_range(-1.0, 1.0)
+		var rumble := sin(t * 85.0 * TAU) * 0.7
+		var env := pow(1.0 - (t / 0.32), 0.75)
+		var sample_val := clampf((noise * 0.45 + rumble * 0.55) * env, -1.0, 1.0)
+		var s := int(sample_val * 24000.0)
+		data.encode_s16(i * 2, s)
+	wav.data = data
+	return wav
+
+
+func _process_missiles_and_lock_on(delta: float) -> void:
+	# 1. Contagem regressiva de recarga
+	if _is_reloading_missiles:
+		_missile_reload_timer -= delta
+		var progress := clampf(1.0 - (_missile_reload_timer / maxf(0.01, missile_reload_time)), 0.0, 1.0)
+		missile_reload_progress.emit(progress)
+		if _missile_reload_timer <= 0.0:
+			_is_reloading_missiles = false
+			_missile_reload_timer = 0.0
+			current_missiles = max_missiles
+			missile_reloaded.emit(current_missiles, max_missiles)
+			missile_reload_progress.emit(1.0)
+
+	# 2. Escaneamento e atualização do Lock-On
+	_update_lock_on_system(delta)
+
+
+func _update_lock_on_system(delta: float) -> void:
+	if not _controls_enabled or _is_dying:
+		if not _locked_targets.is_empty():
+			_locked_targets.clear()
+			missile_targets_changed.emit(_locked_targets)
+		return
+
+	var cam := get_viewport().get_camera_3d()
+	if not cam:
+		return
+
+	var vp_rect := get_viewport().get_visible_rect()
+
+	# Limpa alvos inválidos, mortos ou que saíram do campo de visão
+	var valid_list: Array[Node3D] = []
+	for t in _locked_targets:
+		if not is_instance_valid(t) or t.is_queued_for_deletion():
+			continue
+		if "current_hp" in t and t.current_hp <= 0:
+			continue
+		if "_is_dead" in t and t._is_dead:
+			continue
+		
+		var t_pos: Vector3 = t.global_position
+		if cam.is_position_behind(t_pos):
+			continue
+		var s_pos := cam.unproject_position(t_pos)
+		if not vp_rect.grow(90.0).has_point(s_pos):
+			continue
+		if global_position.distance_to(t_pos) > (lock_on_range * 1.2):
+			continue
+
+		valid_list.append(t)
+
+	var targets_modified := (valid_list.size() != _locked_targets.size())
+	_locked_targets = valid_list
+
+	# Varredura para encontrar novos alvos se houver vaga
+	if _locked_targets.size() < lock_on_max_targets:
+		_lock_scan_timer -= delta
+		if _lock_scan_timer <= 0.0:
+			_lock_scan_timer = 0.05
+			var found_new := _scan_for_new_targets(cam, vp_rect)
+			if found_new:
+				targets_modified = true
+
+	if targets_modified:
+		missile_targets_changed.emit(_locked_targets)
+
+
+func _scan_for_new_targets(cam: Camera3D, vp_rect: Rect2) -> bool:
+	var enemies := get_tree().get_nodes_in_group("enemies")
+	if enemies.is_empty():
+		return false
+
+	# Referência de mira na tela:
+	# No PC: segue o cursor do mouse / ponteiro
+	# No Mobile: centro da tela / cone frontal da nave
+	var aim_screen_pos: Vector2
+	if _is_mobile:
+		aim_screen_pos = cam.unproject_position(global_position + (-global_basis.z * 120.0))
+	elif _pointer_active:
+		aim_screen_pos = _pointer_pos
+	else:
+		aim_screen_pos = vp_rect.size * 0.5
+
+	var candidates: Array[Dictionary] = []
+
+	for enemy in enemies:
+		if not (enemy is Node3D):
+			continue
+		if _locked_targets.has(enemy):
+			continue
+		if not is_instance_valid(enemy) or enemy.is_queued_for_deletion():
+			continue
+		if "current_hp" in enemy and enemy.current_hp <= 0:
+			continue
+		if "_is_dead" in enemy and enemy._is_dead:
+			continue
+
+		var enemy_pos: Vector3 = enemy.global_position
+		if cam.is_position_behind(enemy_pos):
+			continue
+
+		var dist := global_position.distance_to(enemy_pos)
+		if dist > lock_on_range or dist < 8.0:
+			continue
+
+		var s_pos := cam.unproject_position(enemy_pos)
+		if not vp_rect.has_point(s_pos):
+			continue
+
+		var screen_dist := s_pos.distance_to(aim_screen_pos)
+		var max_dist := 520.0 if _is_mobile else 400.0
+		if screen_dist <= max_dist:
+			candidates.append({
+				"node": enemy,
+				"score": screen_dist + (dist * 0.3)
+			})
+
+	if candidates.is_empty():
+		return false
+
+	candidates.sort_custom(func(a, b): return a["score"] < b["score"])
+
+	var newly_added := false
+	for item in candidates:
+		if _locked_targets.size() >= lock_on_max_targets:
+			break
+		_locked_targets.append(item["node"])
+		newly_added = true
+
+	if newly_added:
+		_play_lock_on_sound()
+
+	return newly_added
+
+
+func _play_lock_on_sound() -> void:
+	if not _lock_audio_player:
+		return
+	if lock_on_sound:
+		_lock_audio_player.stream = lock_on_sound
+	_lock_audio_player.pitch_scale = randf_range(0.98, 1.05)
+	_lock_audio_player.play()
+
+
+func _play_missile_fire_sound() -> void:
+	if not _missile_audio_player:
+		return
+	if missile_fire_sound:
+		_missile_audio_player.stream = missile_fire_sound
+	_missile_audio_player.pitch_scale = randf_range(0.95, 1.08)
+	_missile_audio_player.play()
+
+
+## Dispara salva de mísseis nos alvos travados (acessível via PC ou botão Mobile)
+func fire_missiles() -> void:
+	if _is_reloading_missiles or current_missiles <= 0 or not _controls_enabled or _is_dying:
+		return
+
+	# Remove alvos que possam ter morrido antes do clique
+	var active_targets: Array[Node3D] = []
+	for t in _locked_targets:
+		if is_instance_valid(t) and not t.is_queued_for_deletion():
+			active_targets.append(t)
+	_locked_targets = active_targets
+
+	if _locked_targets.is_empty():
+		return
+
+	var count_to_fire := mini(_locked_targets.size(), current_missiles)
+	var targets_to_shoot := _locked_targets.slice(0, count_to_fire)
+
+	for i in range(count_to_fire):
+		var target := targets_to_shoot[i]
+		_spawn_single_missile(target, i)
+
+	current_missiles -= count_to_fire
+	_locked_targets = _locked_targets.slice(count_to_fire)
+
+	missile_fired.emit(current_missiles, max_missiles)
+	missile_targets_changed.emit(_locked_targets)
+
+	# Se esgotou os 3 mísseis, inicia o reload de 5 segundos
+	if current_missiles <= 0:
+		_is_reloading_missiles = true
+		_missile_reload_timer = missile_reload_time
+		missile_reload_progress.emit(0.0)
+
+
+func _spawn_single_missile(target: Node3D, _index: int) -> void:
+	if not missile_scene:
+		return
+
+	var missile: PlayerMissile = missile_scene.instantiate() as PlayerMissile
+	if not missile:
+		return
+
+	# Alterna a ejeção entre a asa esquerda e direita
+	var wing_side := -1.0 if (_missile_wing_side % 2 == 0) else 1.0
+	_missile_wing_side += 1
+
+	var local_spawn := Vector3(wing_side * 2.8, -0.4, 0.5)
+	var spawn_global := global_position
+	if ship_model:
+		spawn_global = ship_model.to_global(local_spawn)
+	else:
+		spawn_global = to_global(local_spawn)
+
+	var forward_dir := -global_basis.z.normalized()
+	var side_dir := global_basis.x.normalized() * (wing_side * 0.3)
+	var initial_launch_dir := (forward_dir + side_dir).normalized()
+
+	var scene_root := get_tree().current_scene
+	if not scene_root:
+		scene_root = get_parent()
+	scene_root.add_child(missile)
+
+	missile.global_position = spawn_global
+	missile.setup(target, initial_launch_dir)
+
+	_play_missile_fire_sound()
+

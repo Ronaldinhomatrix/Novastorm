@@ -1,8 +1,9 @@
-[gd_scene load_steps=8 format=3 uid="uid://c6j8l2g5vh0m1"]
+[gd_scene load_steps=10 format=3 uid="uid://c6j8l2g5vh0m1"]
 
 [ext_resource type="Script" path="res://scripts/ui/hud.gd" id="1_hud"]
 [ext_resource type="Shader" path="res://assets/shaders/damage_vignette.gdshader" id="2_shader"]
 [ext_resource type="Shader" path="res://assets/shaders/hologram_glitch_text.gdshader" id="4_glitch"]
+[ext_resource type="Script" path="res://scripts/ui/lock_on_reticle.gd" id="5_reticle"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_vignette"]
 shader = ExtResource("2_shader")
@@ -11,12 +12,24 @@ shader_parameter/inner_radius = 0.3
 shader_parameter/outer_radius = 0.85
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_tactical_panel"]
-bg_color = Color(0.02, 0.04, 0.08, 0.72)
+bg_color = Color(0.02, 0.04, 0.08, 0.75)
 border_width_left = 2
 border_color = Color(0, 0.88, 1, 0.6)
 corner_radius_top_left = 2
 corner_radius_top_right = 4
 corner_radius_bottom_right = 4
+corner_radius_bottom_left = 2
+shadow_color = Color(0, 0, 0, 0.5)
+shadow_size = 8
+shadow_offset = Vector2(0, 2)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_missile_panel"]
+bg_color = Color(0.03, 0.04, 0.07, 0.78)
+border_width_left = 2
+border_color = Color(1, 0.45, 0.1, 0.75)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 2
 corner_radius_bottom_left = 2
 shadow_color = Color(0, 0, 0, 0.5)
 shadow_size = 8
@@ -48,6 +61,16 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
+[node name="LockOnReticle" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("5_reticle")
+
 [node name="SafeArea" type="MarginContainer" parent="."]
 anchors_preset = 15
 anchor_right = 1.0
@@ -63,6 +86,67 @@ theme_override_constants/margin_bottom = 32
 [node name="BottomLeft" type="Control" parent="SafeArea"]
 layout_mode = 2
 mouse_filter = 2
+
+[node name="MissilePanel" type="PanelContainer" parent="SafeArea/BottomLeft"]
+custom_minimum_size = Vector2(230, 64)
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_top = -140.0
+offset_right = 230.0
+offset_bottom = -74.0
+grow_vertical = 0
+theme_override_styles/panel = SubResource("StyleBoxFlat_missile_panel")
+
+[node name="Margin" type="MarginContainer" parent="SafeArea/BottomLeft/MissilePanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 8
+
+[node name="HBox" type="HBoxContainer" parent="SafeArea/BottomLeft/MissilePanel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="LaunchButton" type="Button" parent="SafeArea/BottomLeft/MissilePanel/Margin/HBox"]
+custom_minimum_size = Vector2(76, 46)
+layout_mode = 2
+size_flags_vertical = 3
+focus_mode = 0
+theme_override_fonts/font = SubResource("SystemFont_computer_bold")
+theme_override_font_sizes/font_size = 11
+text = "🚀 MISSILE"
+
+[node name="InfoVBox" type="VBoxContainer" parent="SafeArea/BottomLeft/MissilePanel/Margin/HBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 5
+alignment = 1
+
+[node name="StatusLabel" type="Label" parent="SafeArea/BottomLeft/MissilePanel/Margin/HBox/InfoVBox"]
+layout_mode = 2
+theme_override_colors/font_color = Color(1, 0.55, 0.1, 0.95)
+theme_override_fonts/font = SubResource("SystemFont_computer_bold")
+theme_override_font_sizes/font_size = 10
+text = "MISSILES [READY]"
+vertical_alignment = 1
+
+[node name="MissilePips" type="HBoxContainer" parent="SafeArea/BottomLeft/MissilePanel/Margin/HBox/InfoVBox"]
+custom_minimum_size = Vector2(0, 10)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+theme_override_constants/separation = 4
+
+[node name="ReloadBar" type="ProgressBar" parent="SafeArea/BottomLeft/MissilePanel/Margin/HBox/InfoVBox"]
+visible = false
+custom_minimum_size = Vector2(0, 6)
+layout_mode = 2
+size_flags_horizontal = 3
+max_value = 1.0
+show_percentage = false
 
 [node name="TacticalPanel" type="PanelContainer" parent="SafeArea/BottomLeft"]
 custom_minimum_size = Vector2(230, 64)

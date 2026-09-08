@@ -13,6 +13,8 @@ extends CanvasLayer
 @export var color_hull_good: Color = Color(0.08, 0.92, 0.48, 1.0)         # Verde Esmeralda (3/3)
 @export var color_hull_warning: Color = Color(1.0, 0.72, 0.1, 1.0)        # Âmbar Tático (2/3)
 @export var color_hull_critical: Color = Color(1.0, 0.22, 0.2, 1.0)       # Vermelho Crítico (1/3)
+@export var color_missile_active: Color = Color(1.0, 0.5, 0.1, 1.0)        # Laranja Neon (Míssil carregado)
+@export var color_missile_empty: Color = Color(0.16, 0.08, 0.05, 0.85)     # Descarregado
 
 # Referências de nós na cena
 @onready var tactical_panel: PanelContainer = $SafeArea/BottomLeft/TacticalPanel
@@ -24,11 +26,26 @@ extends CanvasLayer
 @onready var hull_label: Label = $SafeArea/BottomLeft/TacticalPanel/Margin/StatusVBox/HullRow/HullLabel
 @onready var hull_pips: HBoxContainer = $SafeArea/BottomLeft/TacticalPanel/Margin/StatusVBox/HullRow/HullPips
 
+# Módulo de Mísseis e Botão Mobile
+@onready var missile_panel: PanelContainer = get_node_or_null("SafeArea/BottomLeft/MissilePanel")
+@onready var missile_btn: Button = get_node_or_null("SafeArea/BottomLeft/MissilePanel/Margin/HBox/LaunchButton")
+@onready var missile_pips: HBoxContainer = get_node_or_null("SafeArea/BottomLeft/MissilePanel/Margin/HBox/InfoVBox/MissilePips")
+@onready var missile_status_label: Label = get_node_or_null("SafeArea/BottomLeft/MissilePanel/Margin/HBox/InfoVBox/StatusLabel")
+@onready var missile_reload_bar: ProgressBar = get_node_or_null("SafeArea/BottomLeft/MissilePanel/Margin/HBox/InfoVBox/ReloadBar")
+@onready var lock_on_reticle: LockOnReticle = get_node_or_null("LockOnReticle")
+
 @onready var damage_vignette: ColorRect = $DamageVignette
 
 # Alerta Cinematográfico
 @onready var warning_container: Control = $SafeArea/TopCenter/WarningContainer
 @onready var warning_title_rich: RichTextLabel = $SafeArea/TopCenter/WarningContainer/TitleRich
+
+var _player_ref: Node = null
+var _current_missiles: int = 3
+var _max_missiles: int = 3
+var _is_reloading_missiles: bool = false
+var _has_locked_targets: bool = false
+var _missile_pulse_time: float = 0.0
 
 var _current_shield: int = 3
 var _max_shield: int = 3
@@ -60,13 +77,35 @@ func _ready() -> void:
 		warning_container.modulate.a = 0.0
 		warning_container.visible = false
 
+	if missile_btn:
+		missile_btn.pressed.connect(_on_missile_button_pressed)
+
 	_build_shield_pips()
 	_build_hull_pips()
+	_build_missile_pips()
 	_update_shield_display(false)
 	_update_hull_display(false)
+	_update_missile_display()
 
 
 func _process(delta: float) -> void:
+	# Atualiza câmera no retículo de mira tática
+	if lock_on_reticle and not lock_on_reticle._camera:
+		var cam := get_viewport().get_camera_3d()
+		if cam:
+			lock_on_reticle.set_camera(cam)
+
+	# Efeito de pulso no botão de míssil quando alvos estiverem travados
+	if missile_btn:
+		if _has_locked_targets and not _is_reloading_missiles and _current_missiles > 0:
+			_missile_pulse_time += delta * 7.5
+			var pulse := (sin(_missile_pulse_time) + 1.0) * 0.5 * 0.45 + 0.85
+			missile_btn.modulate = Color(1.35 * pulse, 1.15 * pulse, 0.9 * pulse, 1.0)
+		elif _is_reloading_missiles or _current_missiles <= 0:
+			missile_btn.modulate = Color(0.65, 0.65, 0.65, 0.6)
+		else:
+			missile_btn.modulate = Color.WHITE
+
 	# Pulsação suave de alarme quando o Hull está crítico (1 ponto restante)
 	if _is_pulsing_critical and hull_pips:
 		_critical_pulse_time += delta * 5.0
@@ -109,6 +148,8 @@ func attach_player(player: Node) -> void:
 	if not is_instance_valid(player):
 		return
 
+	_player_ref = player
+
 	if player.has_signal("shield_changed"):
 		if not player.is_connected("shield_changed", _on_player_shield_changed):
 			player.connect("shield_changed", _on_player_shield_changed)
@@ -121,6 +162,22 @@ func attach_player(player: Node) -> void:
 		if not player.is_connected("damage_taken", _on_player_damage_taken):
 			player.connect("damage_taken", _on_player_damage_taken)
 
+	if player.has_signal("missile_fired"):
+		if not player.is_connected("missile_fired", _on_player_missile_fired):
+			player.connect("missile_fired", _on_player_missile_fired)
+
+	if player.has_signal("missile_reloaded"):
+		if not player.is_connected("missile_reloaded", _on_player_missile_reloaded):
+			player.connect("missile_reloaded", _on_player_missile_reloaded)
+
+	if player.has_signal("missile_reload_progress"):
+		if not player.is_connected("missile_reload_progress", _on_player_missile_reload_progress):
+			player.connect("missile_reload_progress", _on_player_missile_reload_progress)
+
+	if player.has_signal("missile_targets_changed"):
+		if not player.is_connected("missile_targets_changed", _on_player_missile_targets_changed):
+			player.connect("missile_targets_changed", _on_player_missile_targets_changed)
+
 	if "current_shield" in player and "max_shield" in player:
 		_max_shield = player.max_shield
 		_current_shield = player.current_shield
@@ -129,10 +186,20 @@ func attach_player(player: Node) -> void:
 		_max_hull = player.max_hull
 		_current_hull = player.current_hull
 
+	if "current_missiles" in player and "max_missiles" in player:
+		_max_missiles = player.max_missiles
+		_current_missiles = player.current_missiles
+
 	_build_shield_pips()
 	_build_hull_pips()
+	_build_missile_pips()
 	_update_shield_display(false)
 	_update_hull_display(false)
+	_update_missile_display()
+
+	var cam := get_viewport().get_camera_3d()
+	if lock_on_reticle and cam:
+		lock_on_reticle.set_camera(cam)
 
 
 func _on_player_shield_changed(current: int, max_val: int) -> void:
@@ -431,3 +498,132 @@ func show_cinematic_warning(title: String = "WARNING // INCOMING ENEMIES", _subt
 			warning_container.visible = false
 			warning_container.scale = Vector2.ONE
 	)
+
+
+# ---------------------------------------------------------------------------
+# Módulo de Mísseis e Botão Mobile (After Burner II)
+# ---------------------------------------------------------------------------
+
+func _build_missile_pips() -> void:
+	if not missile_pips:
+		return
+	if missile_pips.get_child_count() == _max_missiles:
+		return
+	for child in missile_pips.get_children():
+		child.queue_free()
+
+	for i in range(_max_missiles):
+		var pip := PanelContainer.new()
+		pip.custom_minimum_size = Vector2(0, 8)
+		pip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		pip.size_flags_vertical = Control.SIZE_FILL
+		pip.name = "MissilePip_%d" % i
+		missile_pips.add_child(pip)
+
+
+func _update_missile_display() -> void:
+	if not missile_pips:
+		return
+
+	if _is_reloading_missiles:
+		if missile_reload_bar:
+			missile_reload_bar.visible = true
+		if missile_status_label:
+			missile_status_label.text = "RELOADING // 5.0s"
+			missile_status_label.modulate = Color(1.2, 0.3, 0.2, 0.95)
+	else:
+		if missile_reload_bar:
+			missile_reload_bar.visible = false
+		if missile_status_label:
+			if _has_locked_targets:
+				missile_status_label.text = "LOCK ACQUIRED [%d/3]" % _current_missiles
+				missile_status_label.modulate = Color(1.35, 0.45, 0.1, 1.0)
+			else:
+				missile_status_label.text = "MISSILES [%d/3]" % _current_missiles
+				missile_status_label.modulate = Color(1.0, 0.65, 0.2, 0.95)
+
+	var children := missile_pips.get_children()
+	for i in range(children.size()):
+		var pip := children[i] as PanelContainer
+		if not pip:
+			continue
+
+		var is_active := (i < _current_missiles and not _is_reloading_missiles)
+		var sb := StyleBoxFlat.new()
+		sb.corner_radius_top_left = 2
+		sb.corner_radius_top_right = 2
+		sb.corner_radius_bottom_right = 2
+		sb.corner_radius_bottom_left = 2
+
+		if is_active:
+			sb.bg_color = Color(1.25, 0.5, 0.1, 1.0)
+			sb.border_width_left = 1
+			sb.border_width_top = 1
+			sb.border_width_right = 1
+			sb.border_width_bottom = 1
+			sb.border_color = Color(1.4, 0.85, 0.3, 1.0)
+			sb.shadow_color = Color(1.0, 0.35, 0.05, 0.85)
+			sb.shadow_size = 5
+			pip.modulate = Color(1.1, 1.1, 1.1, 1.0)
+		else:
+			sb.bg_color = Color(0.06, 0.03, 0.02, 0.85)
+			sb.border_width_left = 1
+			sb.border_width_top = 1
+			sb.border_width_right = 1
+			sb.border_width_bottom = 1
+			sb.border_color = Color(0.25, 0.12, 0.08, 0.35)
+			sb.shadow_size = 0
+			pip.modulate = Color(1.0, 1.0, 1.0, 0.4)
+
+		pip.add_theme_stylebox_override("panel", sb)
+
+
+func _on_player_missile_fired(remaining: int, max_val: int) -> void:
+	_max_missiles = max_val
+	_current_missiles = remaining
+	if remaining <= 0:
+		_is_reloading_missiles = true
+	_update_missile_display()
+
+	if missile_btn:
+		var fire_tween := create_tween()
+		missile_btn.scale = Vector2(0.92, 0.92)
+		fire_tween.tween_property(missile_btn, "scale", Vector2.ONE, 0.12).set_trans(Tween.TRANS_BACK)
+
+
+func _on_player_missile_reloaded(current: int, max_val: int) -> void:
+	_max_missiles = max_val
+	_current_missiles = current
+	_is_reloading_missiles = false
+	if missile_reload_bar:
+		missile_reload_bar.visible = false
+	_update_missile_display()
+
+	# Brilho de recarga concluída
+	if missile_panel:
+		var reload_tween := create_tween()
+		missile_panel.modulate = Color(2.0, 1.5, 1.0, 1.0)
+		reload_tween.tween_property(missile_panel, "modulate", Color.WHITE, 0.35)
+
+
+func _on_player_missile_reload_progress(progress: float) -> void:
+	if missile_reload_bar:
+		missile_reload_bar.visible = true
+		missile_reload_bar.value = progress
+
+	if missile_status_label and _is_reloading_missiles:
+		var remaining_time := (1.0 - progress) * 5.0
+		missile_status_label.text = "RELOAD // %.1fs" % remaining_time
+
+
+func _on_player_missile_targets_changed(targets: Array[Node3D]) -> void:
+	_has_locked_targets = not targets.is_empty()
+	if lock_on_reticle:
+		lock_on_reticle.update_targets(targets)
+	_update_missile_display()
+
+
+func _on_missile_button_pressed() -> void:
+	if _player_ref and _player_ref.has_method("fire_missiles"):
+		_player_ref.call("fire_missiles")
+
