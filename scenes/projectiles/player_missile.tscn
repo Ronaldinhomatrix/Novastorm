@@ -125,19 +125,19 @@ omni_range = 9.0
 
 [node name="SmokeTrail" type="CPUParticles3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1.2)
-amount = 45
-lifetime = 1.0
+amount = 68
+lifetime = 1.15
 local_coords = false
 mesh = SubResource("SphereMesh_smoke")
 emission_shape = 1
-emission_sphere_radius = 0.2
+emission_sphere_radius = 0.25
 direction = Vector3(0, 0, 1)
 spread = 22.0
 gravity = Vector3(0, 1.8, 0)
 initial_velocity_min = 12.0
 initial_velocity_max = 28.0
-scale_amount_min = 0.5
-scale_amount_max = 2.4
+scale_amount_min = 0.7
+scale_amount_max = 3.2
 scale_amount_curve = SubResource("Curve_smoke_scale")
 color_ramp = SubResource("Gradient_smoke_color")
 

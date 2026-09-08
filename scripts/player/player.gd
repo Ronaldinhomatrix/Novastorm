@@ -1026,9 +1026,11 @@ func _spawn_single_missile(target: Node3D, _index: int) -> void:
 	else:
 		spawn_global = to_global(local_spawn)
 
-	var forward_dir := -global_basis.z.normalized()
-	var side_dir := global_basis.x.normalized() * (wing_side * 0.3)
-	var initial_launch_dir := (forward_dir + side_dir).normalized()
+	var initial_launch_dir: Vector3
+	if ship_model:
+		initial_launch_dir = -ship_model.global_basis.z.normalized()
+	else:
+		initial_launch_dir = -global_basis.z.normalized()
 
 	var scene_root := get_tree().current_scene
 	if not scene_root:

@@ -10,6 +10,7 @@ extends Area3D
 @export var max_speed: float = 432.0
 @export var acceleration: float = 480.0
 @export var turn_rate: float = 11.0  ## Velocidade angular de perseguição (rad/s)
+@export var homing_delay: float = 0.35  ## Tempo em linha reta antes de iniciar a perseguição (s)
 @export var max_lifetime: float = 7.5
 @export var damage: int = 3
 
@@ -78,29 +79,30 @@ func _physics_process(delta: float) -> void:
 	# Aceleração progressiva
 	_current_speed = move_toward(_current_speed, max_speed, acceleration * delta)
 
-	# Lógica de Homing (perseguição)
+	# Lógica de Homing (perseguição) - após o período inicial em linha reta
 	var forward := _velocity.normalized()
 	var desired_dir := forward
 
-	if is_instance_valid(_target) and not _target.is_queued_for_deletion():
-		# Pega a posição central do alvo
-		var target_pos := _target.global_position
-		# Se tiver ShipModel, foca nele
-		var model: Node3D = _target.get_node_or_null("ShipModel") as Node3D
-		if model:
-			target_pos = model.global_position
+	if _age >= homing_delay:
+		if is_instance_valid(_target) and not _target.is_queued_for_deletion():
+			# Pega a posição central do alvo
+			var target_pos := _target.global_position
+			# Se tiver ShipModel, foca nele
+			var model: Node3D = _target.get_node_or_null("ShipModel") as Node3D
+			if model:
+				target_pos = model.global_position
 
-		var to_target := (target_pos - global_position).normalized()
-		# Curva suave com limite de turn_rate
-		var angle_diff := forward.angle_to(to_target)
-		if angle_diff > 0.001:
-			var max_angle_step := turn_rate * delta
-			var rot_factor := clampf(max_angle_step / angle_diff, 0.0, 1.0)
-			desired_dir = forward.slerp(to_target, rot_factor).normalized()
+			var to_target := (target_pos - global_position).normalized()
+			# Curva suave com limite de turn_rate
+			var angle_diff := forward.angle_to(to_target)
+			if angle_diff > 0.001:
+				var max_angle_step := turn_rate * delta
+				var rot_factor := clampf(max_angle_step / angle_diff, 0.0, 1.0)
+				desired_dir = forward.slerp(to_target, rot_factor).normalized()
+			else:
+				desired_dir = to_target
 		else:
-			desired_dir = to_target
-	else:
-		_target = null  # Alvo perdido, continua na trajetória atual
+			_target = null  # Alvo perdido, continua na trajetória atual
 
 	_velocity = desired_dir * _current_speed
 
