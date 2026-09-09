@@ -31,8 +31,15 @@ enum GenerationMode {
 ## Profundidade do chão abaixo da linha de voo
 @export_range(5.0, 100.0, 1.0) var floor_depth: float = 35.0
 
+## Início da geração ao longo do Path3D (em metros). Útil para gerar apenas trechos específicos.
+@export_range(0.0, 10000.0, 10.0) var start_distance: float = 0.0
+## Fim da geração ao longo do Path3D (em metros). -1.0 = até o final da curva.
+@export var end_distance: float = -1.0
+
+
 ## Modo de geração do relevo
 @export var mode: GenerationMode = GenerationMode.OPEN_CANYON
+
 
 @export_group("Organic Noise Settings")
 ## Intensidade das saliências e penhascos de rocha
@@ -68,8 +75,14 @@ func _ready() -> void:
 			generate_canyon_mesh()
 
 func _apply_platform_material() -> void:
-	var is_mobile := GameConfig.is_mobile
+	var is_mobile := false
+	if not Engine.is_editor_hint() and has_node("/root/GameConfig"):
+		is_mobile = bool(get_node("/root/GameConfig").get("is_mobile"))
+	else:
+		is_mobile = OS.has_feature("mobile") or OS.has_feature("android") or OS.has_feature("ios")
+
 	var base_mat: Material = null
+
 	
 	if is_mobile:
 		if mobile_material == null:
@@ -110,11 +123,17 @@ func generate_canyon_mesh() -> void:
 		
 	_init_noise()
 	var curve: Curve3D = path_node.curve
-	var total_length = curve.get_baked_length()
-	if total_length < 10.0:
+	var curve_len = curve.get_baked_length()
+	if curve_len < 10.0:
 		return
 
-	var num_steps = int(ceil(total_length / step_length))
+	var effective_start = clampf(start_distance, 0.0, curve_len)
+	var effective_end = curve_len if end_distance < 0.0 else clampf(end_distance, effective_start + 10.0, curve_len)
+	var span_length = effective_end - effective_start
+	if span_length < 10.0:
+		return
+
+	var num_steps = int(ceil(span_length / step_length))
 	if num_steps < 2:
 		return
 
@@ -130,7 +149,7 @@ func generate_canyon_mesh() -> void:
 	var last_up = Vector3.UP
 
 	for step in range(num_steps + 1):
-		var offset = min(step * step_length, total_length)
+		var offset = min(effective_start + step * step_length, effective_end)
 		var t = curve.sample_baked_with_rotation(offset, true, true)
 		var center = t.origin
 		var forward = -t.basis.z.normalized()
@@ -152,8 +171,9 @@ func generate_canyon_mesh() -> void:
 			last_forward = forward
 			last_up = up
 
-		var progress_ratio = offset / total_length
+		var progress_ratio = (offset - effective_start) / span_length
 		var is_tunnel = (mode == GenerationMode.CLOSED_TUNNEL) or (mode == GenerationMode.HYBRID_VALLEY and progress_ratio > 0.35 and progress_ratio < 0.65)
+
 
 		var current_ring = PackedInt32Array()
 		var v_coord = offset * 0.03
