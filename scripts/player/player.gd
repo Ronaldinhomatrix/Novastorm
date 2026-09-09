@@ -50,7 +50,7 @@ extends CharacterBody3D
 ## Raio do cone de mira em pixels na tela (área central onde o jogador precisa apontar).
 @export var lock_on_radius: float = 260.0
 ## Tempo de sustentação da mira sobre o alvo (em segundos) para travar o míssil.
-@export var lock_on_confirm_time: float = 0.12
+@export var lock_on_confirm_time: float = 1.0
 ## Som de bip ao travar alvo (lock-on).
 @export var lock_on_sound: AudioStream = preload("res://assets/audio/lock_on.wav")
 ## Som de lançamento do míssil.
