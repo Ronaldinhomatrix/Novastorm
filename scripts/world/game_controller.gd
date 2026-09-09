@@ -130,6 +130,10 @@ var _crosshair: Control = null  ## Instância do crosshair UI
 @export var wave_manager: WaveManager = null
 @export var enable_enemy_waves: bool = true
 
+@export_category("Tutorial")
+## Ativa o tutorial interativo de tiro e lock-on no início da fase
+@export var enable_tutorial: bool = true
+
 @export_category("HUD de Combate")
 @export var hud_scene: PackedScene = preload("res://scenes/ui/hud.tscn")
 @export var hud: CombatHUD = null
@@ -200,6 +204,9 @@ var _shake_intensity: float = 0.0
 # Reproduz a trilha sonora do nível.
 var _music_player: AudioStreamPlayer = null
 var _dev_layer: CanvasLayer = null
+
+const TutorialManagerScript := preload("res://scripts/world/tutorial_manager.gd")
+var _tutorial_manager: TutorialManager = null
 
 # ---------------------------------------------------------------------------
 # Ciclo de Vida
@@ -855,16 +862,26 @@ func _run_preload_and_warmup(canvas_layer: CanvasLayer, curtain: ColorRect, intr
 		if wave_manager and wave_manager.has_method("_update_target_ratios"):
 			wave_manager._update_target_ratios()
 
-	# 4. Despausa o jogo / inicia a introdução cinematográfica (pula intro se estiver testando trecho específico)
+	# 4. Inicializa o Tutorial Interativo (apenas se habilitado e fora de testes de trechos)
 	var is_testing_section := (path_follower and (path_follower.debug_start_point > 0 or path_follower.debug_start_ratio > 0.0))
+	if enable_tutorial and not is_testing_section:
+		_tutorial_manager = TutorialManagerScript.new()
+		_tutorial_manager.name = "TutorialManager"
+		add_child(_tutorial_manager)
+		_tutorial_manager.setup(path_follower, player as Player, hud)
+
+	# 5. Despausa o jogo / inicia a introdução cinematográfica (pula intro se estiver testando trecho específico)
 	if intro and not is_testing_section:
 		intro.enabled = true
 		intro.start()
 		# A mira só aparece quando a intro terminar.
 		if _crosshair and intro.has_signal("intro_completed"):
-			# Conecta apenas uma vez para evitar leaks.
 			if not intro.intro_completed.is_connected(_show_crosshair):
 				intro.intro_completed.connect(_show_crosshair)
+		if _tutorial_manager:
+			intro.intro_completed.connect(func():
+				_tutorial_manager.start_tutorial()
+			)
 	else:
 		if path_follower:
 			path_follower.set_paused(false)
@@ -876,6 +893,8 @@ func _run_preload_and_warmup(canvas_layer: CanvasLayer, curtain: ColorRect, intr
 			Input.mouse_mode = Input.MOUSE_MODE_HIDDEN
 		if _crosshair:
 			_crosshair.visible = true
+		if _tutorial_manager:
+			_tutorial_manager.start_tutorial()
 
 	# 5. Transição suave (fade-out) da cortina preta para revelar o jogo rodando 100% fluido
 	var tween := create_tween()

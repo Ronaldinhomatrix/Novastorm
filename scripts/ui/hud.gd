@@ -696,3 +696,31 @@ func _on_missile_button_pressed() -> void:
 	if _player_ref and _player_ref.has_method("fire_missiles"):
 		_player_ref.call("fire_missiles")
 
+
+# ---------------------------------------------------------------------------
+# Suporte ao Tutorial
+# ---------------------------------------------------------------------------
+
+const TutorialOverlayScript := preload("res://scripts/ui/tutorial_overlay.gd")
+var _tutorial_overlay: TutorialOverlay = null
+
+
+func get_tutorial_overlay() -> TutorialOverlay:
+	if not _tutorial_overlay:
+		_tutorial_overlay = TutorialOverlayScript.new()
+		_tutorial_overlay.name = "TutorialOverlay"
+		add_child(_tutorial_overlay)
+	return _tutorial_overlay
+
+
+func start_tutorial_missile_blink() -> void:
+	var overlay := get_tutorial_overlay()
+	if overlay and missile_panel:
+		overlay.start_mobile_missile_prompt(missile_panel)
+
+
+func stop_tutorial_missile_blink() -> void:
+	if _tutorial_overlay:
+		_tutorial_overlay.stop_mobile_missile_prompt()
+
+

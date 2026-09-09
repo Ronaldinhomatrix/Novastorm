@@ -78,6 +78,7 @@ signal shield_changed(current: int, max_val: int)
 signal hull_changed(current: int, max_val: int)
 signal health_changed(current: int, max_val: int)
 signal damage_taken(amount: int)
+signal primary_fire_started
 signal missile_fired(remaining: int, max_val: int)
 signal missile_reloaded(current: int, max_val: int)
 signal missile_reload_progress(progress: float)
@@ -282,6 +283,8 @@ func _handle_desktop_input(event: InputEvent) -> void:
 
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_LEFT:
+			if event.pressed and not _is_firing:
+				primary_fire_started.emit()
 			_is_firing = event.pressed
 		elif event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
 			fire_missiles()
@@ -294,6 +297,8 @@ func _handle_mobile_input(event: InputEvent) -> void:
 				_touch_index = event.index
 				_drag_active = true
 				_pointer_active = false
+				if not _is_firing:
+					primary_fire_started.emit()
 				_is_firing = true
 		elif event.index == _touch_index:
 			_drag_active = false
@@ -363,7 +368,9 @@ func _physics_process(delta: float) -> void:
 
 	# Interpolação suave para a posição atual (suaviza teclado e ponteiro),
 	# detectando colisão com o cenário para ricochetear.
-	var follow := clampf(pointer_follow_speed * delta, 0.0, 1.0)
+	# Em câmera lenta (slow motion), compensa a escala de tempo para a mira permanecer ágil
+	var effective_follow_delta: float = (delta / maxf(Engine.time_scale, 0.05)) if Engine.time_scale < 0.9 else delta
+	var follow := clampf(pointer_follow_speed * effective_follow_delta, 0.0, 1.0)
 	_apply_movement(follow)
 
 	_handle_ship_rotation(delta)
@@ -463,8 +470,9 @@ func _apply_drag_delta(screen_delta: Vector2) -> void:
 
 func _update_keyboard_target(input_dir: Vector2, delta: float) -> void:
 	# O teclado move a posição alvo local diretamente de forma contínua
-	_target_local_pos.x += input_dir.x * speed * delta
-	_target_local_pos.y -= input_dir.y * speed * delta
+	var effective_delta: float = (delta / maxf(Engine.time_scale, 0.05)) if Engine.time_scale < 0.9 else delta
+	_target_local_pos.x += input_dir.x * speed * effective_delta
+	_target_local_pos.y -= input_dir.y * speed * effective_delta
 	_target_local_pos.z = forward_offset
 
 
@@ -539,15 +547,12 @@ func _spawn_bullet() -> void:
 	if not bullet_scene:
 		return
 
-	# O tiro sai a partir do bico / ponta frontal da nave (ShipModel),
-	# evitando que o rastro e o corpo do projétil apareçam dentro do cockpit.
+	primary_fire_started.emit()
+
+	# O tiro nasce alinhado com o centro e a frente da nave,
+	# avançado 4 unidades para nascer fora do cockpit sem distorcer o ângulo de mira.
 	var aim_dir := _get_ship_aim_direction()
-	var spawn_pos: Vector3
-	if ship_model:
-		# Posição no bico da nave (espaço local avançado no eixo -Z da nave)
-		spawn_pos = ship_model.to_global(Vector3(0.0, -0.2, -6.5)) + aim_dir * 5.0
-	else:
-		spawn_pos = to_global(Vector3(0.0, -0.2, -6.5)) + aim_dir * 5.0
+	var spawn_pos: Vector3 = global_position + aim_dir * 4.0
 
 	var bullet: Bullet = bullet_scene.instantiate() as Bullet
 	if not bullet:
@@ -1019,7 +1024,8 @@ func _scan_and_track_targets(delta: float, cam: Camera3D, vp_rect: Rect2, max_al
 	var ready_to_lock: Array = []
 
 	for enemy in _targeting_progress.keys():
-		var time_elapsed: float = _targeting_progress[enemy] + delta
+		var effective_delta: float = (delta / maxf(Engine.time_scale, 0.05)) if Engine.time_scale < 0.9 else delta
+		var time_elapsed: float = _targeting_progress[enemy] + effective_delta
 		_targeting_progress[enemy] = time_elapsed
 
 		# Completou o 1 segundo de aquisição? Confirma o Lock!
