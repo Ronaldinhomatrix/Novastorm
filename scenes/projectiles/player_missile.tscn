@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://dmis7l6pk82a1"]
 
-[ext_resource type="Script" path="res://scripts/projectiles/player_missile.gd" id="1_missile"]
+[ext_resource type="Script" uid="uid://dybr6n54ke3vw" path="res://scripts/projectiles/player_missile.gd" id="1_missile"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_hitbox"]
 size = Vector3(1.6, 1.6, 3.2)
@@ -60,8 +60,6 @@ vertex_color_use_as_albedo = true
 
 [sub_resource type="SphereMesh" id="SphereMesh_smoke"]
 material = SubResource("StandardMaterial3D_smoke")
-radius = 0.5
-height = 1.0
 radial_segments = 8
 rings = 4
 
@@ -73,55 +71,39 @@ point_count = 3
 offsets = PackedFloat32Array(0, 0.12, 0.5, 0.85, 1)
 colors = PackedColorArray(1, 0.8, 0.4, 0.8, 0.85, 0.85, 0.88, 0.65, 0.6, 0.62, 0.65, 0.45, 0.4, 0.42, 0.45, 0.2, 0.3, 0.3, 0.3, 0)
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_fire"]
-transparency = 1
-blend_mode = 1
-shading_mode = 0
-vertex_color_use_as_albedo = true
-
-[sub_resource type="BoxMesh" id="BoxMesh_fire"]
-material = SubResource("StandardMaterial3D_fire")
-size = Vector3(0.12, 0.12, 0.45)
-
-[sub_resource type="Gradient" id="Gradient_fire_color"]
-offsets = PackedFloat32Array(0, 0.3, 1)
-colors = PackedColorArray(3, 2.2, 1, 1, 2.5, 0.8, 0.1, 0.9, 0.8, 0.1, 0, 0)
-
-[node name="PlayerMissile" type="Area3D"]
+[node name="PlayerMissile" type="Area3D" unique_id=101665714]
 collision_layer = 2
 collision_mask = 10
 script = ExtResource("1_missile")
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+[node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=686135251]
 shape = SubResource("BoxShape3D_hitbox")
 
-[node name="MissileBody" type="Node3D" parent="."]
+[node name="MissileBody" type="Node3D" parent="." unique_id=1696064981]
 
-[node name="Fuselage" type="MeshInstance3D" parent="MissileBody"]
+[node name="Fuselage" type="MeshInstance3D" parent="MissileBody" unique_id=901316345]
 transform = Transform3D(1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 0)
 mesh = SubResource("CylinderMesh_fuselage")
 
-[node name="NoseCone" type="MeshInstance3D" parent="MissileBody"]
+[node name="NoseCone" type="MeshInstance3D" parent="MissileBody" unique_id=1233720363]
 transform = Transform3D(1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, -1.45)
 mesh = SubResource("CylinderMesh_nose")
 
-[node name="FinH" type="MeshInstance3D" parent="MissileBody"]
+[node name="FinH" type="MeshInstance3D" parent="MissileBody" unique_id=498698776]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.8)
 mesh = SubResource("BoxMesh_fin_h")
 
-[node name="FinV" type="MeshInstance3D" parent="MissileBody"]
+[node name="FinV" type="MeshInstance3D" parent="MissileBody" unique_id=1663688746]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.8)
 mesh = SubResource("BoxMesh_fin_v")
 
-[node name="EngineGlowMesh" type="MeshInstance3D" parent="MissileBody"]
+[node name="EngineGlowMesh" type="MeshInstance3D" parent="MissileBody" unique_id=66577223]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1.1)
 mesh = SubResource("SphereMesh_engine")
 
-[node name="SmokeTrail" type="CPUParticles3D" parent="."]
+[node name="SmokeTrail" type="CPUParticles3D" parent="." unique_id=91452087]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1.2)
-amount = 68
-lifetime = 1.15
-local_coords = false
+amount = 100
 mesh = SubResource("SphereMesh_smoke")
 emission_shape = 1
 emission_sphere_radius = 0.25
@@ -135,15 +117,3 @@ scale_amount_max = 3.2
 scale_amount_curve = SubResource("Curve_smoke_scale")
 color_ramp = SubResource("Gradient_smoke_color")
 
-[node name="EngineFire" type="CPUParticles3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1.15)
-amount = 16
-lifetime = 0.16
-local_coords = false
-mesh = SubResource("BoxMesh_fire")
-direction = Vector3(0, 0, 1)
-spread = 12.0
-gravity = Vector3(0, 0, 0)
-initial_velocity_min = 20.0
-initial_velocity_max = 50.0
-color_ramp = SubResource("Gradient_fire_color")

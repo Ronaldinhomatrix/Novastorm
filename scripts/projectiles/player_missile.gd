@@ -23,7 +23,6 @@ var _velocity: Vector3 = Vector3.ZERO
 var _age: float = 0.0
 var _is_exploding: bool = false
 var _smoke_particles: CPUParticles3D = null
-var _trail_fire: CPUParticles3D = null
 var _ray: RayCast3D = null
 var _has_hit: bool = false
 
@@ -52,7 +51,6 @@ func _ready() -> void:
 	add_child(_ray)
 
 	_smoke_particles = get_node_or_null("SmokeTrail") as CPUParticles3D
-	_trail_fire = get_node_or_null("EngineFire") as CPUParticles3D
 
 
 ## Inicializa o míssil com o alvo travado e direção de ejeção inicial
@@ -180,8 +178,6 @@ func _explode() -> void:
 	# Deixa a fumaça suspensa dissipar antes de remover o nó
 	if _smoke_particles:
 		_smoke_particles.emitting = false
-	if _trail_fire:
-		_trail_fire.emitting = false
 
 	var tree := get_tree()
 	if tree:
