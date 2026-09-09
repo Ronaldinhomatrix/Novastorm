@@ -45,8 +45,8 @@ const ChimeSound := preload("res://assets/audio/maneuver2_short.ogg")
 @export var hud: CombatHUD = null
 
 var _state: State = State.INACTIVE
-var _step1_enemies: Array[TutorialEnemy] = []
-var _step2_enemies: Array[TutorialEnemy] = []
+var _step1_enemies: Array[Node] = []
+var _step2_enemies: Array[Node] = []
 var _state_timer: float = 0.0
 var _overlay: TutorialOverlay = null
 
@@ -259,8 +259,8 @@ func _on_step2_cleared() -> void:
 # Utilitários de Criação e Limpeza
 # ---------------------------------------------------------------------------
 
-func _create_tutorial_enemy(lat: float, dist: float, vert: float, laser_immune: bool) -> TutorialEnemy:
-	var enemy: TutorialEnemy = TutorialEnemyScene.instantiate() as TutorialEnemy
+func _create_tutorial_enemy(lat: float, dist: float, vert: float, laser_immune: bool) -> Node:
+	var enemy := TutorialEnemyScene.instantiate()
 	if not enemy:
 		return null
 
@@ -270,15 +270,20 @@ func _create_tutorial_enemy(lat: float, dist: float, vert: float, laser_immune: 
 	else:
 		add_child(enemy)
 
-	enemy.setup_tutorial_formation(lat, dist, vert, laser_immune)
+	if enemy.has_method("setup_tutorial_formation"):
+		enemy.setup_tutorial_formation(lat, dist, vert, laser_immune)
 	return enemy
 
 
-func _clean_dead_enemies(arr: Array[TutorialEnemy]) -> void:
+func _clean_dead_enemies(arr: Array[Node]) -> void:
 	var i := arr.size() - 1
 	while i >= 0:
 		var e := arr[i]
-		if not is_instance_valid(e) or e.is_queued_for_deletion() or e._is_dead or e.current_hp <= 0:
+		if not is_instance_valid(e) or e.is_queued_for_deletion():
+			arr.remove_at(i)
+		elif "current_hp" in e and e.current_hp <= 0:
+			arr.remove_at(i)
+		elif "_is_dead" in e and e._is_dead:
 			arr.remove_at(i)
 		i -= 1
 

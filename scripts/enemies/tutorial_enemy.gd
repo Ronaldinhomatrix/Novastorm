@@ -6,6 +6,8 @@ extends EnemyScout
 ## sem disparar armas hostis e sem fugir da tela.
 ## Suporta modo imune a lasers primários para a etapa de mísseis secundários.
 
+const SparkScript := preload("res://scripts/effects/spark.gd")
+
 var immune_to_lasers: bool = false
 var target_dist_ahead: float = 65.0
 var target_lat: float = 0.0
@@ -120,3 +122,15 @@ func _on_body_entered(body: Node3D) -> void:
 			take_damage(1)
 			if is_instance_valid(body) and not body.is_queued_for_deletion():
 				body.queue_free()
+
+
+func _spawn_spark(point: Vector3, normal: Vector3) -> void:
+	if not SparkScript:
+		return
+	var spark: Node3D = SparkScript.new()
+	var scene := get_tree().current_scene if (get_tree() and get_tree().current_scene) else get_parent()
+	if scene:
+		scene.add_child(spark)
+	spark.global_position = point + normal * 0.5
+	if spark.has_method("setup"):
+		spark.setup(normal)

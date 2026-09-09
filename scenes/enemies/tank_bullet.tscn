@@ -3,7 +3,7 @@
 [ext_resource type="Script" path="res://scripts/enemies/tank_bullet.gd" id="1_tank_bullet"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_shell"]
-size = Vector3(4.0, 4.0, 8.0)
+size = Vector3(8.0, 8.0, 16.0)
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_shell_metal"]
 albedo_color = Color(0.22, 0.23, 0.22, 1)
@@ -12,9 +12,9 @@ roughness = 0.35
 
 [sub_resource type="CylinderMesh" id="CylinderMesh_shell"]
 material = SubResource("StandardMaterial3D_shell_metal")
-top_radius = 0.05
-bottom_radius = 0.55
-height = 2.8
+top_radius = 0.1
+bottom_radius = 1.1
+height = 5.6
 radial_segments = 12
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_copper_ring"]
@@ -24,9 +24,9 @@ roughness = 0.25
 
 [sub_resource type="CylinderMesh" id="CylinderMesh_ring"]
 material = SubResource("StandardMaterial3D_copper_ring")
-top_radius = 0.56
-bottom_radius = 0.56
-height = 0.45
+top_radius = 1.12
+bottom_radius = 1.12
+height = 0.9
 radial_segments = 12
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_tracer_element"]
@@ -37,8 +37,8 @@ albedo_color = Color(1, 0.75, 0.2, 1)
 
 [sub_resource type="SphereMesh" id="SphereMesh_tracer"]
 material = SubResource("StandardMaterial3D_tracer_element")
-radius = 0.35
-height = 0.7
+radius = 0.7
+height = 1.4
 radial_segments = 8
 rings = 4
 
@@ -54,7 +54,7 @@ particles_anim_loop = false
 
 [sub_resource type="QuadMesh" id="QuadMesh_smoke"]
 material = SubResource("StandardMaterial3D_propellant_smoke")
-size = Vector2(1.2, 1.2)
+size = Vector2(2.4, 2.4)
 
 [sub_resource type="Curve" id="Curve_trail"]
 _data = [Vector2(0, 0.6), 0.0, 0.0, 0, 0, Vector2(0.3, 1.5), 1.2, 0.0, 0, 0, Vector2(1, 2.8), 0.5, 0.0, 0, 0]
@@ -77,21 +77,21 @@ transform = Transform3D(1, 0, 0, 0, -4.37114e-08, 1, 0, -1, -4.37114e-08, 0, 0, 
 mesh = SubResource("CylinderMesh_shell")
 
 [node name="DrivingBand" type="MeshInstance3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, -4.37114e-08, 1, 0, -1, -4.37114e-08, 0, 0, 0.8)
+transform = Transform3D(1, 0, 0, 0, -4.37114e-08, 1, 0, -1, -4.37114e-08, 0, 0, 1.6)
 mesh = SubResource("CylinderMesh_ring")
 
 [node name="TracerGlow" type="MeshInstance3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1.4)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 2.8)
 mesh = SubResource("SphereMesh_tracer")
 
 [node name="OmniLight3D" type="OmniLight3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1.4)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 2.8)
 light_color = Color(1, 0.65, 0.25, 1)
-light_energy = 2.5
-omni_range = 8.0
+light_energy = 3.5
+omni_range = 16.0
 
 [node name="SmokeTrail" type="CPUParticles3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1.4)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 2.8)
 amount = 35
 lifetime = 0.4
 preprocess = 0.04
@@ -104,7 +104,7 @@ initial_velocity_min = 20.0
 initial_velocity_max = 45.0
 angular_velocity_min = -90.0
 angular_velocity_max = 90.0
-scale_amount_min = 1.0
-scale_amount_max = 2.2
+scale_amount_min = 2.0
+scale_amount_max = 4.4
 scale_amount_curve = SubResource("Curve_trail")
 color_ramp = SubResource("Gradient_trail")

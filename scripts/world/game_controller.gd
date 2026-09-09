@@ -206,7 +206,7 @@ var _music_player: AudioStreamPlayer = null
 var _dev_layer: CanvasLayer = null
 
 const TutorialManagerScript := preload("res://scripts/world/tutorial_manager.gd")
-var _tutorial_manager: TutorialManager = null
+var _tutorial_manager: Node = null
 
 # ---------------------------------------------------------------------------
 # Ciclo de Vida
