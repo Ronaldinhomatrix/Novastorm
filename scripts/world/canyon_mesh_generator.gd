@@ -150,30 +150,25 @@ func generate_canyon_mesh() -> void:
 
 	for step in range(num_steps + 1):
 		var offset = min(effective_start + step * step_length, effective_end)
-		var t = curve.sample_baked_with_rotation(offset, true, true)
-		var center = t.origin
-		var forward = -t.basis.z.normalized()
-		var up = t.basis.y.normalized()
-		var right = t.basis.x.normalized()
+		var center = curve.sample_baked(offset, true)
 		
-		# Estabilização de orientação da curva
-		if step == 0:
-			last_forward = forward
-			last_up = up
-		else:
-			var dot = forward.dot(last_forward)
-			if dot < 0.9999 and dot > -0.9999:
-				var axis = last_forward.cross(forward).normalized()
-				var angle = acos(clamp(dot, -1.0, 1.0))
-				last_up = last_up.rotated(axis, angle)
-			up = (last_up - forward * last_up.dot(forward)).normalized()
-			right = forward.cross(up).normalized()
-			last_forward = forward
-			last_up = up
+		# Calcula a tangente direta ao longo da curva
+		var sample_step = 2.0
+		var ahead_offset = min(offset + sample_step, curve_len)
+		var behind_offset = max(offset - sample_step, 0.0)
+		var forward = (curve.sample_baked(ahead_offset, true) - curve.sample_baked(behind_offset, true)).normalized()
+		if forward.length_squared() < 0.0001:
+			forward = Vector3.FORWARD
+
+		# Vetor UP estritamente alinhado ao mundo (garante que o chão fique embaixo e as paredes subam para o céu)
+		var world_up = Vector3.UP
+		var right = forward.cross(world_up).normalized()
+		if right.length_squared() < 0.0001:
+			right = Vector3.RIGHT
+		var up = right.cross(forward).normalized()
 
 		var progress_ratio = (offset - effective_start) / span_length
 		var is_tunnel = (mode == GenerationMode.CLOSED_TUNNEL) or (mode == GenerationMode.HYBRID_VALLEY and progress_ratio > 0.35 and progress_ratio < 0.65)
-
 
 		var current_ring = PackedInt32Array()
 		var v_coord = offset * 0.03
@@ -202,35 +197,37 @@ func generate_canyon_mesh() -> void:
 					# Chão do cânion com leve concavidade natural
 					var floor_ratio = abs_s / 0.35
 					px = s * (base_width * 0.7)
-					py = -floor_depth + (floor_ratio * floor_ratio * 3.0)
+					py = -floor_depth + (floor_ratio * floor_ratio * 4.0)
 				elif abs_s < 0.8:
 					# Paredes íngremes do cânion subindo
 					var t_wall = (abs_s - 0.35) / 0.45
 					px = sign(s) * (base_width * 0.35 + t_wall * base_width * 0.25)
-					py = -floor_depth + 3.0 + pow(t_wall, 0.8) * wall_height
+					py = -floor_depth + 4.0 + pow(t_wall, 0.8) * wall_height
 				else:
 					# Bordas superiores / planaltos do cânion
 					var t_rim = (abs_s - 0.8) / 0.2
 					px = sign(s) * (base_width * 0.6 + t_rim * base_width * 0.6)
-					py = (-floor_depth + 3.0 + wall_height) - t_rim * 6.0
+					py = (-floor_depth + 4.0 + wall_height) - t_rim * 8.0
 
 				local_dir = Vector2(px, py)
 
-			# Posição básica no espaço global
-			var point_on_slice = center + (right * local_dir.x) + (up * local_dir.y)
+			# Posição na fatia transversal (espaço local do Path3D / CanyonGenerator)
+			var local_slice_point = center + (right * local_dir.x) + (up * local_dir.y)
+			var local_radial_dir = (right * local_dir.normalized().x + up * local_dir.normalized().y).normalized()
 
-			# Amostragem de ruído tridimensional
-			var n1 = _noise.get_noise_3dv(point_on_slice)
-			var n2 = _detail_noise.get_noise_3dv(point_on_slice)
+			# Amostragem de ruído no espaço global para coerência de terreno
+			var global_point = path_node.to_global(local_slice_point)
+			var n1 = _noise.get_noise_3dv(global_point)
+			var n2 = _detail_noise.get_noise_3dv(global_point)
 			var total_displacement = (n1 * noise_displacement) + (n2 * detail_noise_displacement)
 
-			# Se for as bordas externas do chão, suaviza o ruído para a nave não colidir no início
-			var radial_normal = (right * local_dir.normalized().x + up * local_dir.normalized().y).normalized()
-			var displaced_pos = point_on_slice + (radial_normal * total_displacement)
+			# Vértice final no espaço local do MeshInstance3D
+			var vertex_pos = local_slice_point + (local_radial_dir * total_displacement)
 
-			var local_pos = to_local(displaced_pos)
 			st.set_uv(Vector2(u_factor * 4.0, v_coord))
-			st.add_vertex(local_pos)
+			st.add_vertex(vertex_pos)
+
+
 
 			current_ring.append(vertex_counter)
 			vertex_counter += 1
