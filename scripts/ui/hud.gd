@@ -178,6 +178,10 @@ func attach_player(player: Node) -> void:
 		if not player.is_connected("missile_targets_changed", _on_player_missile_targets_changed):
 			player.connect("missile_targets_changed", _on_player_missile_targets_changed)
 
+	if player.has_signal("missile_targeting_updated"):
+		if not player.is_connected("missile_targeting_updated", _on_player_missile_targeting_updated):
+			player.connect("missile_targeting_updated", _on_player_missile_targeting_updated)
+
 	if "current_shield" in player and "max_shield" in player:
 		_max_shield = player.max_shield
 		_current_shield = player.current_shield
@@ -675,8 +679,16 @@ func _on_player_missile_reload_progress(progress: float) -> void:
 
 func _on_player_missile_targets_changed(targets: Array[Node3D]) -> void:
 	_has_locked_targets = not targets.is_empty()
+	_update_missile_display()
+
+
+func _on_player_missile_targeting_updated(locked_targets: Array[Node3D], acquiring_targets: Dictionary) -> void:
+	_has_locked_targets = not locked_targets.is_empty()
 	if lock_on_reticle:
-		lock_on_reticle.update_targets(targets)
+		if lock_on_reticle.has_method("update_targeting_state"):
+			lock_on_reticle.update_targeting_state(locked_targets, acquiring_targets)
+		else:
+			lock_on_reticle.update_targets(locked_targets)
 	_update_missile_display()
 
 

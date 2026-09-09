@@ -988,7 +988,10 @@ func _trigger_mothership_sound() -> void:
 			_mothership_sound_offset = flight_path.curve.get_closest_offset(flight_path.curve.get_point_position(sound_idx))
 
 	if _mothership_sound_offset > 0.0 and path_follower.progress >= _mothership_sound_offset:
-		_mothership_sound_player.play()
+		if has_node("/root/SoundManager"):
+			get_node("/root/SoundManager").play_voice(MOTHERSHIP_SOUND, mothership_sound_volume_db)
+		else:
+			_mothership_sound_player.play()
 		_mothership_sound_played = true
 
 
@@ -1025,26 +1028,24 @@ func _trigger_maneuver2_sound() -> void:
 			var m2_p22_idx := clampi(maneuver_sound_p22_point, 0, flight_path.curve.point_count - 1)
 			_maneuver2_p22_offset = flight_path.curve.get_closest_offset(flight_path.curve.get_point_position(m2_p22_idx))
 
-	if not _maneuver2_p19_played and _maneuver2_p19_offset > 0.0 and path_follower.progress >= _maneuver2_p19_offset:
-		_maneuver2_player.play()
-		_maneuver2_p19_played = true
-
-	if not _maneuver2_p22_played and _maneuver2_p22_offset > 0.0 and path_follower.progress >= _maneuver2_p22_offset:
-		_maneuver2_short_player.play()
-		_maneuver2_p22_played = true
-
 	var prog := path_follower.progress
 
 	# Ponto 19 (maneuver2.ogg)
 	if not _maneuver2_p19_played and _maneuver2_p19_offset > 0.0 and prog >= _maneuver2_p19_offset:
-		_maneuver2_player.pitch_scale = randf_range(0.97, 1.03)
-		_maneuver2_player.play()
+		if has_node("/root/SoundManager"):
+			get_node("/root/SoundManager").play_voice(MANEUVER_2_SOUND, 0.0, randf_range(0.97, 1.03))
+		else:
+			_maneuver2_player.pitch_scale = randf_range(0.97, 1.03)
+			_maneuver2_player.play()
 		_maneuver2_p19_played = true
 
 	# Ponto 22 (maneuver2_short.ogg)
 	if not _maneuver2_p22_played and _maneuver2_p22_offset > 0.0 and prog >= _maneuver2_p22_offset:
-		_maneuver2_short_player.pitch_scale = randf_range(0.97, 1.03)
-		_maneuver2_short_player.play()
+		if has_node("/root/SoundManager"):
+			get_node("/root/SoundManager").play_voice(MANEUVER_2_SHORT_SOUND, 0.0, randf_range(0.97, 1.03))
+		else:
+			_maneuver2_short_player.pitch_scale = randf_range(0.97, 1.03)
+			_maneuver2_short_player.play()
 		_maneuver2_p22_played = true
 
 

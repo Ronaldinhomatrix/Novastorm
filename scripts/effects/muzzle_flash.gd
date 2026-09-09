@@ -24,7 +24,7 @@ func _setup_effect() -> void:
 	_light.light_energy = 0.0
 	_light.omni_range = 14.0
 	_light.omni_attenuation = 1.6
-	_light.position = Vector3(0.0, 0.0, -1.8)
+	_light.position = Vector3(0.0, -0.2, -6.0)
 	add_child(_light)
 
 	# Mesh emissivo do flare de plasma
@@ -44,7 +44,7 @@ func _setup_effect() -> void:
 	_glow_mesh = MeshInstance3D.new()
 	_glow_mesh.mesh = sphere
 	_glow_mesh.material_override = _glow_mat
-	_glow_mesh.position = Vector3(0.0, 0.0, -1.6)
+	_glow_mesh.position = Vector3(0.0, -0.2, -5.8)
 	_glow_mesh.scale = Vector3(1.8, 0.7, 1.2)
 	add_child(_glow_mesh)
 

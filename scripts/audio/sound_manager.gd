@@ -34,10 +34,17 @@ var _idx_sfx: int = 0
 var _explosions: Array[AudioStream] = []
 
 
+var _voice_player: AudioStreamPlayer = null
+var _voice_queue: Array[Dictionary] = []
+var _is_processing_voice_queue: bool = false
+var _voice_pause_timer: float = 0.0
+
+
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_explosions = [SND_EXPLOSION_1, SND_EXPLOSION_2]
 	_init_all_pools()
+	_init_voice_player()
 
 
 func _init_all_pools() -> void:
@@ -45,6 +52,53 @@ func _init_all_pools() -> void:
 	_init_ring_pool(_player_laser_pool, "PlayerLaser", POOL_SIZE_PLAYER_LASERS)
 	_init_ring_pool(_enemy_laser_pool, "EnemyLaser", POOL_SIZE_ENEMY_LASERS)
 	_init_ring_pool(_sfx_pool, "SFX", POOL_SIZE_SFX)
+
+
+func _init_voice_player() -> void:
+	_voice_player = AudioStreamPlayer.new()
+	_voice_player.name = "VoiceAnnouncementChannel"
+	_voice_player.bus = "Master"
+	_voice_player.finished.connect(_on_voice_finished)
+	add_child(_voice_player)
+
+
+## Adiciona um anúncio de voz à fila sequencial.
+## Evita sobreposição: cada voz aguarda a anterior terminar + 0.5s de intervalo.
+func play_voice(stream: AudioStream, volume_db: float = 0.0, pitch: float = 1.0) -> void:
+	if not stream:
+		return
+
+	# Evita enfileirar exatamente o mesmo áudio em duplicidade simultânea
+	if not _voice_queue.is_empty():
+		var last_entry: Dictionary = _voice_queue.back()
+		if last_entry.get("stream") == stream:
+			return
+	elif _voice_player and _voice_player.playing and _voice_player.stream == stream:
+		return
+
+	_voice_queue.append({
+		"stream": stream,
+		"volume_db": volume_db,
+		"pitch": pitch
+	})
+
+	if not _is_processing_voice_queue:
+		_process_next_voice()
+
+
+func _process_next_voice() -> void:
+	if _voice_queue.is_empty():
+		_is_processing_voice_queue = false
+		return
+
+	_is_processing_voice_queue = true
+	var current: Dictionary = _voice_queue.pop_front()
+
+	if _voice_player:
+		_voice_player.stream = current.get("stream")
+		_voice_player.volume_db = current.get("volume_db", 0.0)
+		_voice_player.pitch_scale = current.get("pitch", 1.0)
+		_voice_player.play()
 
 
 func _init_ring_pool(pool: Array[AudioStreamPlayer], prefix: String, count: int) -> void:
@@ -56,6 +110,13 @@ func _init_ring_pool(pool: Array[AudioStreamPlayer], prefix: String, count: int)
 		p.max_polyphony = 2
 		add_child(p)
 		pool.append(p)
+
+
+func _on_voice_finished() -> void:
+	# Intervalo exato de 0.5s antes de tocar a próxima voz da fila
+	var timer := get_tree().create_timer(0.5)
+	await timer.timeout
+	_process_next_voice()
 
 
 ## Toca uma explosão de nave garantida via Pool Inteligente (-25% volume = -2.5 dB)

@@ -3,7 +3,7 @@
 [ext_resource type="Script" uid="uid://b7wp5sucix7k7" path="res://scripts/enemies/enemy_bomb.gd" id="1_bomb"]
 
 [sub_resource type="SphereShape3D" id="SphereShape3D_bomb"]
-radius = 1.6
+radius = 3.2
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_metal"]
 albedo_color = Color(0.12, 0.13, 0.15, 1)
@@ -12,8 +12,8 @@ roughness = 0.25
 
 [sub_resource type="SphereMesh" id="SphereMesh_core"]
 material = SubResource("StandardMaterial3D_metal")
-radius = 0.85
-height = 1.7
+radius = 1.7
+height = 3.4
 radial_segments = 16
 rings = 8
 
@@ -24,8 +24,8 @@ albedo_color = Color(1, 0.05, 0.05, 1)
 
 [sub_resource type="SphereMesh" id="SphereMesh_red_light"]
 material = SubResource("StandardMaterial3D_red_beacon")
-radius = 0.14
-height = 0.28
+radius = 0.28
+height = 0.56
 radial_segments = 8
 rings = 4
 
@@ -36,9 +36,9 @@ roughness = 0.2
 
 [sub_resource type="CylinderMesh" id="CylinderMesh_spike1"]
 material = SubResource("StandardMaterial3D_spikes")
-top_radius = 0.08
-bottom_radius = 0.22
-height = 2.7
+top_radius = 0.16
+bottom_radius = 0.44
+height = 5.4
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_spark"]
 transparency = 1
@@ -49,7 +49,7 @@ albedo_color = Color(1, 0.1, 0.1, 0.9)
 
 [sub_resource type="BoxMesh" id="BoxMesh_spark"]
 material = SubResource("StandardMaterial3D_spark")
-size = Vector3(0.12, 0.12, 0.12)
+size = Vector3(0.24, 0.24, 0.24)
 
 [sub_resource type="Curve" id="Curve_particles"]
 _data = [Vector2(0, 1), 0.0, 0.0, 0, 0, Vector2(1, 0), -1.2, 0.0, 0, 0]
@@ -73,27 +73,27 @@ mesh = SubResource("SphereMesh_core")
 [node name="BeaconGroup" type="Node3D" parent="." unique_id=1939742669]
 
 [node name="BeaconPosX" type="MeshInstance3D" parent="BeaconGroup" unique_id=1376062861]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.88, 0, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.76, 0, 0)
 mesh = SubResource("SphereMesh_red_light")
 
 [node name="BeaconNegX" type="MeshInstance3D" parent="BeaconGroup" unique_id=1239067318]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.88, 0, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.76, 0, 0)
 mesh = SubResource("SphereMesh_red_light")
 
 [node name="BeaconPosY" type="MeshInstance3D" parent="BeaconGroup" unique_id=1152782812]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.88, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.76, 0)
 mesh = SubResource("SphereMesh_red_light")
 
 [node name="BeaconNegY" type="MeshInstance3D" parent="BeaconGroup" unique_id=514367814]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.88, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1.76, 0)
 mesh = SubResource("SphereMesh_red_light")
 
 [node name="BeaconPosZ" type="MeshInstance3D" parent="BeaconGroup" unique_id=2014896919]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.88)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1.76)
 mesh = SubResource("SphereMesh_red_light")
 
 [node name="BeaconNegZ" type="MeshInstance3D" parent="BeaconGroup" unique_id=1729706413]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.88)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -1.76)
 mesh = SubResource("SphereMesh_red_light")
 
 [node name="SpikeX" type="MeshInstance3D" parent="." unique_id=1467496632]
@@ -110,18 +110,19 @@ mesh = SubResource("CylinderMesh_spike1")
 [node name="OmniLight3D" type="OmniLight3D" parent="." unique_id=1050291110]
 light_color = Color(1, 0.1, 0.1, 1)
 light_energy = 0.0
-omni_range = 16.0
+omni_range = 32.0
 
 [node name="Sparks" type="CPUParticles3D" parent="." unique_id=1905970530]
-amount = 10
+amount = 12
 lifetime = 0.7
 mesh = SubResource("BoxMesh_spark")
 direction = Vector3(0, 1, 0)
 spread = 180.0
 gravity = Vector3(0, 0, 0)
-initial_velocity_min = 1.0
-initial_velocity_max = 2.5
-scale_amount_min = 0.8
-scale_amount_max = 1.5
+initial_velocity_min = 2.0
+initial_velocity_max = 5.0
+scale_amount_min = 1.0
+scale_amount_max = 2.0
 scale_amount_curve = SubResource("Curve_particles")
 color_ramp = SubResource("Gradient_particles")
+

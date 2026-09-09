@@ -14,7 +14,6 @@ pointer_follow_speed = 8.0
 roll_amount = 0.7
 pitch_amount = 0.5
 bullet_scene = ExtResource("2_bullet")
-laser_volume_db = -25.0
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=1343002382]
 visible = false

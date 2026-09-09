@@ -37,3 +37,14 @@
 - **RULE:** graphics code that the user can control must read from `UserSettings`, NOT `GameConfig.is_mobile` directly. `GameConfig.is_mobile` only supplies platform *defaults* (via `SHADOWS_DEFAULT_*`, `GLOW_DEFAULT_*`, etc.).
 - Changing a setting emits `UserSettings.settings_changed`; `game_controller.gd` re-applies graphics on that signal (`_apply_graphics_settings`).
 - The menu UI is `res://scripts/ui/settings_menu.gd` (self-contained, built procedurally).
+
+## 7. Voice Announcements & Audio Queue Policy
+- **AI Rule for User Requests:** Whenever the user asks to add or implement any new sound effect, voice line, radio chatter, warning, or speech audio in the game, the AI MUST classify it as a voice announcement and route it through `SoundManager.play_voice(...)`.
+- **Voice Overlap Rule:** Spoken audio clips/voices MUST NEVER overlap each other under any circumstances.
+- **Implementation Mandate:** Any voice or spoken audio clip MUST be played via `SoundManager.play_voice(...)`:
+  ```gdscript
+  if has_node("/root/SoundManager"):
+      get_node("/root/SoundManager").play_voice(my_voice_stream, volume_db, pitch)
+  ```
+- **Queue Logic:** `SoundManager.play_voice` enqueues spoken audio clips sequentially and automatically enforces a mandatory **0.5-second silence gap** after each voice finishes before playing the next queued announcement.
+- **DO NOT** create a raw/standalone `AudioStreamPlayer` for voice lines directly in game scripts without passing through `SoundManager.play_voice(...)`.

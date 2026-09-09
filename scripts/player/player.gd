@@ -49,7 +49,7 @@ extends CharacterBody3D
 @export var lock_on_range: float = 650.0
 ## Raio do cone de mira em pixels na tela (área central onde o jogador precisa apontar).
 @export var lock_on_radius: float = 260.0
-## Tempo de sustentação da mira sobre o alvo (em segundos) para travar o míssil.
+## Tempo de processamento/trava após marcar o alvo com a mira (em segundos).
 @export var lock_on_confirm_time: float = 1.0
 ## Som de bip ao travar alvo (lock-on).
 @export var lock_on_sound: AudioStream = preload("res://assets/audio/lock_on.wav")
@@ -82,6 +82,7 @@ signal missile_fired(remaining: int, max_val: int)
 signal missile_reloaded(current: int, max_val: int)
 signal missile_reload_progress(progress: float)
 signal missile_targets_changed(targets: Array[Node3D])
+signal missile_targeting_updated(locked_targets: Array[Node3D], acquiring_targets: Dictionary)
 
 # Scripts procedurais
 const SparkScript := preload("res://scripts/effects/spark.gd")
@@ -538,13 +539,15 @@ func _spawn_bullet() -> void:
 	if not bullet_scene:
 		return
 
-	# O tiro sai acompanhando a posição e a direção de curva/inclinação da nave.
+	# O tiro sai a partir do bico / ponta frontal da nave (ShipModel),
+	# evitando que o rastro e o corpo do projétil apareçam dentro do cockpit.
 	var aim_dir := _get_ship_aim_direction()
 	var spawn_pos: Vector3
 	if ship_model:
-		spawn_pos = ship_model.global_position + aim_dir * 4.0
+		# Posição no bico da nave (espaço local avançado no eixo -Z da nave)
+		spawn_pos = ship_model.to_global(Vector3(0.0, -0.2, -6.5)) + aim_dir * 5.0
 	else:
-		spawn_pos = global_position + aim_dir * 4.0
+		spawn_pos = to_global(Vector3(0.0, -0.2, -6.5)) + aim_dir * 5.0
 
 	var bullet: Bullet = bullet_scene.instantiate() as Bullet
 	if not bullet:
@@ -854,10 +857,13 @@ func _process_missiles_and_lock_on(delta: float) -> void:
 func _update_lock_on_system(delta: float) -> void:
 	# O lock-on só funciona se houver mísseis disponíveis para disparo e o jogador estiver ativo
 	if not _controls_enabled or _is_dying or current_missiles <= 0 or _is_reloading_missiles:
+		var had_targets := not _locked_targets.is_empty() or not _targeting_progress.is_empty()
 		if not _locked_targets.is_empty():
 			_locked_targets.clear()
 			missile_targets_changed.emit(_locked_targets)
 		_targeting_progress.clear()
+		if had_targets:
+			missile_targeting_updated.emit(_locked_targets, _targeting_progress)
 		return
 
 	var cam := get_viewport().get_camera_3d()
@@ -890,11 +896,30 @@ func _update_lock_on_system(delta: float) -> void:
 	var targets_modified := (valid_list.size() != _locked_targets.size())
 	_locked_targets = valid_list
 
-	# Limpa do dicionário de progresso alvos que já foram travados ou morreram
+	# Limpa do dicionário de progresso alvos que já foram travados, morreram ou saíram da tela
 	var to_remove: Array = []
 	for candidate_node in _targeting_progress.keys():
 		if not is_instance_valid(candidate_node) or candidate_node.is_queued_for_deletion() or _locked_targets.has(candidate_node):
 			to_remove.append(candidate_node)
+			continue
+		if "current_hp" in candidate_node and candidate_node.current_hp <= 0:
+			to_remove.append(candidate_node)
+			continue
+		if "_is_dead" in candidate_node and candidate_node._is_dead:
+			to_remove.append(candidate_node)
+			continue
+		var c_pos: Vector3 = candidate_node.global_position
+		if cam.is_position_behind(c_pos):
+			to_remove.append(candidate_node)
+			continue
+		var c_screen := cam.unproject_position(c_pos)
+		if not vp_rect.grow(90.0).has_point(c_screen):
+			to_remove.append(candidate_node)
+			continue
+		if global_position.distance_to(c_pos) > (lock_on_range * 1.2):
+			to_remove.append(candidate_node)
+			continue
+
 	for r in to_remove:
 		_targeting_progress.erase(r)
 
@@ -906,16 +931,28 @@ func _update_lock_on_system(delta: float) -> void:
 		_locked_targets = _locked_targets.slice(0, max_allowed_locks)
 		targets_modified = true
 
-	# Varredura para encontrar novos alvos se houver vaga
-	if _locked_targets.size() < max_allowed_locks:
+	# Limita também alvos em aquisição para não ultrapassar a capacidade disponível
+	var remaining_slots := max_allowed_locks - _locked_targets.size()
+	if remaining_slots <= 0:
+		_targeting_progress.clear()
+	elif _targeting_progress.size() > remaining_slots:
+		# Mantém apenas os com maior progresso
+		var sorted_keys := _targeting_progress.keys()
+		sorted_keys.sort_custom(func(a, b): return _targeting_progress[a] > _targeting_progress[b])
+		for i in range(remaining_slots, sorted_keys.size()):
+			_targeting_progress.erase(sorted_keys[i])
+
+	# Varredura e avanço de aquisição de novos alvos
+	if remaining_slots > 0:
 		var found_new := _scan_and_track_targets(delta, cam, vp_rect, max_allowed_locks)
 		if found_new:
 			targets_modified = true
-	else:
-		_targeting_progress.clear()
 
 	if targets_modified:
 		missile_targets_changed.emit(_locked_targets)
+
+	# Notifica HUD e retículo com o estado completo (travados + em aquisição)
+	missile_targeting_updated.emit(_locked_targets, _targeting_progress)
 
 
 func _scan_and_track_targets(delta: float, cam: Camera3D, vp_rect: Rect2, max_allowed: int) -> bool:
@@ -935,15 +972,14 @@ func _scan_and_track_targets(delta: float, cam: Camera3D, vp_rect: Rect2, max_al
 	else:
 		aim_screen_pos = vp_rect.size * 0.5
 
-	# Raio do cone reduzido: só capta se o jogador de fato mirar no inimigo
+	# Raio de detecção para MARCAR o inimigo (Tag)
 	var effective_radius := lock_on_radius if not GameConfig.is_mobile else (lock_on_radius * 1.35)
 
-	var currently_focused_enemies: Array[Node3D] = []
-
+	# 1. TAGGING: Detecta inimigos que a mira cruzar neste momento
 	for enemy in enemies:
 		if not (enemy is Node3D):
 			continue
-		if _locked_targets.has(enemy):
+		if _locked_targets.has(enemy) or _targeting_progress.has(enemy):
 			continue
 		if not is_instance_valid(enemy) or enemy.is_queued_for_deletion():
 			continue
@@ -970,37 +1006,31 @@ func _scan_and_track_targets(delta: float, cam: Camera3D, vp_rect: Rect2, max_al
 		if not vp_rect.has_point(s_pos):
 			continue
 
-		# Cone de mira restrito ao centro da mira
+		# Cruzou a área do cone? MARCA O INIMIGO!
 		var screen_dist := s_pos.distance_to(aim_screen_pos)
 		if screen_dist <= effective_radius:
-			currently_focused_enemies.append(enemy)
+			var total_tracking := _locked_targets.size() + _targeting_progress.size()
+			if total_tracking < max_allowed:
+				_targeting_progress[enemy] = 0.0
 
-	# Se um inimigo que estava sendo mirado saiu do cone, decai ou remove o foco dele
-	var untracked: Array = []
-	for node in _targeting_progress.keys():
-		if not currently_focused_enemies.has(node):
-			untracked.append(node)
-	for u in untracked:
-		_targeting_progress.erase(u)
-
-	if currently_focused_enemies.is_empty():
-		return false
-
+	# 2. PROGRESSÃO CONTÍNUA: Inimigos marcados continuam sendo processados
+	# mesmo que o jogador já tenha desviado a nave/mira para outro lugar!
 	var newly_locked := false
+	var ready_to_lock: Array = []
 
-	for enemy in currently_focused_enemies:
-		if _locked_targets.size() >= max_allowed:
-			break
+	for enemy in _targeting_progress.keys():
+		var time_elapsed: float = _targeting_progress[enemy] + delta
+		_targeting_progress[enemy] = time_elapsed
 
-		# Acumula o tempo que a mira ficou sobre este inimigo
-		var current_time: float = _targeting_progress.get(enemy, 0.0) + delta
-		_targeting_progress[enemy] = current_time
+		# Completou o 1 segundo de aquisição? Confirma o Lock!
+		if time_elapsed >= lock_on_confirm_time:
+			ready_to_lock.append(enemy)
 
-		# Confirmou o tempo de carregamento/mira sustentada?
-		if current_time >= lock_on_confirm_time:
+	for enemy in ready_to_lock:
+		if _locked_targets.size() < max_allowed:
 			_locked_targets.append(enemy)
-			_targeting_progress.erase(enemy)
 			newly_locked = true
+		_targeting_progress.erase(enemy)
 
 	if newly_locked:
 		_play_lock_on_sound()

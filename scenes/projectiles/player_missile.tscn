@@ -75,6 +75,7 @@ colors = PackedColorArray(1, 0.8, 0.4, 0.8, 0.85, 0.85, 0.88, 0.65, 0.6, 0.62, 0
 collision_layer = 2
 collision_mask = 10
 script = ExtResource("1_missile")
+turn_rate = 7.0
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=686135251]
 shape = SubResource("BoxShape3D_hitbox")
@@ -103,7 +104,7 @@ mesh = SubResource("SphereMesh_engine")
 
 [node name="SmokeTrail" type="CPUParticles3D" parent="." unique_id=91452087]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1.2)
-amount = 100
+amount = 200
 mesh = SubResource("SphereMesh_smoke")
 emission_shape = 1
 emission_sphere_radius = 0.25
@@ -116,4 +117,3 @@ scale_amount_min = 0.7
 scale_amount_max = 3.2
 scale_amount_curve = SubResource("Curve_smoke_scale")
 color_ramp = SubResource("Gradient_smoke_color")
-

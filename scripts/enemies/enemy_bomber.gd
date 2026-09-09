@@ -157,7 +157,7 @@ func _process_enter(_delta: float) -> void:
 		set_engine_pitch(lerpf(0.98, 0.82, eased))
 
 	# Começa a soltar as minas 1.0s após entrar em cena
-	if _phase_timer >= 1.0 and _bombs_dropped < total_bombs:
+	if _phase_timer >= 1.0:
 		_drop_timer -= _delta
 		if _drop_timer <= 0.0:
 			_drop_timer = drop_interval
@@ -173,11 +173,13 @@ func _process_enter(_delta: float) -> void:
 # ---------------------------------------------------------------------------
 
 func _process_bomb_run(delta: float) -> void:
-	var u := clampf(_phase_timer / maxf(bomb_run_duration, 0.01), 0.0, 1.0)
+	# A varredura oscila continuamente com base no tempo decorrido
+	var cycle_dur := maxf(bomb_run_duration, 0.01)
+	var u := fmod(_phase_timer / cycle_dur, 1.0)
 
-	# Movimentação dinâmica e rápida: 5.5 ciclos completos de varredura lateral + onda vertical rápida
-	var sweep_angle := u * PI * 5.5
-	var vert_angle := u * PI * 4.0
+	# Movimentação dinâmica e rápida: ciclos de varredura lateral + onda vertical rápida
+	var sweep_angle := _phase_timer * (PI * 5.5 / cycle_dur)
+	var vert_angle := _phase_timer * (PI * 4.0 / cycle_dur)
 
 	var target_lat := sin(sweep_angle) * lateral_span * _side
 	var target_vert := base_height + sin(vert_angle) * vertical_span + cos(sweep_angle * 0.5) * 1.5
@@ -197,16 +199,12 @@ func _process_bomb_run(delta: float) -> void:
 	global_position = frame["position"]
 	_orient_ship(frame["forward"] + Vector3(0, target_pitch, 0), frame["up"], target_bank)
 
-	# Lançamento de bombas a intervalos regulares
-	if _bombs_dropped < total_bombs:
-		_drop_timer -= delta
-		if _drop_timer <= 0.0:
-			_drop_timer = drop_interval
-			_drop_bomb()
+	# Lançamento contínuo de bombas até o momento da saída
+	_drop_timer -= delta
+	if _drop_timer <= 0.0:
+		_drop_timer = drop_interval
+		_drop_bomb()
 
-	if u >= 1.0:
-		_phase = Phase.EXIT
-		_phase_timer = 0.0
 
 
 
