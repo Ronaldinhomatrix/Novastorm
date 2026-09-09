@@ -48,9 +48,9 @@ extends CharacterBody3D
 @export var lock_on_max_targets: int = 3
 @export var lock_on_range: float = 650.0
 ## Raio do cone de mira em pixels na tela (área central onde o jogador precisa apontar).
-@export var lock_on_radius: float = 160.0
+@export var lock_on_radius: float = 260.0
 ## Tempo de sustentação da mira sobre o alvo (em segundos) para travar o míssil.
-@export var lock_on_confirm_time: float = 0.28
+@export var lock_on_confirm_time: float = 0.12
 ## Som de bip ao travar alvo (lock-on).
 @export var lock_on_sound: AudioStream = preload("res://assets/audio/lock_on.wav")
 ## Som de lançamento do míssil.
@@ -698,12 +698,15 @@ func take_damage(amount: int) -> void:
 func _play_shield_offline_sound() -> void:
 	if not ShieldOfflineSound:
 		return
-	var audio_player := AudioStreamPlayer.new()
-	audio_player.stream = ShieldOfflineSound
-	audio_player.bus = "Master"
-	audio_player.finished.connect(audio_player.queue_free)
-	add_child(audio_player)
-	audio_player.play()
+	if has_node("/root/SoundManager"):
+		get_node("/root/SoundManager").play_voice(ShieldOfflineSound)
+	else:
+		var audio_player := AudioStreamPlayer.new()
+		audio_player.stream = ShieldOfflineSound
+		audio_player.bus = "Master"
+		audio_player.finished.connect(audio_player.queue_free)
+		add_child(audio_player)
+		audio_player.play()
 
 
 func _play_explosion_sound() -> void:
