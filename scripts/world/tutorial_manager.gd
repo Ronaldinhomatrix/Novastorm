@@ -57,6 +57,8 @@ func _ready() -> void:
 
 func _exit_tree() -> void:
 	Engine.time_scale = 1.0
+	if path_follower and path_follower.has_method("set_speed_multiplier"):
+		path_follower.set_speed_multiplier(1.0)
 	if hud and hud.has_method("stop_tutorial_missile_blink"):
 		hud.stop_tutorial_missile_blink()
 
@@ -81,6 +83,9 @@ func setup(p_follower: PathFollower, p_player: Player, p_hud: CombatHUD) -> void
 func start_tutorial() -> void:
 	if not enabled or _state != State.INACTIVE:
 		return
+
+	if path_follower and path_follower.has_method("set_speed_multiplier"):
+		path_follower.set_speed_multiplier(0.5)
 
 	_state = State.WAITING_START
 	_state_timer = 0.8
@@ -248,6 +253,8 @@ func _on_player_missile_fired(_remaining: int, _max_val: int) -> void:
 func _on_step2_cleared() -> void:
 	_state = State.COMPLETED
 	Engine.time_scale = 1.0
+	if path_follower and path_follower.has_method("set_speed_multiplier"):
+		path_follower.set_speed_multiplier(1.0)
 
 	if _overlay:
 		_overlay.flash_completion("MÍSSEIS DISPARADOS // SISTEMAS DE COMBATE OPERACIONAIS")

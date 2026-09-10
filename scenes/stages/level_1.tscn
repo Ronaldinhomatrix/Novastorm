@@ -54,15 +54,8 @@ point_count = 61
 [sub_resource type="Resource" id="Resource_j44b7"]
 script = ExtResource("8_1ax5u")
 start_point = 24
-end_point = 27
+end_point = 26
 target_speed = 150.0
-
-[sub_resource type="Resource" id="Resource_p44_p46"]
-script = ExtResource("8_1ax5u")
-start_point = 52
-end_point = 53
-target_speed = 150.0
-blend_distance = 6150.0
 
 [sub_resource type="Image" id="Image_m3hp5"]
 data = {
@@ -175,7 +168,7 @@ curve = SubResource("Curve3D_6cw15")
 transform = Transform3D(-0.8112834, 0.001533788, -0.58465093, 0, 0.99999267, 0.0026234258, 0.58465296, 0.002128334, -0.8112806, -2815.6377, 50, -4763.4443)
 script = ExtResource("3_path_follower")
 forward_speed = 300.0
-speed_zones = Array[ExtResource("8_1ax5u")]([SubResource("Resource_j44b7"), SubResource("Resource_p44_p46")])
+speed_zones = Array[ExtResource("8_1ax5u")]([SubResource("Resource_j44b7")])
 turn_smoothing = 3.0
 tilt_intensity = 0.5
 pitch_intensity = 1.75

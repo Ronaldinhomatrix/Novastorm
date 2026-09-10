@@ -298,7 +298,7 @@ func _build_detonation_flash(scale_mult: float) -> void:
 
 
 # ===========================================================================
-# 2. Núcleo Volumétrico 3D de Plasma e Fogo (Sólido, Luminoso e 100% Visível)
+# 2. Núcleo Volumétrico 3D de Plasma e Fogo (Calibrado e Proporcional)
 # ===========================================================================
 
 func _build_fire_core_spheres(offset: Vector3, scale_mult: float) -> void:
@@ -307,22 +307,22 @@ func _build_fire_core_spheres(offset: Vector3, scale_mult: float) -> void:
 	core.emitting = true
 	core.one_shot = true
 	core.explosiveness = 0.96
-	core.amount = 36
-	core.lifetime = 0.85
+	core.amount = 24
+	core.lifetime = 0.65
 	core.position = offset
 	core.direction = Vector3.UP
 	core.spread = 180.0
-	core.gravity = Vector3(0, 8.0, 0)
-	core.initial_velocity_min = 12.0 * scale_mult
-	core.initial_velocity_max = 35.0 * scale_mult
-	core.scale_amount_min = 6.0 * scale_mult
-	core.scale_amount_max = 16.0 * scale_mult
+	core.gravity = Vector3(0, 10.0, 0)
+	core.initial_velocity_min = 8.0 * scale_mult
+	core.initial_velocity_max = 22.0 * scale_mult
+	core.scale_amount_min = 2.5 * scale_mult
+	core.scale_amount_max = 7.0 * scale_mult
 
 	var s_curve := Curve.new()
-	s_curve.add_point(Vector2(0.0, 0.4))
-	s_curve.add_point(Vector2(0.2, 1.0))
-	s_curve.add_point(Vector2(0.7, 0.85))
-	s_curve.add_point(Vector2(1.0, 0.1))
+	s_curve.add_point(Vector2(0.0, 0.3))
+	s_curve.add_point(Vector2(0.18, 1.0))
+	s_curve.add_point(Vector2(0.65, 0.6))
+	s_curve.add_point(Vector2(1.0, 0.0))
 	core.scale_amount_curve = s_curve
 
 	var ramp := Gradient.new()
@@ -332,10 +332,10 @@ func _build_fire_core_spheres(offset: Vector3, scale_mult: float) -> void:
 		Color(2.5, 1.8, 0.3, 1.0),   # Dourado plasma super brilhante
 		Color(1.8, 0.65, 0.05, 0.95), # Laranja fogo vibrante
 		Color(0.9, 0.15, 0.02, 0.70), # Vermelho brasa
-		Color(0.2, 0.05, 0.02, 0.0)   # Transição para fumaça
+		Color(0.2, 0.05, 0.02, 0.0)   # Transição rápida para fuligem
 	])
 	core.color_ramp = ramp
-	core.mesh = _make_sphere(1.2)
+	core.mesh = _make_sphere(0.6)
 	core.material_override = _make_unshaded_mat(BaseMaterial3D.BLEND_MODE_ADD)
 	add_child(core)
 
