@@ -40,6 +40,7 @@ const TutorialEnemyScene := preload("res://scenes/enemies/tutorial_enemy.tscn")
 const ChimeSound := preload("res://assets/audio/maneuver2_short.ogg")
 
 @export var enabled: bool = true
+@export var limit_point: int = 7
 @export var path_follower: PathFollower = null
 @export var player: Player = null
 @export var hud: CombatHUD = null
@@ -48,6 +49,7 @@ var _state: State = State.INACTIVE
 var _step1_enemies: Array[Node] = []
 var _step2_enemies: Array[Node] = []
 var _state_timer: float = 0.0
+var _limit_offset: float = -1.0
 var _overlay: TutorialOverlay = null
 
 
@@ -79,10 +81,24 @@ func setup(p_follower: PathFollower, p_player: Player, p_hud: CombatHUD) -> void
 		if not player.missile_fired.is_connected(_on_player_missile_fired):
 			player.missile_fired.connect(_on_player_missile_fired)
 
+	_calculate_limit_offset()
+
+
+func _calculate_limit_offset() -> void:
+	if not path_follower:
+		return
+	var parent_path := path_follower.get_parent() as Path3D
+	var c: Curve3D = parent_path.curve if parent_path else null
+	if c and limit_point >= 0 and limit_point < c.point_count:
+		_limit_offset = c.get_closest_offset(c.get_point_position(limit_point))
+
 
 func start_tutorial() -> void:
 	if not enabled or _state != State.INACTIVE:
 		return
+
+	if _limit_offset < 0.0:
+		_calculate_limit_offset()
 
 	if path_follower and path_follower.has_method("set_speed_multiplier"):
 		path_follower.set_speed_multiplier(0.5)
@@ -93,6 +109,14 @@ func start_tutorial() -> void:
 
 
 func _process(delta: float) -> void:
+	if _state == State.INACTIVE or _state == State.COMPLETED:
+		return
+
+	# Checagem de limite no Path3D: se o jogador atingir o ponto 7 sem concluir, encerra o tutorial imediatamente
+	if _limit_offset > 0.0 and path_follower and path_follower.progress >= _limit_offset:
+		_abort_tutorial_at_limit()
+		return
+
 	# Como time_scale pode estar reduzido (0.2), usamos delta de tempo real
 	var real_delta: float = (delta / maxf(Engine.time_scale, 0.05)) if Engine.time_scale < 0.9 else delta
 
@@ -258,6 +282,34 @@ func _on_step2_cleared() -> void:
 
 	if _overlay:
 		_overlay.flash_completion("MÍSSEIS DISPARADOS // SISTEMAS DE COMBATE OPERACIONAIS")
+
+	tutorial_completed.emit()
+
+
+## Encerramento forçado caso o jogador atinja o ponto 7 do Path3D sem ter executado os passos do tutorial
+func _abort_tutorial_at_limit() -> void:
+	_state = State.COMPLETED
+	Engine.time_scale = 1.0
+
+	if path_follower and path_follower.has_method("set_speed_multiplier"):
+		path_follower.set_speed_multiplier(1.0)
+
+	if hud and hud.has_method("stop_tutorial_missile_blink"):
+		hud.stop_tutorial_missile_blink()
+
+	if _overlay:
+		_overlay.hide_instruction()
+
+	# Remove naves do tutorial que possam ter restado na pista
+	for e in _step1_enemies:
+		if is_instance_valid(e):
+			e.queue_free()
+	_step1_enemies.clear()
+
+	for e in _step2_enemies:
+		if is_instance_valid(e):
+			e.queue_free()
+	_step2_enemies.clear()
 
 	tutorial_completed.emit()
 
