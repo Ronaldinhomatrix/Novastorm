@@ -92,6 +92,7 @@ const ShieldBubbleScene := preload("res://scenes/effects/shield_bubble.tscn")
 const DamageSmokeScript := preload("res://scripts/effects/damage_smoke.gd")
 const EnemyWreckageScript := preload("res://scripts/effects/enemy_wreckage.gd")
 const MuzzleFlashScript := preload("res://scripts/effects/muzzle_flash.gd")
+const MissileLaunchFlashScript := preload("res://scripts/effects/missile_launch_flash.gd")
 
 # Som de disparo do laser, explosão e alerta de escudo.
 const LaserSound := preload("res://assets/audio/laser0.wav")
@@ -1125,5 +1126,11 @@ func _spawn_single_missile(target: Node3D, _index: int) -> void:
 
 	missile.global_position = spawn_global
 	missile.setup(target, initial_launch_dir)
+
+	# Efeito de flash e brilho alaranjado saindo da nave no disparo do míssil
+	if MissileLaunchFlashScript:
+		var flash: Node3D = MissileLaunchFlashScript.new()
+		scene_root.add_child(flash)
+		flash.global_position = spawn_global
 
 	_play_missile_fire_sound()
