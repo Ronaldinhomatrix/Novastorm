@@ -1,10 +1,10 @@
 class_name MissileLaunchFlash
 extends Node3D
 
-## Efeito visual de flash/brilho no momento do disparo do míssil pela nave:
-## - Glow de plasma alaranjado/dourado na asa de ejeção.
-## - Flash rápido de luz com decaimento suave.
-## - Auto-destrói após a conclusão do efeito.
+## Efeito visual de flash/brilho no momento do disparo do missil pela nave:
+## - Glow de plasma alaranjado/dourado na asa de ejecao.
+## - Flash rapido de luz com decaimento suave.
+## - Auto-destroi apos a conclusao do efeito.
 
 const DURATION: float = 0.22
 
@@ -40,7 +40,7 @@ func _setup_visuals() -> void:
 	_glow_mesh.scale = Vector3(1.4, 1.1, 2.2)
 	add_child(_glow_mesh)
 
-	# Luz omnidirecional curta e rápida
+	# Luz omnidirecional curta e rapida
 	_light = OmniLight3D.new()
 	_light.light_color = Color(1.0, 0.6, 0.15)
 	_light.light_energy = 14.0
