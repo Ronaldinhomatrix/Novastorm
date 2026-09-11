@@ -230,12 +230,13 @@ func _ease_elastic_out(t: float) -> float:
 	return pow(2.0, -10.0 * t) * sin((t - p / 4.0) * (TAU / p)) + 1.0
 
 
-## Exibe uma instrução tática com o efeito elástico pop-in
-func show_instruction(text: String, tag: String = "// PROTOCOLO DE COMBATE // TUTORIAL", accent_color: Color = Color(0.0, 0.85, 1.0, 0.95)) -> void:
+## Exibe uma instrução com o efeito elástico pop-in
+func show_instruction(text: String, tag: String = "", accent_color: Color = Color(0.0, 0.85, 1.0, 0.95)) -> void:
 	if _message_label:
 		_message_label.text = text
 	if _tag_label:
 		_tag_label.text = tag
+		_tag_label.visible = not tag.is_empty()
 
 	_current_accent_color = accent_color
 
@@ -245,7 +246,7 @@ func show_instruction(text: String, tag: String = "// PROTOCOLO DE COMBATE // TU
 		_message_label.add_theme_color_override("font_outline_color", outline_col)
 		_message_label.add_theme_color_override("font_shadow_color", accent_color)
 
-	if _tag_label:
+	if _tag_label and not tag.is_empty():
 		_tag_label.add_theme_color_override("font_color", accent_color)
 
 	if _line_top and _line_bottom:
@@ -282,9 +283,12 @@ func stop_mobile_missile_prompt() -> void:
 
 
 ## Mostra mensagem de sucesso temporária com efeito elástico
-func flash_completion(msg: String = "MÍSSEIS DISPARADOS // SISTEMAS DE COMBATE OPERACIONAIS") -> void:
-	show_instruction(msg, "// TREINAMENTO CONCLUÍDO // BOA SORTE, PILOTO", Color(0.1, 1.4, 0.45, 1.0))
+func flash_completion(msg: String = "") -> void:
+	if msg.is_empty():
+		hide_instruction()
+		return
+	show_instruction(msg, "", Color(0.1, 1.4, 0.45, 1.0))
 	var tree := get_tree()
 	if tree:
-		await tree.create_timer(2.4).timeout
+		await tree.create_timer(2.0).timeout
 	hide_instruction()

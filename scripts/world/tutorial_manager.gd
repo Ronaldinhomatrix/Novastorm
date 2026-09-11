@@ -163,9 +163,9 @@ func _start_step_1() -> void:
 	# 4. Exibe texto instrutivo contextualizado por plataforma
 	if _overlay:
 		if GameConfig.is_mobile:
-			_overlay.show_instruction("USE O DEDO PARA CONTROLAR E DISPARAR", "// TUTORIAL // CONTROLE E TIRO PRIMÁRIO")
+			_overlay.show_instruction("USE O DEDO PARA CONTROLAR E DISPARAR")
 		else:
-			_overlay.show_instruction("CLIQUE COM O MOUSE PARA DISPARAR", "// TUTORIAL // CONTROLE E TIRO PRIMÁRIO")
+			_overlay.show_instruction("CLIQUE COM O MOUSE PARA DISPARAR")
 
 
 func _spawn_step1_pair() -> void:
@@ -216,8 +216,8 @@ func _start_step_2() -> void:
 	if _overlay:
 		_overlay.show_instruction(
 			"APONTE PARA OS INIMIGOS PARA TRAVAR NO ALVO",
-			"// TUTORIAL // MIRA TÁTICA LOCK-ON",
-			Color(1.2, 0.75, 0.15, 1.0) # Âmbar/Dourado Neon
+			"",
+			Color(1.2, 0.75, 0.15, 1.0)
 		)
 
 
@@ -244,7 +244,7 @@ func _on_player_missile_targets_changed(targets: Array[Node3D]) -> void:
 			if GameConfig.is_mobile:
 				_overlay.show_instruction(
 					"USE ESTE BOTÃO PARA DISPARAR MÍSSEIS",
-					"// ALVO TRAVADO // ARMA SECUNDÁRIA",
+					"",
 					Color(0.1, 1.4, 0.45, 1.0)
 				)
 				# Faz o botão de mísseis piscar no mobile
@@ -253,7 +253,7 @@ func _on_player_missile_targets_changed(targets: Array[Node3D]) -> void:
 			else:
 				_overlay.show_instruction(
 					"USE O BOTÃO DIREITO PARA DISPARAR MÍSSEIS",
-					"// ALVO TRAVADO // ARMA SECUNDÁRIA",
+					"",
 					Color(0.1, 1.4, 0.45, 1.0)
 				)
 
@@ -281,7 +281,7 @@ func _on_step2_cleared() -> void:
 		path_follower.set_speed_multiplier(1.0)
 
 	if _overlay:
-		_overlay.flash_completion("MÍSSEIS DISPARADOS // SISTEMAS DE COMBATE OPERACIONAIS")
+		_overlay.flash_completion()
 
 	tutorial_completed.emit()
 
