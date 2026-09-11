@@ -50,6 +50,24 @@ var _crosshair: Control = null  ## Instância do crosshair UI
 @export var maneuver_sound_p19_point: int = -1
 @export var maneuver_sound_p22_point: int = -1
 
+@export_category("Câmera Dinâmica (Mecânica Orgânica)")
+## Ativa o comportamento de câmera dinâmica e viva (respiração sutil + reação elástica a velocidade)
+@export var enable_dynamic_camera: bool = true
+## Distância nominal padrão (metros)
+@export var dynamic_camera_base_distance: float = 45.0
+## Amplitude de afastamento máximo em alta velocidade (ex: 5.0m afasta até 50m nas retas rápidas)
+@export var dynamic_camera_speed_zoom_out: float = 5.0
+## Amplitude de aproximação máxima em baixa velocidade (ex: 5.0m aproxima até 40m nas reduções)
+@export var dynamic_camera_speed_zoom_in: float = 5.0
+## Ativa a respiração/flutuação orgânica sutil contínua
+@export var enable_camera_breathing: bool = true
+## Amplitude da respiração contínua em metros (ex: 1.5m oscila entre 43.5m e 46.5m)
+@export var camera_breathing_amplitude: float = 1.5
+## Velocidade do ciclo de respiração (radianos por segundo)
+@export var camera_breathing_speed: float = 0.8
+## Suavização / elasticidade da transição de distância (quanto maior, mais responsiva)
+@export var dynamic_camera_smoothing: float = 2.5
+
 @export_category("Componentes")
 @export var path_follower: PathFollower = null
 @export var player: Node3D = null
@@ -158,12 +176,10 @@ var _initial_warning_dist: float = 0.0
 
 var _intro_active: bool = false
 var _intro_timer: float = 0.0
-var _default_camera_pos: Vector3 = Vector3(-0.0112, 0.0, 18.0)
-var _default_camera_rot: Vector3 = Vector3.ZERO
-var _current_camera_preset_idx: int = 0
-var _preset_toast_layer: CanvasLayer = null
-var _preset_toast_label: Label = null
-var _preset_toast_timer: float = 0.0
+var _default_camera_pos: Vector3 = CameraConfig.DEFAULT_CAMERA_POSITION
+var _default_camera_rot: Vector3 = CameraConfig.DEFAULT_CAMERA_ROTATION
+var _current_camera_distance: float = 45.0
+var _breathing_time: float = 0.0
 
 # Sons de manobra tocados quando a câmera chega aos pontos 19 e 22.
 const MANEUVER_2_SOUND := preload("res://assets/audio/maneuver2.ogg")
@@ -449,6 +465,9 @@ func _process(delta: float) -> void:
 	if _convoy_node and (_convoy_move_start_dist > 0.0 or _convoy_move_end_dist > 0.0):
 		_handle_convoy_logic()
 
+	# Processa dinâmica orgânica e viva de câmera (respiração + inércia de velocidade)
+	_process_dynamic_camera(delta)
+
 	# Processa tremor de câmera ativo
 	_process_camera_shake(delta)
 
@@ -593,6 +612,48 @@ func _process_camera_shake(delta: float) -> void:
 			camera.h_offset = randf_range(-1.0, 1.0) * current_power
 			camera.v_offset = randf_range(-1.0, 1.0) * (current_power * 0.85)
 			camera.rotation.z = _default_camera_rot.z + deg_to_rad(randf_range(-1.0, 1.0) * current_power * 2.4)
+
+
+## Gerencia a dinâmica contínua e orgânica da câmera (afastamento por velocidade + respiração suave)
+func _process_dynamic_camera(delta: float) -> void:
+	if not enable_dynamic_camera or not camera or _intro_active:
+		return
+	
+	# Posição Z da nave do jogador (fixa em -40.0 local do follower)
+	var player_z: float = player.position.z if player else CameraConfig.DEFAULT_PLAYER_POSITION.z
+	var target_dist: float = dynamic_camera_base_distance
+
+	# 1. Inércia de Velocidade (reage suavemente às acelerações e frenagens)
+	if path_follower:
+		var cur_speed := path_follower.get_current_speed()
+		var base_speed := maxf(path_follower.forward_speed, 1.0)
+		var speed_ratio := cur_speed / base_speed  # 1.0 = velocidade padrão, 2.3 = turbo, 0.5 = lento
+
+		if speed_ratio > 1.0:
+			# Afastamento elástico em altas velocidades (sensação de aceleração e vento)
+			var accel_factor := clampf((speed_ratio - 1.0) / 1.5, 0.0, 1.0)
+			target_dist += dynamic_camera_speed_zoom_out * accel_factor
+		elif speed_ratio < 1.0:
+			# Aproximação em reduções de velocidade (sensação de freio e foco mais próximo)
+			var decel_factor := clampf((1.0 - speed_ratio) / 0.6, 0.0, 1.0)
+			target_dist -= dynamic_camera_speed_zoom_in * decel_factor
+
+	# 2. Respiração Orgânica / Flutuação Contínua (sensação de voo vivo e dinâmica natural)
+	if enable_camera_breathing and camera_breathing_amplitude > 0.0:
+		_breathing_time += delta * camera_breathing_speed
+		# Duas ondas combinadas para que a oscilação não pareça um metrônomo repetitivo
+		var breath_wave := sin(_breathing_time) * 0.7 + sin(_breathing_time * 0.43) * 0.3
+		target_dist += breath_wave * camera_breathing_amplitude
+
+	# Interpolação elástica contínua da distância (sem degraus ou solavancos)
+	var lerp_t := 1.0 - exp(-dynamic_camera_smoothing * delta)
+	_current_camera_distance = lerpf(_current_camera_distance, target_dist, lerp_t)
+
+	# Atualiza a posição da câmera ao longo do eixo local Z:
+	# Como o player está em player_z (ex: -40.0), a câmera fica em (player_z + _current_camera_distance)
+	var target_cam_z := player_z + _current_camera_distance
+	camera.position.z = target_cam_z
+	_default_camera_pos.z = target_cam_z
 
 
 
@@ -1113,88 +1174,3 @@ func _show_crosshair() -> void:
 	if _crosshair:
 		var is_mobile := GameConfig.is_mobile
 		_crosshair.visible = not is_mobile
-
-
-# ---------------------------------------------------------------------------
-# Sistema de Alternância de Câmeras (Testes em Tempo Real)
-# ---------------------------------------------------------------------------
-
-func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and not event.is_echo():
-		if event.keycode == KEY_C or event.keycode == KEY_V:
-			cycle_camera_preset()
-
-
-## Alterna para o próximo preset de câmera e exibe feedback no HUD
-func cycle_camera_preset() -> void:
-	var count := CameraConfig.get_preset_count()
-	if count <= 0:
-		return
-	
-	_current_camera_preset_idx = (_current_camera_preset_idx + 1) % count
-	var preset := CameraConfig.get_preset(_current_camera_preset_idx)
-	
-	_default_camera_pos = preset["position"]
-	_default_camera_rot = Vector3(
-		deg_to_rad(preset["rotation_deg"].x),
-		deg_to_rad(preset["rotation_deg"].y),
-		deg_to_rad(preset["rotation_deg"].z)
-	)
-	
-	CameraConfig.apply_preset(_current_camera_preset_idx, camera, 0.4)
-	
-	# Mensagem de toast informativa na tela
-	var preset_name: String = preset.get("name", "Preset")
-	var dist: float = preset.get("distance", 0.0)
-	var fov_val: float = preset.get("fov", 56.25)
-	var msg := "%s\nDistância: %.0fm | FOV: %.1f° | Posição: (X:%.2f, Y:%.2f, Z:%.2f)\n[C] / [V] para alternar" % [
-		preset_name, dist, fov_val, _default_camera_pos.x, _default_camera_pos.y, _default_camera_pos.z
-	]
-	_show_camera_preset_toast(msg)
-
-
-func _show_camera_preset_toast(text: String) -> void:
-	if not _preset_toast_layer:
-		_preset_toast_layer = CanvasLayer.new()
-		_preset_toast_layer.name = "CameraPresetToastLayer"
-		_preset_toast_layer.layer = 95
-		add_child(_preset_toast_layer)
-		
-		var panel := PanelContainer.new()
-		panel.name = "ToastPanel"
-		panel.set_anchors_preset(Control.PRESET_TOP_WIDE)
-		panel.offset_left = 40.0
-		panel.offset_right = -40.0
-		panel.offset_top = 20.0
-		panel.offset_bottom = 90.0
-		
-		# Estilo translúcido escuro
-		var style := StyleBoxFlat.new()
-		style.bg_color = Color(0.05, 0.08, 0.15, 0.85)
-		style.border_color = Color(0.2, 0.7, 1.0, 0.9)
-		style.set_border_width_all(2)
-		style.set_corner_radius_all(6)
-		panel.add_theme_stylebox_override("panel", style)
-		
-		var lbl := Label.new()
-		lbl.name = "ToastLabel"
-		lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		lbl.add_theme_font_size_override("font_size", 16)
-		lbl.add_theme_color_override("font_color", Color(0.85, 0.95, 1.0))
-		panel.add_child(lbl)
-		
-		_preset_toast_layer.add_child(panel)
-		_preset_toast_label = lbl
-
-	if _preset_toast_label:
-		_preset_toast_label.text = text
-		_preset_toast_layer.visible = true
-		
-		# Animação ou timer para sumir após 3.5 segundos
-		var tween := create_tween()
-		tween.tween_interval(3.5)
-		tween.tween_callback(func():
-			if _preset_toast_layer:
-				_preset_toast_layer.visible = false
-		)

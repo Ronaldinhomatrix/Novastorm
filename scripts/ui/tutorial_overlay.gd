@@ -8,10 +8,14 @@ extends Control
 var _banner_container: Control = null
 var _tag_label: Label = null
 var _message_label: Label = null
+var _sub_message_label: Label = null
 var _line_top: ColorRect = null
 var _line_bottom: ColorRect = null
 var _bg_glow: TextureRect = null
 
+var _mobile_arrow_container: Control = null
+var _mobile_arrow_label: Label = null
+var _mobile_arrow_text: Label = null
 var _mobile_hint: PanelContainer = null
 var _mobile_hint_label: Label = null
 var _is_pulsing_mobile: bool = false
@@ -54,10 +58,10 @@ func _build_ui() -> void:
 	_banner_container.anchor_right = 0.5
 	_banner_container.offset_left = -700.0
 	_banner_container.offset_right = 700.0
-	_banner_container.offset_top = 160.0
-	_banner_container.offset_bottom = 290.0
+	_banner_container.offset_top = 150.0
+	_banner_container.offset_bottom = 330.0
 	# Pivot exatamente no centro para o efeito elástico de escala
-	_banner_container.pivot_offset = Vector2(700.0, 65.0)
+	_banner_container.pivot_offset = Vector2(700.0, 90.0)
 	_banner_container.scale = Vector2.ZERO
 	_banner_container.modulate.a = 0.0
 	add_child(_banner_container)
@@ -110,7 +114,7 @@ func _build_ui() -> void:
 	var vbox := VBoxContainer.new()
 	vbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	vbox.add_theme_constant_override("separation", 8)
+	vbox.add_theme_constant_override("separation", 6)
 	_banner_container.add_child(vbox)
 
 	# Tag / Categoria acima da mensagem principal
@@ -124,13 +128,13 @@ func _build_ui() -> void:
 	_tag_label.add_theme_constant_override("shadow_offset_y", 1)
 	vbox.add_child(_tag_label)
 
-	# Mensagem Principal: LETRA GROSSA, GRANDE, ALTO IMPACTO
+	# Linha 1 - Mensagem Principal: LETRA GROSSA, GRANDE, ALTO IMPACTO
 	_message_label = Label.new()
 	_message_label.text = ""
 	_message_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_message_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_message_label.add_theme_font_override("font", font_impact)
-	_message_label.add_theme_font_size_override("font_size", 46)
+	_message_label.add_theme_font_size_override("font_size", 44)
 	_message_label.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 1.0))
 	_message_label.add_theme_color_override("font_outline_color", Color(0.0, 0.35, 0.65, 0.95))
 	_message_label.add_theme_constant_override("outline_size", 12)
@@ -139,7 +143,60 @@ func _build_ui() -> void:
 	_message_label.add_theme_constant_override("shadow_outline_size", 10)
 	vbox.add_child(_message_label)
 
-	# 2. Balão de chamada (Hint) apontando para o botão de míssil no Mobile com letra grossa
+	# Linha 2 - Sub-mensagem / Linha de Baixo: LETRA GROSSA, ENFÁTICA E DESTACADA
+	_sub_message_label = Label.new()
+	_sub_message_label.text = ""
+	_sub_message_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_sub_message_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_sub_message_label.add_theme_font_override("font", font_impact)
+	_sub_message_label.add_theme_font_size_override("font_size", 28)
+	_sub_message_label.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 1.0))
+	_sub_message_label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.95))
+	_sub_message_label.add_theme_constant_override("outline_size", 8)
+	_sub_message_label.add_theme_color_override("font_shadow_color", Color(0.0, 0.8, 1.0, 0.85))
+	_sub_message_label.add_theme_constant_override("shadow_offset_y", 2)
+	_sub_message_label.add_theme_constant_override("shadow_outline_size", 6)
+	_sub_message_label.visible = false
+	vbox.add_child(_sub_message_label)
+
+	# 2. Flecha pulsante apontando diretamente para o botão de míssil no Mobile (Ultra Visível)
+	_mobile_arrow_container = Control.new()
+	_mobile_arrow_container.name = "MobileMissileArrow"
+	_mobile_arrow_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_mobile_arrow_container.visible = false
+	add_child(_mobile_arrow_container)
+
+	var arrow_vbox := VBoxContainer.new()
+	arrow_vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	arrow_vbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	arrow_vbox.add_theme_constant_override("separation", 0)
+	_mobile_arrow_container.add_child(arrow_vbox)
+
+	_mobile_arrow_text = Label.new()
+	_mobile_arrow_text.text = "DISPARAR"
+	_mobile_arrow_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_mobile_arrow_text.add_theme_font_override("font", font_impact)
+	_mobile_arrow_text.add_theme_font_size_override("font_size", 20)
+	_mobile_arrow_text.add_theme_color_override("font_color", Color(1.5, 1.1, 0.2, 1.0))
+	_mobile_arrow_text.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.95))
+	_mobile_arrow_text.add_theme_constant_override("outline_size", 6)
+	_mobile_arrow_text.add_theme_color_override("font_shadow_color", Color(1.0, 0.5, 0.0, 0.8))
+	_mobile_arrow_text.add_theme_constant_override("shadow_offset_y", 2)
+	arrow_vbox.add_child(_mobile_arrow_text)
+
+	_mobile_arrow_label = Label.new()
+	_mobile_arrow_label.text = "▼"
+	_mobile_arrow_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_mobile_arrow_label.add_theme_font_override("font", font_impact)
+	_mobile_arrow_label.add_theme_font_size_override("font_size", 38)
+	_mobile_arrow_label.add_theme_color_override("font_color", Color(1.5, 1.1, 0.2, 1.0))
+	_mobile_arrow_label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.95))
+	_mobile_arrow_label.add_theme_constant_override("outline_size", 8)
+	_mobile_arrow_label.add_theme_color_override("font_shadow_color", Color(1.0, 0.4, 0.0, 0.9))
+	_mobile_arrow_label.add_theme_constant_override("shadow_offset_y", 3)
+	arrow_vbox.add_child(_mobile_arrow_label)
+
+	# 3. Painel de chamada complementar
 	_mobile_hint = PanelContainer.new()
 	_mobile_hint.name = "MobileMissileHint"
 	_mobile_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -178,8 +235,8 @@ func _build_ui() -> void:
 
 
 func _process(delta: float) -> void:
-	# Como o jogo entra em slow motion (time_scale = 0.2), computamos delta real
-	# para que o efeito elástico e as letras cresçam com vigor e dinamismo 100% fluidos!
+	# Como o jogo entra em slow motion (time_scale = 0.25), computamos delta real
+	# para que o efeito elástico e as letras cresçam com dinamismo fluido
 	var real_delta: float = (delta / maxf(Engine.time_scale, 0.05)) if Engine.time_scale < 0.9 else delta
 
 	# Fade de transparência
@@ -200,22 +257,39 @@ func _process(delta: float) -> void:
 			var breathe := 1.0 + sin(_idle_time * 3.6) * 0.028
 			_banner_container.scale = Vector2(breathe, breathe)
 
-	# Efeito pulsante de piscar do botão no Mobile
+	# Efeito pulsante de piscar da flecha e do botão (Ambos bem visíveis)
 	if _is_pulsing_mobile:
-		_pulse_timer += real_delta * 8.0
+		_pulse_timer += real_delta * 9.0
 		var wave := (sin(_pulse_timer) + 1.0) * 0.5 # 0.0 a 1.0
-		if _mobile_hint:
-			_mobile_hint.visible = true
-			var hint_scale := 1.0 + wave * 0.06
-			_mobile_hint.scale = Vector2(hint_scale, hint_scale)
-			_mobile_hint.modulate = Color(1.0 + wave * 0.3, 1.0 + wave * 0.2, 0.8 + wave * 0.4, 0.9 + wave * 0.1)
+		var bounce := sin(_pulse_timer) * 9.0
+
 		if _missile_panel_ref and is_instance_valid(_missile_panel_ref):
-			_missile_panel_ref.modulate = Color(1.0 + wave * 0.7, 1.0 + wave * 0.5, 0.5 + wave * 0.5, 1.0)
-			_missile_panel_ref.scale = Vector2.ONE * (1.0 + wave * 0.08)
+			_missile_panel_ref.pivot_offset = _missile_panel_ref.size * 0.5
+			# Pisca o botão de míssil com brilho neon dourado e aumento de escala
+			_missile_panel_ref.modulate = Color(1.0, 1.0, 1.0).lerp(Color(2.2, 1.6, 0.2, 1.0), wave)
+			_missile_panel_ref.scale = Vector2.ONE * lerpf(1.0, 1.15, wave)
+
+			# Flecha grande piscando e quicando diretamente acima do botão
+			if _mobile_arrow_container:
+				_mobile_arrow_container.visible = true
+				var p_rect := _missile_panel_ref.get_global_rect()
+				var w := 200.0
+				var h := 70.0
+				_mobile_arrow_container.size = Vector2(w, h)
+				_mobile_arrow_container.pivot_offset = Vector2(w * 0.5, h * 0.5)
+				_mobile_arrow_container.global_position = Vector2(
+					p_rect.position.x + p_rect.size.x * 0.5 - w * 0.5,
+					p_rect.position.y - h - 6.0 + bounce
+				)
+				_mobile_arrow_container.scale = Vector2.ONE * lerpf(0.95, 1.15, wave)
+				_mobile_arrow_container.modulate = Color(1.0 + wave * 0.6, 1.0 + wave * 0.4, 0.4 + wave * 0.6, lerpf(0.75, 1.0, wave))
 	else:
+		if _mobile_arrow_container and _mobile_arrow_container.visible:
+			_mobile_arrow_container.visible = false
 		if _mobile_hint and _mobile_hint.visible:
 			_mobile_hint.visible = false
 		if _missile_panel_ref and is_instance_valid(_missile_panel_ref):
+			_missile_panel_ref.modulate = Color.WHITE
 			if _missile_panel_ref.scale != Vector2.ONE:
 				_missile_panel_ref.scale = Vector2.ONE
 
@@ -230,10 +304,13 @@ func _ease_elastic_out(t: float) -> float:
 	return pow(2.0, -10.0 * t) * sin((t - p / 4.0) * (TAU / p)) + 1.0
 
 
-## Exibe uma instrução com o efeito elástico pop-in
-func show_instruction(text: String, tag: String = "", accent_color: Color = Color(0.0, 0.85, 1.0, 0.95)) -> void:
+## Exibe uma instrução com o efeito elástico pop-in (suporta linha principal e linha de baixo)
+func show_instruction(text: String, sub_text: String = "", tag: String = "", accent_color: Color = Color(0.0, 0.85, 1.0, 0.95)) -> void:
 	if _message_label:
 		_message_label.text = text
+	if _sub_message_label:
+		_sub_message_label.text = sub_text
+		_sub_message_label.visible = not sub_text.is_empty()
 	if _tag_label:
 		_tag_label.text = tag
 		_tag_label.visible = not tag.is_empty()
@@ -241,10 +318,14 @@ func show_instruction(text: String, tag: String = "", accent_color: Color = Colo
 	_current_accent_color = accent_color
 
 	# Ajusta as cores neon de outline, sombra e linhas decorativas
+	var outline_col := Color(accent_color.r * 0.4, accent_color.g * 0.4, accent_color.b * 0.4, 0.95)
 	if _message_label:
-		var outline_col := Color(accent_color.r * 0.4, accent_color.g * 0.4, accent_color.b * 0.4, 0.95)
 		_message_label.add_theme_color_override("font_outline_color", outline_col)
 		_message_label.add_theme_color_override("font_shadow_color", accent_color)
+
+	if _sub_message_label:
+		_sub_message_label.add_theme_color_override("font_color", accent_color)
+		_sub_message_label.add_theme_color_override("font_shadow_color", Color(accent_color.r * 0.5, accent_color.g * 0.5, accent_color.b * 0.5, 0.8))
 
 	if _tag_label and not tag.is_empty():
 		_tag_label.add_theme_color_override("font_color", accent_color)
@@ -265,16 +346,20 @@ func hide_instruction() -> void:
 	_target_alpha = 0.0
 
 
-## Inicia o piscar do botão de disparo de mísseis no Mobile
-func start_mobile_missile_prompt(missile_panel: Control) -> void:
+## Inicia o piscar da flecha e do botão de mísseis apontando para o painel
+func start_mobile_missile_prompt(missile_panel: Control, arrow_text: String = "DISPARAR") -> void:
 	_missile_panel_ref = missile_panel
 	_is_pulsing_mobile = true
 	_pulse_timer = 0.0
+	if _mobile_arrow_text:
+		_mobile_arrow_text.text = arrow_text
 
 
-## Interrompe o piscar do botão de mísseis
+## Interrompe o piscar do botão e flecha de mísseis
 func stop_mobile_missile_prompt() -> void:
 	_is_pulsing_mobile = false
+	if _mobile_arrow_container:
+		_mobile_arrow_container.visible = false
 	if _mobile_hint:
 		_mobile_hint.visible = false
 	if _missile_panel_ref and is_instance_valid(_missile_panel_ref):
@@ -287,8 +372,9 @@ func flash_completion(msg: String = "") -> void:
 	if msg.is_empty():
 		hide_instruction()
 		return
-	show_instruction(msg, "", Color(0.1, 1.4, 0.45, 1.0))
+	show_instruction(msg, "", "", Color(0.1, 1.4, 0.45, 1.0))
 	var tree := get_tree()
 	if tree:
 		await tree.create_timer(2.0).timeout
 	hide_instruction()
+

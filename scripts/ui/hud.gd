@@ -46,6 +46,8 @@ var _max_missiles: int = 3
 var _is_reloading_missiles: bool = false
 var _has_locked_targets: bool = false
 var _missile_pulse_time: float = 0.0
+var _missile_reload_pulse_time: float = 0.0
+var _current_reload_progress: float = 0.0
 
 var _current_shield: int = 3
 var _max_shield: int = 3
@@ -95,16 +97,59 @@ func _process(delta: float) -> void:
 		if cam:
 			lock_on_reticle.set_camera(cam)
 
-	# Efeito de pulso no botão de míssil quando alvos estiverem travados
-	if missile_btn:
-		if _has_locked_targets and not _is_reloading_missiles and _current_missiles > 0:
+	# Efeito visual tático do painel e botão de mísseis (Alerta de Reload pulsante ou Lock-on ativo)
+	if missile_panel:
+		if _is_reloading_missiles:
+			# Frequência de pulso acelera conforme a recarga avança (de 6.0 rad/s até 16.0 rad/s)
+			var pulse_speed := lerpf(6.5, 15.0, _current_reload_progress)
+			_missile_reload_pulse_time += delta * pulse_speed
+			var pulse_wave := (sin(_missile_reload_pulse_time) + 1.0) * 0.5  # 0.0 a 1.0
+
+			# Brilho dinâmico do painel e botão: oscila entre vermelho alerta e vermelho neon incandescente
+			var border_pulse := lerpf(1.1, 2.2, pulse_wave)
+			var shadow_spread := lerpf(8.0, 22.0, pulse_wave)
+
+			var sb := missile_panel.get_theme_stylebox("panel")
+			if sb is StyleBoxFlat:
+				var sb_flat: StyleBoxFlat = sb as StyleBoxFlat
+				sb_flat.border_color = Color(1.0 * border_pulse, 0.18 * border_pulse, 0.12 * border_pulse, 1.0)
+				sb_flat.shadow_color = Color(1.0, 0.15, 0.1, lerpf(0.5, 0.95, pulse_wave))
+				sb_flat.shadow_size = int(shadow_spread)
+
+			# Efeito de respiração suave no texto RELOADING com brilho
+			if missile_reload_label:
+				var label_glow := lerpf(0.55, 1.35, pulse_wave)
+				missile_reload_label.modulate = Color(label_glow, label_glow * 0.9, label_glow * 0.85, 1.0)
+
+			if missile_btn:
+				missile_btn.modulate = Color(1.0, 0.85 + 0.15 * pulse_wave, 0.85 + 0.15 * pulse_wave, 0.9)
+		elif _has_locked_targets and _current_missiles > 0:
 			_missile_pulse_time += delta * 7.5
 			var pulse := (sin(_missile_pulse_time) + 1.0) * 0.5 * 0.45 + 0.85
-			missile_btn.modulate = Color(1.35 * pulse, 1.15 * pulse, 0.9 * pulse, 1.0)
-		elif _is_reloading_missiles or _current_missiles <= 0:
-			missile_btn.modulate = Color(0.65, 0.65, 0.65, 0.6)
+			if missile_btn:
+				missile_btn.modulate = Color(1.35 * pulse, 1.15 * pulse, 0.9 * pulse, 1.0)
+			var sb := missile_panel.get_theme_stylebox("panel")
+			if sb is StyleBoxFlat:
+				var sb_flat: StyleBoxFlat = sb as StyleBoxFlat
+				sb_flat.border_color = Color(0.1, 1.4, 0.45, 1.0)
+				sb_flat.shadow_color = Color(0.1, 1.0, 0.4, 0.8)
+				sb_flat.shadow_size = 12
 		else:
-			missile_btn.modulate = Color.WHITE
+			if missile_btn:
+				missile_btn.modulate = Color.WHITE
+			if missile_reload_label:
+				missile_reload_label.modulate = Color.WHITE
+			var sb := missile_panel.get_theme_stylebox("panel")
+			if sb is StyleBoxFlat:
+				var sb_flat: StyleBoxFlat = sb as StyleBoxFlat
+				if _current_missiles > 0:
+					sb_flat.border_color = Color(0.1, 1.4, 0.45, 1.0)
+					sb_flat.shadow_color = Color(0.1, 1.0, 0.4, 0.6)
+					sb_flat.shadow_size = 10
+				else:
+					sb_flat.border_color = Color(0.4, 0.2, 0.2, 0.6)
+					sb_flat.shadow_color = Color(0, 0, 0, 0.4)
+					sb_flat.shadow_size = 4
 
 	# Pulsação suave de alarme quando o Hull está crítico (1 ponto restante)
 	if _is_pulsing_critical and hull_pips:
@@ -648,19 +693,24 @@ func _on_player_missile_reloaded(current: int, max_val: int) -> void:
 	_max_missiles = max_val
 	_current_missiles = current
 	_is_reloading_missiles = false
+	_current_reload_progress = 1.0
 	if missile_reload_bar:
 		missile_reload_bar.visible = false
 		missile_reload_bar.value = 1.0
 	_update_missile_display()
 
-	# Brilho de recarga concluída
+	# Flash estroboscópico verde neon radiante e pulso de escala ("READY / POP")
 	if missile_panel:
 		var reload_tween := create_tween()
-		missile_panel.modulate = Color(1.5, 2.0, 1.5, 1.0)
-		reload_tween.tween_property(missile_panel, "modulate", Color.WHITE, 0.35)
+		missile_panel.scale = Vector2(1.08, 1.08)
+		missile_panel.modulate = Color(1.6, 2.5, 1.6, 1.0)
+		reload_tween.set_parallel(true)
+		reload_tween.tween_property(missile_panel, "scale", Vector2.ONE, 0.28).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		reload_tween.tween_property(missile_panel, "modulate", Color.WHITE, 0.4).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 
 
 func _on_player_missile_reload_progress(progress: float) -> void:
+	_current_reload_progress = clampf(progress, 0.0, 1.0)
 	if progress >= 1.0:
 		return
 
@@ -713,10 +763,10 @@ func get_tutorial_overlay() -> TutorialOverlay:
 	return _tutorial_overlay
 
 
-func start_tutorial_missile_blink() -> void:
+func start_tutorial_missile_blink(arrow_text: String = "DISPARAR") -> void:
 	var overlay := get_tutorial_overlay()
 	if overlay and missile_panel:
-		overlay.start_mobile_missile_prompt(missile_panel)
+		overlay.start_mobile_missile_prompt(missile_panel, arrow_text)
 
 
 func stop_tutorial_missile_blink() -> void:

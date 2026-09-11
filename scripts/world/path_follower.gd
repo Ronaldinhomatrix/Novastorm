@@ -137,6 +137,11 @@ func _physics_process(delta: float) -> void:
 # Velocidade atual
 # ---------------------------------------------------------------------------
 
+## Retorna a velocidade calculada em tempo real (unidades/segundo)
+func get_current_speed() -> float:
+	return _current_speed()
+
+
 func _current_speed() -> float:
 	var base_speed := forward_speed
 	var parent_path := get_parent() as Path3D

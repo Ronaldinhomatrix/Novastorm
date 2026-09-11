@@ -33,6 +33,7 @@ enum State {
 	STEP2_PRESENTING,     # Novas naves entrando, câmera lenta, aguardando lock-on
 	STEP2_LOCKED,         # Alvo travado, orienta disparo de míssil
 	STEP2_MISSILE_FIRED,  # Míssil lançado, tempo normal restaurado
+	STEP2_RELOADING,      # Exibe flecha apontando para o botão: "Mísseis carregando" por ~3s
 	COMPLETED
 }
 
@@ -144,6 +145,11 @@ func _process(delta: float) -> void:
 			if _step2_enemies.is_empty():
 				_on_step2_cleared()
 
+		State.STEP2_RELOADING:
+			_state_timer -= real_delta
+			if _state_timer <= 0.0:
+				_finish_tutorial()
+
 
 # ---------------------------------------------------------------------------
 # ETAPA 1: Disparo Primário (Laser)
@@ -213,8 +219,8 @@ func _start_step_2() -> void:
 	if player and "missiles_enabled" in player:
 		player.missiles_enabled = true
 
-	# 1. Entram mais duas naves inimigas (imunes a laser até o disparo do míssil)
-	_spawn_step2_pair()
+	# 1. Entram três naves inimigas em formação (imunes a laser até o disparo do míssil)
+	_spawn_step2_trio()
 
 	# 2. Ativa câmera lenta novamente
 	Engine.time_scale = 0.25
@@ -222,49 +228,72 @@ func _start_step_2() -> void:
 	# 3. Toca som de aviso tático
 	_play_chime()
 
-	# 4. Exibe instrução de mirar para travar no alvo
+	# 4. Exibe instrução de mirar para travar as 3 no alvo
 	if _overlay:
 		_overlay.show_instruction(
-			"APONTE PARA OS INIMIGOS PARA TRAVAR NO ALVO",
+			"MIRE NAS TRÊS NAVES INIMIGAS",
+			"TRAVE AS 3 NO ALVO",
 			"",
 			Color(1.2, 0.75, 0.15, 1.0)
 		)
 
 
-func _spawn_step2_pair() -> void:
+func _spawn_step2_trio() -> void:
 	_step2_enemies.clear()
-	# Nave 1: lateral esquerda (-7.5m), distância 105m (imune a laser)
-	var e1 := _create_tutorial_enemy(-7.5, 105.0, 4.2, true)
-	# Nave 2: lateral direita (+7.5m), distância 105m (imune a laser)
-	var e2 := _create_tutorial_enemy(7.5, 105.0, 4.2, true)
+	# Nave 1: lateral esquerda (-8.5m), distância 105m (imune a laser)
+	var e1 := _create_tutorial_enemy(-8.5, 105.0, 4.2, true)
+	# Nave 2: centro (0.0m), distância 108m (imune a laser)
+	var e2 := _create_tutorial_enemy(0.0, 108.0, 5.2, true)
+	# Nave 3: lateral direita (+8.5m), distância 105m (imune a laser)
+	var e3 := _create_tutorial_enemy(8.5, 105.0, 4.2, true)
 
 	if e1:
 		_step2_enemies.append(e1)
 	if e2:
 		_step2_enemies.append(e2)
+	if e3:
+		_step2_enemies.append(e3)
 
 
 func _on_player_missile_targets_changed(targets: Array[Node3D]) -> void:
-	if _state == State.STEP2_PRESENTING and not targets.is_empty():
-		# O alvo foi travado com sucesso!
-		_state = State.STEP2_LOCKED
-		_play_chime()
+	if _state == State.STEP2_PRESENTING:
+		var required_locks := mini(3, _step2_enemies.size())
+		if targets.size() >= required_locks and not targets.is_empty():
+			# Todos os 3 alvos foram travados com sucesso!
+			_state = State.STEP2_LOCKED
+			_play_chime()
 
-		if _overlay:
-			if GameConfig.is_mobile:
+			if _overlay:
+				if GameConfig.is_mobile:
+					_overlay.show_instruction(
+						"DISPARE 3 MÍSSEIS",
+						"TOQUE NO BOTÃO DO MÍSSIL",
+						"",
+						Color(0.1, 1.4, 0.45, 1.0)
+					)
+					# Faz o botão de mísseis piscar no mobile
+					if hud and hud.has_method("start_tutorial_missile_blink"):
+						hud.start_tutorial_missile_blink()
+				else:
+					_overlay.show_instruction(
+						"DISPARE 3 MÍSSEIS",
+						"BOTÃO DIREITO DO MOUSE",
+						"",
+						Color(0.1, 1.4, 0.45, 1.0)
+					)
+	elif _state == State.STEP2_LOCKED:
+		var required_locks := mini(3, _step2_enemies.size())
+		if targets.size() < required_locks:
+			# O jogador perdeu a mira de algum alvo antes de atirar; volta para o estado de mira
+			_state = State.STEP2_PRESENTING
+			if hud and hud.has_method("stop_tutorial_missile_blink"):
+				hud.stop_tutorial_missile_blink()
+			if _overlay:
 				_overlay.show_instruction(
-					"USE ESTE BOTÃO PARA DISPARAR MÍSSEIS",
+					"MIRE NAS TRÊS NAVES INIMIGAS",
+					"TRAVE AS 3 NO ALVO",
 					"",
-					Color(0.1, 1.4, 0.45, 1.0)
-				)
-				# Faz o botão de mísseis piscar no mobile
-				if hud and hud.has_method("start_tutorial_missile_blink"):
-					hud.start_tutorial_missile_blink()
-			else:
-				_overlay.show_instruction(
-					"USE O BOTÃO DIREITO PARA DISPARAR MÍSSEIS",
-					"",
-					Color(0.1, 1.4, 0.45, 1.0)
+					Color(1.2, 0.75, 0.15, 1.0)
 				)
 
 
@@ -285,12 +314,28 @@ func _on_player_missile_fired(_remaining: int, _max_val: int) -> void:
 
 
 func _on_step2_cleared() -> void:
+	# Terceiro inimigo destruído! Inicia a parte 3: flecha apontando para o botão dos mísseis com "Mísseis carregando" por 3s
+	_state = State.STEP2_RELOADING
+	_state_timer = 3.0
+	Engine.time_scale = 1.0
+
+	if _overlay:
+		_overlay.hide_instruction()
+
+	if hud and hud.has_method("start_tutorial_missile_blink"):
+		hud.start_tutorial_missile_blink("Mísseis carregando")
+
+
+func _finish_tutorial() -> void:
 	_state = State.COMPLETED
 	Engine.time_scale = 1.0
 	if player and "missiles_enabled" in player:
 		player.missiles_enabled = true
 	if path_follower and path_follower.has_method("set_speed_multiplier"):
 		path_follower.set_speed_multiplier(1.0)
+
+	if hud and hud.has_method("stop_tutorial_missile_blink"):
+		hud.stop_tutorial_missile_blink()
 
 	if _overlay:
 		_overlay.flash_completion()
