@@ -107,6 +107,7 @@ var current_shield: int = 3
 var current_hull: int = 3
 
 # Mísseis e Lock-on
+var missiles_enabled: bool = true
 var current_missiles: int = 3
 var _locked_targets: Array[Node3D] = []
 var _targeting_progress: Dictionary = {}  ## Node3D -> float (tempo sustentado na mira)
@@ -861,8 +862,8 @@ func _process_missiles_and_lock_on(delta: float) -> void:
 
 
 func _update_lock_on_system(delta: float) -> void:
-	# O lock-on só funciona se houver mísseis disponíveis para disparo e o jogador estiver ativo
-	if not _controls_enabled or _is_dying or current_missiles <= 0 or _is_reloading_missiles:
+	# O lock-on só funciona se mísseis estiverem habilitados, houver munição e o jogador estiver ativo
+	if not missiles_enabled or not _controls_enabled or _is_dying or current_missiles <= 0 or _is_reloading_missiles:
 		var had_targets := not _locked_targets.is_empty() or not _targeting_progress.is_empty()
 		if not _locked_targets.is_empty():
 			_locked_targets.clear()
@@ -1065,7 +1066,7 @@ func _play_missile_fire_sound() -> void:
 
 ## Dispara um único míssil por acionamento (seguindo a ordem em que os alvos foram travados)
 func fire_missiles() -> void:
-	if _is_reloading_missiles or current_missiles <= 0 or not _controls_enabled or _is_dying:
+	if not missiles_enabled or _is_reloading_missiles or current_missiles <= 0 or not _controls_enabled or _is_dying:
 		return
 
 	# Remove alvos que possam ter morrido ou sido liberados antes do clique

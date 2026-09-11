@@ -59,6 +59,8 @@ func _ready() -> void:
 
 func _exit_tree() -> void:
 	Engine.time_scale = 1.0
+	if player and "missiles_enabled" in player:
+		player.missiles_enabled = true
 	if path_follower and path_follower.has_method("set_speed_multiplier"):
 		path_follower.set_speed_multiplier(1.0)
 	if hud and hud.has_method("stop_tutorial_missile_blink"):
@@ -151,6 +153,10 @@ func _start_step_1() -> void:
 	_state = State.STEP1_PRESENTING
 	tutorial_step_changed.emit(1)
 
+	# 0. Bloqueia os mísseis durante o treinamento de disparo primário (laser)
+	if player and "missiles_enabled" in player:
+		player.missiles_enabled = false
+
 	# 1. Spawn de duas naves inimigas na frente
 	_spawn_step1_pair()
 
@@ -202,6 +208,10 @@ func _on_step1_cleared() -> void:
 func _start_step_2() -> void:
 	_state = State.STEP2_PRESENTING
 	tutorial_step_changed.emit(2)
+
+	# 0. Reabilita os mísseis para a etapa de lock-on e mísseis
+	if player and "missiles_enabled" in player:
+		player.missiles_enabled = true
 
 	# 1. Entram mais duas naves inimigas (imunes a laser até o disparo do míssil)
 	_spawn_step2_pair()
@@ -277,6 +287,8 @@ func _on_player_missile_fired(_remaining: int, _max_val: int) -> void:
 func _on_step2_cleared() -> void:
 	_state = State.COMPLETED
 	Engine.time_scale = 1.0
+	if player and "missiles_enabled" in player:
+		player.missiles_enabled = true
 	if path_follower and path_follower.has_method("set_speed_multiplier"):
 		path_follower.set_speed_multiplier(1.0)
 
@@ -290,6 +302,9 @@ func _on_step2_cleared() -> void:
 func _abort_tutorial_at_limit() -> void:
 	_state = State.COMPLETED
 	Engine.time_scale = 1.0
+
+	if player and "missiles_enabled" in player:
+		player.missiles_enabled = true
 
 	if path_follower and path_follower.has_method("set_speed_multiplier"):
 		path_follower.set_speed_multiplier(1.0)
