@@ -6,7 +6,7 @@ extends Area3D
 ## Gera esteira densa e volumosa de fumaça suspensa no ar (world coords).
 
 @export_category("Desempenho e Voo")
-@export var initial_relative_speed: float = 10.0  ## Velocidade inicial relativa à nave (m/s)
+@export var initial_relative_speed: float = 1.0   ## Velocidade inicial relativa à nave (m/s)
 @export var max_speed: float = 380.0             ## Velocidade máxima em relação ao mundo
 @export var acceleration: float = 320.0          ## Aceleração linear rápida (m/s²)
 @export var turn_rate: float = 12.0              ## Velocidade angular base de perseguição (rad/s)
@@ -79,10 +79,6 @@ func _physics_process(delta: float) -> void:
 	var forward := _velocity.normalized()
 	var desired_dir := forward
 
-	# Se tiver alvo válido, ajusta dinamicamente o delay e a manobrabilidade pela distância
-	var current_homing_delay := homing_delay
-	var current_turn_rate := turn_rate
-
 	if is_instance_valid(_target) and not _target.is_queued_for_deletion():
 		# Pega a posição central do alvo
 		var target_pos := _target.global_position
@@ -93,13 +89,11 @@ func _physics_process(delta: float) -> void:
 		var to_target_vec := target_pos - global_position
 		var dist_to_target := to_target_vec.length()
 
-		# Item 1: Se o alvo estiver a menos de 100m, reduz o homing_delay proporcionalmente
-		# para não passar reto e ter que dar a volta completa
-		if dist_to_target < 100.0:
-			var proximity_factor := clampf(dist_to_target / 100.0, 0.0, 1.0)
-			current_homing_delay = homing_delay * proximity_factor
-			# Aumenta a agilidade de curva para fechar o ângulo com precisão
-			current_turn_rate = lerpf(turn_rate * 2.2, turn_rate, proximity_factor)
+		# Lógica simples de 2 situações:
+		# Se o alvo está perto (< 100m): teleguia imediatamente (sem delay) e com curva mais fechada.
+		# Se o alvo está longe (>= 100m): comportamento normal de ejeção em linha reta por homing_delay.
+		var current_homing_delay := 0.0 if dist_to_target < 100.0 else homing_delay
+		var current_turn_rate := (turn_rate * 1.8) if dist_to_target < 100.0 else turn_rate
 
 		if _age >= current_homing_delay:
 			var to_target := to_target_vec.normalized()
