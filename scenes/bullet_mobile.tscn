@@ -3,7 +3,7 @@
 [ext_resource type="Script" uid="uid://b3jrjk5vl57p3" path="res://scripts/projectiles/bullet.gd" id="1_bullet"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_bullet"]
-size = Vector3(1.0, 1.0, 12.0)
+size = Vector3(3.8, 3.8, 18.0)
 
 [sub_resource type="Shader" id="Shader_plasma_beam"]
 code = "shader_type spatial;
@@ -51,15 +51,15 @@ void fragment() {
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_plasma_beam"]
 render_priority = 0
 shader = SubResource("Shader_plasma_beam")
-shader_parameter/core_color = Color(3.2, 4.6, 6, 1)
-shader_parameter/edge_color = Color(0.25, 1.1, 3.2, 1)
+shader_parameter/core_color = Color(3.5, 4.8, 6.5, 1)
+shader_parameter/edge_color = Color(0.3, 1.2, 3.5, 1)
 shader_parameter/energy_speed = 18.0
 shader_parameter/flicker_strength = 0.22
 
 [sub_resource type="CapsuleMesh" id="CapsuleMesh_beam"]
 material = SubResource("ShaderMaterial_plasma_beam")
-radius = 0.42
-height = 10.5
+radius = 1.35
+height = 18.0
 radial_segments = 8
 rings = 3
 
@@ -68,12 +68,12 @@ transparency = 1
 blend_mode = 1
 cull_mode = 2
 shading_mode = 0
-albedo_color = Color(7.0, 9.0, 11.0, 1)
+albedo_color = Color(8.0, 10.0, 12.0, 1)
 
 [sub_resource type="CapsuleMesh" id="CapsuleMesh_core"]
 material = SubResource("StandardMaterial3D_core")
-radius = 0.13
-height = 10.0
+radius = 0.6
+height = 16.5
 radial_segments = 6
 rings = 2
 
@@ -97,11 +97,11 @@ shading_mode = 0
 billboard_mode = 1
 billboard_keep_scale = true
 albedo_texture = SubResource("GradientTexture2D_glow")
-albedo_color = Color(2.4, 3.0, 3.8, 0.95)
+albedo_color = Color(2.6, 3.4, 4.2, 0.95)
 
 [sub_resource type="QuadMesh" id="QuadMesh_head_flare"]
 material = SubResource("StandardMaterial3D_head_flare")
-size = Vector2(1.3, 1.3)
+size = Vector2(4.5, 4.5)
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_tail_glow"]
 transparency = 1
@@ -111,11 +111,11 @@ shading_mode = 0
 billboard_mode = 1
 billboard_keep_scale = true
 albedo_texture = SubResource("GradientTexture2D_glow")
-albedo_color = Color(0.8, 1.6, 3.2, 0.7)
+albedo_color = Color(1.0, 2.0, 3.8, 0.8)
 
 [sub_resource type="QuadMesh" id="QuadMesh_tail_glow"]
 material = SubResource("StandardMaterial3D_tail_glow")
-size = Vector2(0.9, 0.9)
+size = Vector2(3.2, 3.2)
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_spark_core"]
 transparency = 1
@@ -125,7 +125,7 @@ vertex_color_use_as_albedo = true
 
 [sub_resource type="BoxMesh" id="BoxMesh_spark_core"]
 material = SubResource("StandardMaterial3D_spark_core")
-size = Vector3(0.07, 0.07, 1.3)
+size = Vector3(0.18, 0.18, 1.8)
 
 [sub_resource type="Curve" id="Curve_sparks"]
 _data = [Vector2(0, 1), 0.0, 0.0, 0, 0, Vector2(0.7, 0.8), -0.5, -0.5, 0, 0, Vector2(1, 0), -2.5, 0.0, 0, 0]
@@ -144,7 +144,7 @@ vertex_color_use_as_albedo = true
 
 [sub_resource type="QuadMesh" id="QuadMesh_plasma"]
 material = SubResource("StandardMaterial3D_plasma_ribbon")
-size = Vector2(0.6, 0.6)
+size = Vector2(1.1, 1.1)
 
 [sub_resource type="Curve" id="Curve_plasma"]
 _data = [Vector2(0, 0.4), 0.0, 1.8, 0, 0, Vector2(0.3, 1), 0.0, 0.0, 0, 0, Vector2(1, 0), -1.8, 0.0, 0, 0]
@@ -173,45 +173,45 @@ transform = Transform3D(1, 0, 0, 0, -4.37114e-08, -1, 0, 1, -4.37114e-08, 0, 0, 
 mesh = SubResource("CapsuleMesh_core")
 
 [node name="HeadFlare" type="MeshInstance3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -5.0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -8.5)
 mesh = SubResource("QuadMesh_head_flare")
 
 [node name="TailGlow" type="MeshInstance3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 4.6)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 8.0)
 mesh = SubResource("QuadMesh_tail_glow")
 
 [node name="SparkTrail" type="CPUParticles3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 4.5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 7.5)
 amount = 8
-lifetime = 0.12
+lifetime = 0.14
 preprocess = 0.02
 randomness = 0.3
 mesh = SubResource("BoxMesh_spark_core")
 direction = Vector3(0, 0, 1)
-spread = 8.0
+spread = 10.0
 gravity = Vector3(0, 0, 0)
-initial_velocity_min = 25.0
-initial_velocity_max = 70.0
-scale_amount_min = 0.6
-scale_amount_max = 1.5
+initial_velocity_min = 35.0
+initial_velocity_max = 90.0
+scale_amount_min = 0.8
+scale_amount_max = 1.6
 scale_amount_curve = SubResource("Curve_sparks")
 color_ramp = SubResource("Gradient_sparks")
 
 [node name="PlasmaTrail" type="CPUParticles3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 5.2)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 8.5)
 amount = 8
-lifetime = 0.14
+lifetime = 0.16
 preprocess = 0.02
 randomness = 0.25
 mesh = SubResource("QuadMesh_plasma")
 emission_shape = 1
-emission_sphere_radius = 0.18
+emission_sphere_radius = 0.3
 direction = Vector3(0, 0, 1)
-spread = 6.0
+spread = 8.0
 gravity = Vector3(0, 0, 0)
-initial_velocity_min = 10.0
-initial_velocity_max = 40.0
-scale_amount_min = 0.5
-scale_amount_max = 1.4
+initial_velocity_min = 15.0
+initial_velocity_max = 45.0
+scale_amount_min = 0.7
+scale_amount_max = 1.6
 scale_amount_curve = SubResource("Curve_plasma")
 color_ramp = SubResource("Gradient_plasma")

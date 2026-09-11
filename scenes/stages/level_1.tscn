@@ -133,6 +133,7 @@ custom_camera_far_pc = 6000.0
 custom_camera_far_mobile = 5000.0
 next_level_path = "res://scenes/stages/level_2.tscn"
 wave_manager = NodePath("WaveManager")
+enable_tutorial = true
 
 [node name="ProceduralCloudSky" type="Node" parent="." unique_id=950873757]
 script = ExtResource("2_cloud_sky")

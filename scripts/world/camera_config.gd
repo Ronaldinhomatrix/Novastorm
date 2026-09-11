@@ -29,6 +29,84 @@ const LEVEL1_CAMERA_FAR_MOBILE := 5000.0
 
 
 # ---------------------------------------------------------------------------
+# Presets de Câmera para Teste em Tempo Real
+# ---------------------------------------------------------------------------
+
+## Definição de presets de câmera com distâncias progressivamente mais próximas da nave
+const PRESETS: Array[Dictionary] = [
+	{
+		"name": "Preset 1: Padrão Atual (58m)",
+		"position": Vector3(-0.0112, 0.0, 18.0),
+		"rotation_deg": Vector3(0.0, 0.0, 0.0),
+		"fov": 56.25,
+		"distance": 58.0
+	},
+	{
+		"name": "Preset 2: Chase Médio (38m)",
+		"position": Vector3(0.0, 2.0, -2.0),
+		"rotation_deg": Vector3(-2.5, 0.0, 0.0),
+		"fov": 58.0,
+		"distance": 38.0
+	},
+	{
+		"name": "Preset 3: Chase Próximo (25m)",
+		"position": Vector3(0.0, 3.5, -15.0),
+		"rotation_deg": Vector3(-4.0, 0.0, 0.0),
+		"fov": 60.0,
+		"distance": 25.0
+	},
+	{
+		"name": "Preset 4: Super Próxima (16m - Arcade)",
+		"position": Vector3(0.0, 4.2, -24.0),
+		"rotation_deg": Vector3(-5.5, 0.0, 0.0),
+		"fov": 64.0,
+		"distance": 16.0
+	}
+]
+
+static func get_preset_count() -> int:
+	return PRESETS.size()
+
+static func get_preset(index: int) -> Dictionary:
+	if PRESETS.is_empty():
+		return {}
+	var safe_idx: int = posmod(index, PRESETS.size())
+	return PRESETS[safe_idx]
+
+## Aplica um preset específico à Câmera com interpolação suave (Tween)
+static func apply_preset(index: int, camera: Camera3D, duration: float = 0.5) -> Tween:
+	var preset := get_preset(index)
+	if preset.is_empty() or camera == null:
+		return null
+	
+	var target_pos: Vector3 = preset["position"]
+	var target_rot: Vector3 = Vector3(
+		deg_to_rad(preset["rotation_deg"].x),
+		deg_to_rad(preset["rotation_deg"].y),
+		deg_to_rad(preset["rotation_deg"].z)
+	)
+	var target_fov: float = preset["fov"]
+	
+	if duration <= 0.0 or not camera.is_inside_tree():
+		camera.position = target_pos
+		camera.rotation = target_rot
+		camera.fov = target_fov
+		return null
+	
+	var tree := camera.get_tree()
+	if tree == null:
+		camera.position = target_pos
+		camera.rotation = target_rot
+		camera.fov = target_fov
+		return null
+
+	var tween := tree.create_tween().set_parallel(true).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tween.tween_property(camera, "position", target_pos, duration)
+	tween.tween_property(camera, "rotation", target_rot, duration)
+	tween.tween_property(camera, "fov", target_fov, duration)
+	return tween
+
+# ---------------------------------------------------------------------------
 # Funções de Aplicação
 # ---------------------------------------------------------------------------
 

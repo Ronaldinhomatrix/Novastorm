@@ -131,8 +131,8 @@ var _crosshair: Control = null  ## Instância do crosshair UI
 @export var enable_enemy_waves: bool = true
 
 @export_category("Tutorial")
-## Ativa o tutorial interativo de tiro e lock-on no início da fase
-@export var enable_tutorial: bool = true
+## Ativa o tutorial interativo de tiro e lock-on no início da fase (exclusivo do Level 1)
+@export var enable_tutorial: bool = false
 
 @export_category("HUD de Combate")
 @export var hud_scene: PackedScene = preload("res://scenes/ui/hud.tscn")
@@ -160,6 +160,10 @@ var _intro_active: bool = false
 var _intro_timer: float = 0.0
 var _default_camera_pos: Vector3 = Vector3(-0.0112, 0.0, 18.0)
 var _default_camera_rot: Vector3 = Vector3.ZERO
+var _current_camera_preset_idx: int = 0
+var _preset_toast_layer: CanvasLayer = null
+var _preset_toast_label: Label = null
+var _preset_toast_timer: float = 0.0
 
 # Sons de manobra tocados quando a câmera chega aos pontos 19 e 22.
 const MANEUVER_2_SOUND := preload("res://assets/audio/maneuver2.ogg")
@@ -862,9 +866,17 @@ func _run_preload_and_warmup(canvas_layer: CanvasLayer, curtain: ColorRect, intr
 		if wave_manager and wave_manager.has_method("_update_target_ratios"):
 			wave_manager._update_target_ratios()
 
-	# 4. Inicializa o Tutorial Interativo (apenas se habilitado e fora de testes de trechos)
+	# 4. Inicializa o Tutorial Interativo (exclusivo para o início do Level 1 e se habilitado)
+	var scene_file := ""
+	if scene_file_path:
+		scene_file = scene_file_path.get_file()
+	elif get_tree() and get_tree().current_scene:
+		scene_file = get_tree().current_scene.scene_file_path.get_file()
+
+	var is_level_1_stage := (scene_file == "level_1.tscn")
 	var is_testing_section := (path_follower and (path_follower.debug_start_point > 0 or path_follower.debug_start_ratio > 0.0))
-	if enable_tutorial and not is_testing_section:
+
+	if enable_tutorial and is_level_1_stage and not is_testing_section:
 		_tutorial_manager = TutorialManagerScript.new()
 		_tutorial_manager.name = "TutorialManager"
 		add_child(_tutorial_manager)
@@ -1101,3 +1113,88 @@ func _show_crosshair() -> void:
 	if _crosshair:
 		var is_mobile := GameConfig.is_mobile
 		_crosshair.visible = not is_mobile
+
+
+# ---------------------------------------------------------------------------
+# Sistema de Alternância de Câmeras (Testes em Tempo Real)
+# ---------------------------------------------------------------------------
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.is_echo():
+		if event.keycode == KEY_C or event.keycode == KEY_V:
+			cycle_camera_preset()
+
+
+## Alterna para o próximo preset de câmera e exibe feedback no HUD
+func cycle_camera_preset() -> void:
+	var count := CameraConfig.get_preset_count()
+	if count <= 0:
+		return
+	
+	_current_camera_preset_idx = (_current_camera_preset_idx + 1) % count
+	var preset := CameraConfig.get_preset(_current_camera_preset_idx)
+	
+	_default_camera_pos = preset["position"]
+	_default_camera_rot = Vector3(
+		deg_to_rad(preset["rotation_deg"].x),
+		deg_to_rad(preset["rotation_deg"].y),
+		deg_to_rad(preset["rotation_deg"].z)
+	)
+	
+	CameraConfig.apply_preset(_current_camera_preset_idx, camera, 0.4)
+	
+	# Mensagem de toast informativa na tela
+	var preset_name: String = preset.get("name", "Preset")
+	var dist: float = preset.get("distance", 0.0)
+	var fov_val: float = preset.get("fov", 56.25)
+	var msg := "%s\nDistância: %.0fm | FOV: %.1f° | Posição: (X:%.2f, Y:%.2f, Z:%.2f)\n[C] / [V] para alternar" % [
+		preset_name, dist, fov_val, _default_camera_pos.x, _default_camera_pos.y, _default_camera_pos.z
+	]
+	_show_camera_preset_toast(msg)
+
+
+func _show_camera_preset_toast(text: String) -> void:
+	if not _preset_toast_layer:
+		_preset_toast_layer = CanvasLayer.new()
+		_preset_toast_layer.name = "CameraPresetToastLayer"
+		_preset_toast_layer.layer = 95
+		add_child(_preset_toast_layer)
+		
+		var panel := PanelContainer.new()
+		panel.name = "ToastPanel"
+		panel.set_anchors_preset(Control.PRESET_TOP_WIDE)
+		panel.offset_left = 40.0
+		panel.offset_right = -40.0
+		panel.offset_top = 20.0
+		panel.offset_bottom = 90.0
+		
+		# Estilo translúcido escuro
+		var style := StyleBoxFlat.new()
+		style.bg_color = Color(0.05, 0.08, 0.15, 0.85)
+		style.border_color = Color(0.2, 0.7, 1.0, 0.9)
+		style.set_border_width_all(2)
+		style.set_corner_radius_all(6)
+		panel.add_theme_stylebox_override("panel", style)
+		
+		var lbl := Label.new()
+		lbl.name = "ToastLabel"
+		lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		lbl.add_theme_font_size_override("font_size", 16)
+		lbl.add_theme_color_override("font_color", Color(0.85, 0.95, 1.0))
+		panel.add_child(lbl)
+		
+		_preset_toast_layer.add_child(panel)
+		_preset_toast_label = lbl
+
+	if _preset_toast_label:
+		_preset_toast_label.text = text
+		_preset_toast_layer.visible = true
+		
+		# Animação ou timer para sumir após 3.5 segundos
+		var tween := create_tween()
+		tween.tween_interval(3.5)
+		tween.tween_callback(func():
+			if _preset_toast_layer:
+				_preset_toast_layer.visible = false
+		)
