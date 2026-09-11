@@ -233,10 +233,10 @@ func _start_step_2() -> void:
 
 func _spawn_step2_pair() -> void:
 	_step2_enemies.clear()
-	# Nave 1: lateral esquerda (-7.5m), distância 64m (imune a laser)
-	var e1 := _create_tutorial_enemy(-7.5, 64.0, 4.2, true)
-	# Nave 2: lateral direita (+7.5m), distância 64m (imune a laser)
-	var e2 := _create_tutorial_enemy(7.5, 64.0, 4.2, true)
+	# Nave 1: lateral esquerda (-7.5m), distância 105m (imune a laser)
+	var e1 := _create_tutorial_enemy(-7.5, 105.0, 4.2, true)
+	# Nave 2: lateral direita (+7.5m), distância 105m (imune a laser)
+	var e2 := _create_tutorial_enemy(7.5, 105.0, 4.2, true)
 
 	if e1:
 		_step2_enemies.append(e1)

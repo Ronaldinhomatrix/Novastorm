@@ -1125,8 +1125,16 @@ func _spawn_single_missile(target: Node3D, _index: int) -> void:
 		scene_root = get_parent()
 	scene_root.add_child(missile)
 
+	var current_ship_speed := 65.0
+	var pf := get_parent()
+	if pf:
+		if pf.has_method("_current_speed"):
+			current_ship_speed = float(pf.call("_current_speed"))
+		elif "forward_speed" in pf:
+			current_ship_speed = float(pf.get("forward_speed"))
+
 	missile.global_position = spawn_global
-	missile.setup(target, initial_launch_dir)
+	missile.setup(target, initial_launch_dir, current_ship_speed)
 
 	# Efeito de flash e brilho alaranjado saindo da nave no disparo do míssil
 	if MissileLaunchFlashScript:

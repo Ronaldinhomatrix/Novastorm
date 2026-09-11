@@ -6,11 +6,11 @@ extends Area3D
 ## Gera esteira densa e volumosa de fumaça suspensa no ar (world coords).
 
 @export_category("Desempenho e Voo")
-@export var initial_speed: float = 144.0
-@export var max_speed: float = 432.0
-@export var acceleration: float = 480.0
-@export var turn_rate: float = 11.0  ## Velocidade angular de perseguição (rad/s)
-@export var homing_delay: float = 0.35  ## Tempo em linha reta antes de iniciar a perseguição (s)
+@export var initial_relative_speed: float = 10.0  ## Velocidade inicial relativa à nave (m/s)
+@export var max_speed: float = 380.0             ## Velocidade máxima em relação ao mundo
+@export var acceleration: float = 320.0          ## Aceleração linear rápida (m/s²)
+@export var turn_rate: float = 12.0              ## Velocidade angular base de perseguição (rad/s)
+@export var homing_delay: float = 0.25           ## Tempo máximo em linha reta antes de iniciar perseguição (s)
 @export var max_lifetime: float = 7.5
 @export var damage: int = 3
 
@@ -39,7 +39,7 @@ func _ready() -> void:
 	area_entered.connect(_on_area_entered)
 	body_entered.connect(_on_body_entered)
 
-	_current_speed = initial_speed
+	_current_speed = initial_relative_speed
 	_velocity = -global_transform.basis.z.normalized() * _current_speed
 
 	# Raycast para colisão contínua sem tunelamento com malha de terreno
@@ -53,10 +53,11 @@ func _ready() -> void:
 	_smoke_particles = get_node_or_null("SmokeTrail") as CPUParticles3D
 
 
-## Inicializa o míssil com o alvo travado e direção de ejeção inicial
-func setup(target: Node3D, initial_dir: Vector3) -> void:
+## Inicializa o míssil com o alvo travado, direção de ejeção inicial e velocidade base da nave
+func setup(target: Node3D, initial_dir: Vector3, base_ship_speed: float = 65.0) -> void:
 	_target = target
-	_current_speed = initial_speed
+	# Velocidade inicial real = velocidade que a nave já tem + velocidade de ejeção relativa (10 m/s)
+	_current_speed = base_ship_speed + initial_relative_speed
 	var forward := initial_dir.normalized()
 	if forward.length_squared() > 0.001:
 		_velocity = forward * _current_speed
@@ -72,33 +73,45 @@ func _physics_process(delta: float) -> void:
 		_explode()
 		return
 
-	# Aceleração progressiva
+	# Aceleração progressiva e linear em direção à velocidade máxima
 	_current_speed = move_toward(_current_speed, max_speed, acceleration * delta)
 
-	# Lógica de Homing (perseguição) - após o período inicial em linha reta
 	var forward := _velocity.normalized()
 	var desired_dir := forward
 
-	if _age >= homing_delay:
-		if is_instance_valid(_target) and not _target.is_queued_for_deletion():
-			# Pega a posição central do alvo
-			var target_pos := _target.global_position
-			# Se tiver ShipModel, foca nele
-			var model: Node3D = _target.get_node_or_null("ShipModel") as Node3D
-			if model:
-				target_pos = model.global_position
+	# Se tiver alvo válido, ajusta dinamicamente o delay e a manobrabilidade pela distância
+	var current_homing_delay := homing_delay
+	var current_turn_rate := turn_rate
 
-			var to_target := (target_pos - global_position).normalized()
-			# Curva suave com limite de turn_rate
+	if is_instance_valid(_target) and not _target.is_queued_for_deletion():
+		# Pega a posição central do alvo
+		var target_pos := _target.global_position
+		var model: Node3D = _target.get_node_or_null("ShipModel") as Node3D
+		if model:
+			target_pos = model.global_position
+
+		var to_target_vec := target_pos - global_position
+		var dist_to_target := to_target_vec.length()
+
+		# Item 1: Se o alvo estiver a menos de 100m, reduz o homing_delay proporcionalmente
+		# para não passar reto e ter que dar a volta completa
+		if dist_to_target < 100.0:
+			var proximity_factor := clampf(dist_to_target / 100.0, 0.0, 1.0)
+			current_homing_delay = homing_delay * proximity_factor
+			# Aumenta a agilidade de curva para fechar o ângulo com precisão
+			current_turn_rate = lerpf(turn_rate * 2.2, turn_rate, proximity_factor)
+
+		if _age >= current_homing_delay:
+			var to_target := to_target_vec.normalized()
 			var angle_diff := forward.angle_to(to_target)
 			if angle_diff > 0.001:
-				var max_angle_step := turn_rate * delta
+				var max_angle_step := current_turn_rate * delta
 				var rot_factor := clampf(max_angle_step / angle_diff, 0.0, 1.0)
 				desired_dir = forward.slerp(to_target, rot_factor).normalized()
 			else:
 				desired_dir = to_target
-		else:
-			_target = null  # Alvo perdido, continua na trajetória atual
+	else:
+		_target = null  # Alvo perdido, segue trajetória reta balística
 
 	_velocity = desired_dir * _current_speed
 
