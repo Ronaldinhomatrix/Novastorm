@@ -216,7 +216,7 @@ func generate_canyon_mesh() -> void:
 			var local_radial_dir = (right * local_dir.normalized().x + up * local_dir.normalized().y).normalized()
 
 			# Amostragem de ruído no espaço global para coerência de terreno
-			var global_point = path_node.to_global(local_slice_point)
+			var global_point: Vector3 = path_node.to_global(local_slice_point) if path_node.is_inside_tree() else (path_node.transform * local_slice_point)
 			var n1 = _noise.get_noise_3dv(global_point)
 			var n2 = _detail_noise.get_noise_3dv(global_point)
 			var total_displacement = (n1 * noise_displacement) + (n2 * detail_noise_displacement)

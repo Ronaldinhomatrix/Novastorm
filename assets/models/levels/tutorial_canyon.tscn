@@ -1,0 +1,8 @@
+[gd_scene format=3]
+
+[ext_resource type="Material" path="res://assets/materials/terrain_detailed.tres" id="1_xbq40"]
+[ext_resource type="ArrayMesh" path="res://assets/models/levels/tutorial_canyon_mesh.res" id="2_6glwk"]
+
+[node name="TutorialCanyon" type="MeshInstance3D" unique_id=2082562139]
+material_override = ExtResource("1_xbq40")
+mesh = ExtResource("2_6glwk")
