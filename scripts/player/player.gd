@@ -52,8 +52,9 @@ extends CharacterBody3D
 @export var missile_reload_time: float = 5.0
 @export var lock_on_max_targets: int = 3
 @export var lock_on_range: float = 650.0
-## Raio do cone de mira em pixels na tela (área central onde o jogador precisa apontar).
-@export var lock_on_radius: float = 150.0
+## Raio do cilindro físico 3D de mira em metros no mundo real (ex: 18m de diâmetro/tolerância).
+## Garante consistência: naves distantes NÃO travam em massa simultaneamente.
+@export var lock_on_cylinder_radius: float = 18.0
 ## Tempo de processamento/trava após marcar o alvo com a mira (em segundos).
 @export var lock_on_confirm_time: float = 1.0
 ## Som de bip ao travar alvo (lock-on).
@@ -973,9 +974,7 @@ func _scan_and_track_targets(delta: float, cam: Camera3D, vp_rect: Rect2, max_al
 		_targeting_progress.clear()
 		return false
 
-	# Referência do ponto de mira na tela (centro da mira ativa):
-	# No Mobile: mira no cone frontal da nave
-	# No PC: segue o cursor/mouse ou centro da tela
+	# Referência do ponto de mira na tela e raio 3D correspondente no mundo:
 	var aim_screen_pos: Vector2
 	if GameConfig.is_mobile:
 		aim_screen_pos = cam.unproject_position(global_position + (-global_basis.z * 120.0))
@@ -984,10 +983,15 @@ func _scan_and_track_targets(delta: float, cam: Camera3D, vp_rect: Rect2, max_al
 	else:
 		aim_screen_pos = vp_rect.size * 0.5
 
-	# Raio de detecção para MARCAR o inimigo (Tag)
-	var effective_radius := lock_on_radius if not GameConfig.is_mobile else (lock_on_radius * 1.35)
+	# Raio do cilindro físico 3D no espaço do mundo (independente da distância, ex: 18 metros)
+	var effective_cylinder_radius := lock_on_cylinder_radius if not GameConfig.is_mobile else (lock_on_cylinder_radius * 1.3)
+	var cylinder_radius_sq := effective_cylinder_radius * effective_cylinder_radius
 
-	# 1. TAGGING: Detecta inimigos que a mira cruzar neste momento
+	# Origem e vetor normalizado da linha de mira do jogador em espaço 3D
+	var ray_origin := cam.project_ray_origin(aim_screen_pos)
+	var ray_dir := cam.project_ray_normal(aim_screen_pos).normalized()
+
+	# 1. TAGGING: Detecta inimigos que cruzarem o cilindro físico 3D ao redor da mira
 	for enemy in enemies:
 		if not (enemy is Node3D):
 			continue
@@ -1014,13 +1018,24 @@ func _scan_and_track_targets(delta: float, cam: Camera3D, vp_rect: Rect2, max_al
 		if dist > lock_on_range or dist < 8.0:
 			continue
 
+		# Garante que o inimigo esteja visível dentro dos limites do viewport
 		var s_pos := cam.unproject_position(enemy_pos)
 		if not vp_rect.has_point(s_pos):
 			continue
 
-		# Cruzou a área do cone? MARCA O INIMIGO!
-		var screen_dist := s_pos.distance_to(aim_screen_pos)
-		if screen_dist <= effective_radius:
+		# CILINDRO FÍSICO 3D:
+		# Calcula a projeção do inimigo sobre a linha de mira (profundidade t)
+		var to_enemy := enemy_pos - ray_origin
+		var proj_t := to_enemy.dot(ray_dir)
+		if proj_t <= 0.0:
+			continue
+
+		# Ponto mais próximo na linha de mira
+		var closest_point := ray_origin + (ray_dir * proj_t)
+		var dist_to_ray_sq := closest_point.distance_squared_to(enemy_pos)
+
+		# Cruzou o cilindro físico de 18 metros? MARCA O INIMIGO!
+		if dist_to_ray_sq <= cylinder_radius_sq:
 			var total_tracking := _locked_targets.size() + _targeting_progress.size()
 			if total_tracking < max_allowed:
 				_targeting_progress[enemy] = 0.0
