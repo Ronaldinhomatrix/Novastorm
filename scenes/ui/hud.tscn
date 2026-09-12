@@ -132,7 +132,7 @@ layout_mode = 2
 theme_override_colors/font_color = Color(0, 0.88, 1, 0.95)
 theme_override_fonts/font = SubResource("SystemFont_computer_bold")
 theme_override_font_sizes/font_size = 11
-text = "Shields"
+text = "HUD_SHIELDS"
 vertical_alignment = 1
 
 [node name="ShieldPips" type="HBoxContainer" parent="SafeArea/TopRight/TacticalPanel/Margin/StatusVBox/ShieldRow"]
@@ -152,7 +152,7 @@ layout_mode = 2
 theme_override_colors/font_color = Color(0.08, 0.92, 0.48, 0.95)
 theme_override_fonts/font = SubResource("SystemFont_computer_bold")
 theme_override_font_sizes/font_size = 11
-text = "Hull"
+text = "HUD_HULL"
 vertical_alignment = 1
 
 [node name="HullPips" type="HBoxContainer" parent="SafeArea/TopRight/TacticalPanel/Margin/StatusVBox/HullRow"]
@@ -220,7 +220,7 @@ grow_vertical = 2
 theme_override_colors/font_color = Color(1, 0.25, 0.2, 1)
 theme_override_fonts/font = SubResource("SystemFont_computer_bold")
 theme_override_font_sizes/font_size = 14
-text = "RELOADING"
+text = "HUD_RELOADING"
 horizontal_alignment = 1
 vertical_alignment = 1
 
@@ -260,6 +260,6 @@ theme_override_fonts/normal_font = SubResource("SystemFont_computer_bold")
 theme_override_font_sizes/bold_font_size = 28
 theme_override_font_sizes/normal_font_size = 28
 bbcode_enabled = true
-text = "[center][b][wave amp=24.0 freq=4.0][color=#ffcc00]WARNING // INCOMING ENEMIES[/color][/wave][/b][/center]"
+text = "[center][b][wave amp=24.0 freq=4.0][color=#ffcc00]" + tr("HUD_WARNING_ENEMIES") + "[/color][/wave][/b][/center]"
 scroll_active = false
 autowrap_mode = 0

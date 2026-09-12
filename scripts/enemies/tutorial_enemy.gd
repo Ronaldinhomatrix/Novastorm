@@ -12,9 +12,11 @@ var immune_to_lasers: bool = false
 var target_dist_ahead: float = 65.0
 var target_lat: float = 0.0
 var target_vert: float = 4.0
+var _start_lateral: float = 0.0
+var _start_vertical: float = 10.0
 var _anim_time: float = 0.0
 var _entry_progress: float = 0.0
-var _entry_duration: float = 1.0
+var _entry_duration: float = 1.2
 var _start_dist: float = 120.0
 var _is_holding_formation: bool = false
 
@@ -27,16 +29,19 @@ func _ready() -> void:
 	super._ready()
 
 
-func setup_tutorial_formation(lat: float, dist: float = 65.0, vert: float = 4.0, laser_immune: bool = false) -> void:
+func setup_tutorial_formation(lat: float, dist: float = 65.0, vert: float = 4.0, laser_immune: bool = false, start_lat: float = NAN, start_vert: float = NAN) -> void:
 	target_lat = lat
 	target_dist_ahead = dist
 	target_vert = vert
 	immune_to_lasers = laser_immune
-	_start_dist = dist + 60.0
+	_start_dist = dist
 	_current_distance = _start_dist
-	_current_lateral = lat
-	_current_vertical = vert + 6.0
+	_start_lateral = start_lat if not is_nan(start_lat) else lat
+	_start_vertical = start_vert if not is_nan(start_vert) else vert
+	_current_lateral = _start_lateral
+	_current_vertical = _start_vertical
 	_entry_progress = 0.0
+	_entry_duration = 0.8
 	_is_holding_formation = false
 
 	# Garante posicionamento imediato na curva
@@ -47,15 +52,17 @@ func setup_tutorial_formation(lat: float, dist: float = 65.0, vert: float = 4.0,
 
 
 func _physics_process(delta: float) -> void:
-	_anim_time += delta
+	# Usa delta de tempo real para animação fluida mesmo em câmera lenta extrema
+	var real_delta := (delta / maxf(Engine.time_scale, 0.05)) if Engine.time_scale < 0.9 else delta
+	_anim_time += real_delta
 
 	# Entrada suave na formação à frente do jogador
 	if not _is_holding_formation:
-		_entry_progress = clampf(_entry_progress + (delta / maxf(0.01, _entry_duration)), 0.0, 1.0)
+		_entry_progress = clampf(_entry_progress + (real_delta / maxf(0.01, _entry_duration)), 0.0, 1.0)
 		var t := _entry_progress * _entry_progress * (3.0 - 2.0 * _entry_progress)
 		_current_distance = lerpf(_start_dist, target_dist_ahead, t)
-		_current_lateral = target_lat
-		_current_vertical = lerpf(target_vert + 6.0, target_vert, t)
+		_current_lateral = lerpf(_start_lateral, target_lat, t)
+		_current_vertical = lerpf(_start_vertical, target_vert, t)
 		if _entry_progress >= 1.0:
 			_is_holding_formation = true
 	else:

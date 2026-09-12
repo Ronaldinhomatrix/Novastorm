@@ -56,12 +56,12 @@ func _build_ui() -> void:
 	_banner_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_banner_container.anchor_left = 0.5
 	_banner_container.anchor_right = 0.5
-	_banner_container.offset_left = -700.0
-	_banner_container.offset_right = 700.0
-	_banner_container.offset_top = 150.0
-	_banner_container.offset_bottom = 330.0
+	_banner_container.offset_left = -780.0
+	_banner_container.offset_right = 780.0
+	_banner_container.offset_top = 130.0
+	_banner_container.offset_bottom = 350.0
 	# Pivot exatamente no centro para o efeito elástico de escala
-	_banner_container.pivot_offset = Vector2(700.0, 90.0)
+	_banner_container.pivot_offset = Vector2(780.0, 110.0)
 	_banner_container.scale = Vector2.ZERO
 	_banner_container.modulate.a = 0.0
 	add_child(_banner_container)
@@ -119,10 +119,10 @@ func _build_ui() -> void:
 
 	# Tag / Categoria acima da mensagem principal
 	_tag_label = Label.new()
-	_tag_label.text = "// PROTOCOLO DE COMBATE // TUTORIAL"
+	_tag_label.text = tr("TUTORIAL_TAG")
 	_tag_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_tag_label.add_theme_font_override("font", font_mono)
-	_tag_label.add_theme_font_size_override("font_size", 14)
+	_tag_label.add_theme_font_size_override("font_size", 16)
 	_tag_label.add_theme_color_override("font_color", Color(0.3, 0.9, 1.0, 0.9))
 	_tag_label.add_theme_color_override("font_shadow_color", Color(0.0, 0.5, 0.8, 0.6))
 	_tag_label.add_theme_constant_override("shadow_offset_y", 1)
@@ -134,7 +134,7 @@ func _build_ui() -> void:
 	_message_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_message_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_message_label.add_theme_font_override("font", font_impact)
-	_message_label.add_theme_font_size_override("font_size", 44)
+	_message_label.add_theme_font_size_override("font_size", 50)
 	_message_label.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 1.0))
 	_message_label.add_theme_color_override("font_outline_color", Color(0.0, 0.35, 0.65, 0.95))
 	_message_label.add_theme_constant_override("outline_size", 12)
@@ -143,23 +143,23 @@ func _build_ui() -> void:
 	_message_label.add_theme_constant_override("shadow_outline_size", 10)
 	vbox.add_child(_message_label)
 
-	# Linha 2 - Sub-mensagem / Linha de Baixo: LETRA GROSSA, ENFÁTICA E DESTACADA
+	# Linha 2 - Sub-mensagem / Linha de Baixo: MESMO TAMANHO DA PRIMEIRA LINHA, COM COR DIFERENTE
 	_sub_message_label = Label.new()
 	_sub_message_label.text = ""
 	_sub_message_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_sub_message_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_sub_message_label.add_theme_font_override("font", font_impact)
-	_sub_message_label.add_theme_font_size_override("font_size", 28)
-	_sub_message_label.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 1.0))
+	_sub_message_label.add_theme_font_size_override("font_size", 50)
+	_sub_message_label.add_theme_color_override("font_color", Color(1.0, 0.95, 0.4, 1.0))
 	_sub_message_label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.95))
-	_sub_message_label.add_theme_constant_override("outline_size", 8)
+	_sub_message_label.add_theme_constant_override("outline_size", 12)
 	_sub_message_label.add_theme_color_override("font_shadow_color", Color(0.0, 0.8, 1.0, 0.85))
-	_sub_message_label.add_theme_constant_override("shadow_offset_y", 2)
-	_sub_message_label.add_theme_constant_override("shadow_outline_size", 6)
+	_sub_message_label.add_theme_constant_override("shadow_offset_y", 4)
+	_sub_message_label.add_theme_constant_override("shadow_outline_size", 10)
 	_sub_message_label.visible = false
 	vbox.add_child(_sub_message_label)
 
-	# 2. Flecha pulsante apontando diretamente para o botão de míssil no Mobile (Ultra Visível)
+	# 2. Flecha apontando diretamente para o botão de míssil (Texto pisca, flecha fixa e longa)
 	_mobile_arrow_container = Control.new()
 	_mobile_arrow_container.name = "MobileMissileArrow"
 	_mobile_arrow_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -169,31 +169,31 @@ func _build_ui() -> void:
 	var arrow_vbox := VBoxContainer.new()
 	arrow_vbox.alignment = BoxContainer.ALIGNMENT_CENTER
 	arrow_vbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	arrow_vbox.add_theme_constant_override("separation", 0)
+	arrow_vbox.add_theme_constant_override("separation", 2)
 	_mobile_arrow_container.add_child(arrow_vbox)
 
 	_mobile_arrow_text = Label.new()
-	_mobile_arrow_text.text = "DISPARAR"
+	_mobile_arrow_text.text = tr("TUTORIAL_FIRE")
 	_mobile_arrow_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_mobile_arrow_text.add_theme_font_override("font", font_impact)
-	_mobile_arrow_text.add_theme_font_size_override("font_size", 20)
+	_mobile_arrow_text.add_theme_font_size_override("font_size", 28)
 	_mobile_arrow_text.add_theme_color_override("font_color", Color(1.5, 1.1, 0.2, 1.0))
 	_mobile_arrow_text.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.95))
-	_mobile_arrow_text.add_theme_constant_override("outline_size", 6)
-	_mobile_arrow_text.add_theme_color_override("font_shadow_color", Color(1.0, 0.5, 0.0, 0.8))
-	_mobile_arrow_text.add_theme_constant_override("shadow_offset_y", 2)
+	_mobile_arrow_text.add_theme_constant_override("outline_size", 8)
+	_mobile_arrow_text.add_theme_color_override("font_shadow_color", Color(1.0, 0.5, 0.0, 0.9))
+	_mobile_arrow_text.add_theme_constant_override("shadow_offset_y", 3)
 	arrow_vbox.add_child(_mobile_arrow_text)
 
 	_mobile_arrow_label = Label.new()
-	_mobile_arrow_label.text = "▼"
+	_mobile_arrow_label.text = "🠇"
 	_mobile_arrow_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_mobile_arrow_label.add_theme_font_override("font", font_impact)
-	_mobile_arrow_label.add_theme_font_size_override("font_size", 38)
+	_mobile_arrow_label.add_theme_font_size_override("font_size", 64)
 	_mobile_arrow_label.add_theme_color_override("font_color", Color(1.5, 1.1, 0.2, 1.0))
 	_mobile_arrow_label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.95))
-	_mobile_arrow_label.add_theme_constant_override("outline_size", 8)
+	_mobile_arrow_label.add_theme_constant_override("outline_size", 10)
 	_mobile_arrow_label.add_theme_color_override("font_shadow_color", Color(1.0, 0.4, 0.0, 0.9))
-	_mobile_arrow_label.add_theme_constant_override("shadow_offset_y", 3)
+	_mobile_arrow_label.add_theme_constant_override("shadow_offset_y", 4)
 	arrow_vbox.add_child(_mobile_arrow_label)
 
 	# 3. Painel de chamada complementar
@@ -224,7 +224,7 @@ func _build_ui() -> void:
 	add_child(_mobile_hint)
 
 	_mobile_hint_label = Label.new()
-	_mobile_hint_label.text = "◄ USE ESTE BOTÃO PARA DISPARAR MÍSSEIS"
+	_mobile_hint_label.text = tr("TUTORIAL_HINT_FIRE")
 	_mobile_hint_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_mobile_hint_label.add_theme_font_override("font", font_impact)
 	_mobile_hint_label.add_theme_font_size_override("font_size", 20)
@@ -257,32 +257,42 @@ func _process(delta: float) -> void:
 			var breathe := 1.0 + sin(_idle_time * 3.6) * 0.028
 			_banner_container.scale = Vector2(breathe, breathe)
 
-	# Efeito pulsante de piscar da flecha e do botão (Ambos bem visíveis)
+	# Efeito da flecha apontando para o botão (Texto pisca em destaque, seta fixa sem piscar)
 	if _is_pulsing_mobile:
 		_pulse_timer += real_delta * 9.0
 		var wave := (sin(_pulse_timer) + 1.0) * 0.5 # 0.0 a 1.0
-		var bounce := sin(_pulse_timer) * 9.0
 
 		if _missile_panel_ref and is_instance_valid(_missile_panel_ref):
 			_missile_panel_ref.pivot_offset = _missile_panel_ref.size * 0.5
-			# Pisca o botão de míssil com brilho neon dourado e aumento de escala
+			# Pisca o botão de míssil com brilho neon dourado e leve aumento de escala
 			_missile_panel_ref.modulate = Color(1.0, 1.0, 1.0).lerp(Color(2.2, 1.6, 0.2, 1.0), wave)
-			_missile_panel_ref.scale = Vector2.ONE * lerpf(1.0, 1.15, wave)
+			_missile_panel_ref.scale = Vector2.ONE * lerpf(1.0, 1.12, wave)
 
-			# Flecha grande piscando e quicando diretamente acima do botão
+			# Flecha grande e comprida com texto trazido mais para cima e para a direita
 			if _mobile_arrow_container:
 				_mobile_arrow_container.visible = true
 				var p_rect := _missile_panel_ref.get_global_rect()
-				var w := 200.0
-				var h := 70.0
+				var w := 320.0
+				var h := 125.0
 				_mobile_arrow_container.size = Vector2(w, h)
 				_mobile_arrow_container.pivot_offset = Vector2(w * 0.5, h * 0.5)
+				# Trazido para a direita (+55px) e para cima (-135px do topo do botão)
 				_mobile_arrow_container.global_position = Vector2(
-					p_rect.position.x + p_rect.size.x * 0.5 - w * 0.5,
-					p_rect.position.y - h - 6.0 + bounce
+					p_rect.position.x + p_rect.size.x * 0.5 - w * 0.5 + 55.0,
+					p_rect.position.y - h - 15.0
 				)
-				_mobile_arrow_container.scale = Vector2.ONE * lerpf(0.95, 1.15, wave)
-				_mobile_arrow_container.modulate = Color(1.0 + wave * 0.6, 1.0 + wave * 0.4, 0.4 + wave * 0.6, lerpf(0.75, 1.0, wave))
+				_mobile_arrow_container.scale = Vector2.ONE
+
+				# Apenas o TEXTO pisca (intensidade de cor e pulso suave)
+				if _mobile_arrow_text:
+					_mobile_arrow_text.modulate = Color(1.0 + wave * 0.8, 1.0 + wave * 0.5, 0.3 + wave * 0.7, lerpf(0.5, 1.0, wave))
+					_mobile_arrow_text.scale = Vector2.ONE * lerpf(0.96, 1.08, wave)
+					_mobile_arrow_text.pivot_offset = _mobile_arrow_text.size * 0.5
+
+				# A SETA NÃO PISCA: mantém-se firme, visível e estática apontando para o botão
+				if _mobile_arrow_label:
+					_mobile_arrow_label.modulate = Color(1.4, 1.05, 0.2, 1.0)
+					_mobile_arrow_label.scale = Vector2.ONE
 	else:
 		if _mobile_arrow_container and _mobile_arrow_container.visible:
 			_mobile_arrow_container.visible = false
@@ -318,14 +328,18 @@ func show_instruction(text: String, sub_text: String = "", tag: String = "", acc
 	_current_accent_color = accent_color
 
 	# Ajusta as cores neon de outline, sombra e linhas decorativas
-	var outline_col := Color(accent_color.r * 0.4, accent_color.g * 0.4, accent_color.b * 0.4, 0.95)
+	var outline_col := Color(accent_color.r * 0.35, accent_color.g * 0.35, accent_color.b * 0.35, 0.95)
 	if _message_label:
+		# Linha 1: Branco cristal puro com sombra neon do accent_color
+		_message_label.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0, 1.0))
 		_message_label.add_theme_color_override("font_outline_color", outline_col)
 		_message_label.add_theme_color_override("font_shadow_color", accent_color)
 
 	if _sub_message_label:
+		# Linha 2: Mesmo tamanho, com cor diferente (tonalidade vibrante do accent_color)
 		_sub_message_label.add_theme_color_override("font_color", accent_color)
-		_sub_message_label.add_theme_color_override("font_shadow_color", Color(accent_color.r * 0.5, accent_color.g * 0.5, accent_color.b * 0.5, 0.8))
+		_sub_message_label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.95))
+		_sub_message_label.add_theme_color_override("font_shadow_color", Color(accent_color.r * 0.6, accent_color.g * 0.6, accent_color.b * 0.6, 0.85))
 
 	if _tag_label and not tag.is_empty():
 		_tag_label.add_theme_color_override("font_color", accent_color)

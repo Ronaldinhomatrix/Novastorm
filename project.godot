@@ -53,3 +53,8 @@ lights_and_shadows/directional_shadow/size.mobile=512
 textures/default_filters/anisotropic_filtering_level=4
 scaling_3d/mode.mobile=1
 scaling_3d/scale.mobile=0.75
+
+[internationalization]
+
+locale/translations=PackedStringArray("res://localization/translations.en.translation", "res://localization/translations.pt_BR.translation")
+

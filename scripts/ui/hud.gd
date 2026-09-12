@@ -724,7 +724,7 @@ func _on_player_missile_reload_progress(progress: float) -> void:
 
 	if missile_reload_label:
 		var remaining_sec := maxf(0.0, (1.0 - progress) * 5.0)
-		missile_reload_label.text = "RELOADING (%.1fs)" % remaining_sec
+		missile_reload_label.text = tr("HUD_RELOADING") + " (%.1fs)" % remaining_sec
 
 
 func _on_player_missile_targets_changed(targets: Array[Node3D]) -> void:

@@ -10,6 +10,7 @@ var _panel: PanelContainer = null
 var _dim: ColorRect = null
 var _toggles: Dictionary = {}
 var _panel_open: bool = false
+var _lang_opt: OptionButton = null
 
 ## Mostra o botão de engrenagem (⚙). Desative quando o menu é aberto
 ## a partir do menu principal (que tem o botão "GRAPHICS SETTINGS").
@@ -27,7 +28,7 @@ func _build_ui() -> void:
 	if show_gear_button:
 		var gear := Button.new()
 		gear.text = "⚙"
-		gear.tooltip_text = "Configurações"
+		gear.tooltip_text = tr("SETTINGS_TOOLTIP")
 		gear.anchor_left = 1.0
 		gear.anchor_right = 1.0
 		gear.offset_left = -60.0
@@ -67,7 +68,7 @@ func _build_ui() -> void:
 	_panel.add_child(vbox)
 
 	var title := Label.new()
-	title.text = "CONFIGURAÇÕES GRÁFICAS"
+	title.text = tr("SETTINGS_TITLE")
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_font_size_override("font_size", 22)
 	title.add_theme_color_override("font_color", Color(0.4, 0.95, 1.0))
@@ -75,22 +76,39 @@ func _build_ui() -> void:
 
 	vbox.add_child(HSeparator.new())
 
-	_toggles["shadows"] = _make_toggle("Sombras", func(v): UserSettings.set_shadows(v))
-	_toggles["glow"] = _make_toggle("Glow (Brilho / Bloom)", func(v): UserSettings.set_glow(v))
-	_toggles["ssao"] = _make_toggle("SSAO (Oclusão de Ambiente)", func(v): UserSettings.set_ssao(v))
-	_toggles["ssil"] = _make_toggle("SSIL (Luz Indireta)", func(v): UserSettings.set_ssil(v))
+	var lang_hbox = HBoxContainer.new()
+	var lang_lbl = Label.new()
+	lang_lbl.text = tr("SETTINGS_LANGUAGE")
+	lang_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	lang_hbox.add_child(lang_lbl)
+	
+	_lang_opt = OptionButton.new()
+	_lang_opt.add_item("English (EN)")
+	_lang_opt.set_item_metadata(0, "en")
+	_lang_opt.add_item("Português (PT-BR)")
+	_lang_opt.set_item_metadata(1, "pt_BR")
+	_lang_opt.item_selected.connect(_on_language_selected)
+	lang_hbox.add_child(_lang_opt)
+	vbox.add_child(lang_hbox)
+
+	vbox.add_child(HSeparator.new())
+
+	_toggles["shadows"] = _make_toggle(tr("SETTINGS_SHADOWS"), func(v): UserSettings.set_shadows(v))
+	_toggles["glow"] = _make_toggle(tr("SETTINGS_GLOW"), func(v): UserSettings.set_glow(v))
+	_toggles["ssao"] = _make_toggle(tr("SETTINGS_SSAO"), func(v): UserSettings.set_ssao(v))
+	_toggles["ssil"] = _make_toggle(tr("SETTINGS_SSIL"), func(v): UserSettings.set_ssil(v))
 	for key in _toggles:
 		vbox.add_child(_toggles[key])
 
 	vbox.add_child(HSeparator.new())
 
 	var reset_btn := Button.new()
-	reset_btn.text = "Restaurar Padrão"
+	reset_btn.text = tr("SETTINGS_RESET")
 	reset_btn.pressed.connect(_on_reset)
 	vbox.add_child(reset_btn)
 
 	var close_btn := Button.new()
-	close_btn.text = "Fechar"
+	close_btn.text = tr("SETTINGS_CLOSE")
 	close_btn.pressed.connect(_toggle)
 	vbox.add_child(close_btn)
 
@@ -107,6 +125,16 @@ func _refresh_toggles() -> void:
 	_toggles["glow"].button_pressed = UserSettings.get_glow()
 	_toggles["ssao"].button_pressed = UserSettings.get_ssao()
 	_toggles["ssil"].button_pressed = UserSettings.get_ssil()
+	
+	var current_lang = UserSettings.get_language()
+	for i in range(_lang_opt.item_count):
+		if _lang_opt.get_item_metadata(i) == current_lang:
+			_lang_opt.select(i)
+			break
+
+func _on_language_selected(index: int) -> void:
+	var lang = _lang_opt.get_item_metadata(index)
+	UserSettings.set_language(lang)
 
 
 func _on_reset() -> void:

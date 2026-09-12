@@ -88,11 +88,11 @@ func _build_for_tank(tank: Node3D) -> void:
 	_setup_tank_turret_ejection(tank)
 
 	# 2. Estilhaços Metálicos 3D do Casco Explodindo
-	_spawn_vehicle_shrapnel_chunks(tank, 12, 1.4)
+	_spawn_vehicle_shrapnel_chunks(tank, 14, 1.6)
 
 	# 3. Explosão de Fogo Volumétrica e Cinematográfica de Alta Intensidade
-	var blast_origin := Vector3(0.0, 8.0, 0.0)
-	var scale_mult: float = 3.6
+	var blast_origin := Vector3(0.0, 9.0, 0.0)
+	var scale_mult: float = 4.8
 
 	_build_detonation_flash(scale_mult)
 	_build_fire_core_spheres(blast_origin, scale_mult)
@@ -106,7 +106,7 @@ func _build_for_tank(tank: Node3D) -> void:
 	_build_residual_ground_fire(scale_mult)
 
 	_play_heavy_sound(true)
-	_trigger_shake(1.1)
+	_trigger_shake(1.15)
 
 
 # ===========================================================================
@@ -117,11 +117,11 @@ func _build_for_truck(truck: Node3D) -> void:
 	_init_shared_textures()
 
 	# 1. Estilhaços Metálicos 3D do Caminhão se Desintegrando no Impacto
-	_spawn_vehicle_shrapnel_chunks(truck, 16, 1.6)
+	_spawn_vehicle_shrapnel_chunks(truck, 18, 1.8)
 
 	# 2. Bola de Fogo Volumétrica e Onda Expansiva Massiva (Combustível)
-	var blast_origin := Vector3(0.0, 8.0, 0.0)
-	var scale_mult: float = 4.0
+	var blast_origin := Vector3(0.0, 9.0, 0.0)
+	var scale_mult: float = 5.4
 
 	_build_detonation_flash(scale_mult)
 	_build_fire_core_spheres(blast_origin, scale_mult)
@@ -135,7 +135,7 @@ func _build_for_truck(truck: Node3D) -> void:
 	_build_residual_ground_fire(scale_mult)
 
 	_play_heavy_sound(false)
-	_trigger_shake(1.05)
+	_trigger_shake(1.1)
 
 
 # ===========================================================================

@@ -90,7 +90,7 @@ func _build_ui() -> void:
 
 	# Título
 	_title = Label.new()
-	_title.text = "N O V A S T O R M"
+	_title.text = tr("MENU_TITLE")
 	_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_title.add_theme_font_size_override("font_size", 78)
 	_title.add_theme_color_override("font_color", Color(0.35, 0.95, 1.0))
@@ -103,7 +103,7 @@ func _build_ui() -> void:
 
 	# Subtítulo
 	var subtitle := Label.new()
-	subtitle.text = "RAIL-SHOOTER  //  ORBITAL"
+	subtitle.text = tr("MENU_SUBTITLE")
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	subtitle.add_theme_font_size_override("font_size", 20)
 	subtitle.add_theme_color_override("font_color", Color(0.6, 0.8, 0.9, 0.9))
@@ -116,25 +116,25 @@ func _build_ui() -> void:
 
 	# Botão START GAME
 	var start_btn := Button.new()
-	start_btn.text = "START GAME"
+	start_btn.text = tr("MENU_START_GAME")
 	start_btn.custom_minimum_size = Vector2(360.0, 66.0)
 	start_btn.add_theme_font_size_override("font_size", 26)
 	start_btn.pressed.connect(_on_start_game)
 	_style_button(start_btn, Color(0.05, 0.55, 0.85), Color(0.08, 0.72, 1.0), Color(0.9, 1.0, 1.0))
 	vbox.add_child(start_btn)
 
-	# Botão GRAPHICS SETTINGS
-	var gfx_btn := Button.new()
-	gfx_btn.text = "GRAPHICS SETTINGS"
-	gfx_btn.custom_minimum_size = Vector2(360.0, 54.0)
-	gfx_btn.add_theme_font_size_override("font_size", 20)
-	gfx_btn.pressed.connect(_on_graphics_settings)
-	_style_button(gfx_btn, Color(0.08, 0.12, 0.18), Color(0.13, 0.20, 0.28), Color(0.75, 0.85, 0.95))
-	vbox.add_child(gfx_btn)
+	# Botão SETTINGS
+	var settings_btn := Button.new()
+	settings_btn.text = tr("MENU_SETTINGS")
+	settings_btn.custom_minimum_size = Vector2(360.0, 54.0)
+	settings_btn.add_theme_font_size_override("font_size", 20)
+	settings_btn.pressed.connect(_on_settings)
+	_style_button(settings_btn, Color(0.08, 0.12, 0.18), Color(0.13, 0.20, 0.28), Color(0.75, 0.85, 0.95))
+	vbox.add_child(settings_btn)
 
 	# Versão
 	var version := Label.new()
-	version.text = "v0.5  —  Novastorm"
+	version.text = tr("MENU_VERSION")
 	version.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	version.add_theme_font_size_override("font_size", 14)
 	version.add_theme_color_override("font_color", Color(0.4, 0.5, 0.6, 0.8))
@@ -177,7 +177,7 @@ func _on_start_game() -> void:
 	get_tree().change_scene_to_file("res://scenes/game.tscn")
 
 
-func _on_graphics_settings() -> void:
+func _on_settings() -> void:
 	if _settings_menu:
 		_settings_menu.open()
 

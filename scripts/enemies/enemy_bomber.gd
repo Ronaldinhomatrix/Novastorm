@@ -24,12 +24,12 @@ const BomberEngineSound := preload("res://assets/audio/bomber_engine.wav")
 @export var bomb_run_duration: float = 6.0
 @export var exit_duration: float = 2.5
 
-@export var combat_distance_ahead: float = 195.0  ## Distância da nave Player (195m à frente na vanguarda)
-@export var lateral_span: float = 22.0            ## Amplitude de varredura lateral ampliada (±22m)
+@export var combat_distance_ahead: float = 190.0  ## Distância da nave Player na vanguarda
+@export var lateral_span: float = 27.0            ## Amplitude de varredura lateral ampliada (±27m)
 @export var base_height: float = 8.0              ## Altura base de voo no cânion
-@export var vertical_span: float = 6.5            ## Amplitude de varredura vertical (±6.5m)
-@export var total_bombs: int = 24                 ## Fileira de 24 minas
-@export var drop_interval: float = 0.25           ## Cadência de 4 minas por segundo (1.0 / 4.0 = 0.25s)
+@export var vertical_span: float = 9.5            ## Amplitude vertical ampliada (±9.5m)
+@export var total_bombs: int = 40                 ## Capacidade estendida de minas
+@export var drop_interval: float = 0.18           ## Cadência acelerada (~5.5 minas/segundo) para espalhar melhor com alta velocidade
 
 var _phase: Phase = Phase.ENTER
 var _phase_timer: float = 0.0
@@ -173,23 +173,27 @@ func _process_enter(_delta: float) -> void:
 # ---------------------------------------------------------------------------
 
 func _process_bomb_run(delta: float) -> void:
-	# A varredura oscila continuamente com base no tempo decorrido
-	var cycle_dur := maxf(bomb_run_duration, 0.01)
-	var u := fmod(_phase_timer / cycle_dur, 1.0)
+	# Padrão multi-harmônico (Lissajous / curvas compostas) para varredura imprevisível e rápida
+	var t := _phase_timer
 
-	# Movimentação dinâmica e rápida: ciclos de varredura lateral + onda vertical rápida
-	var sweep_angle := _phase_timer * (PI * 5.5 / cycle_dur)
-	var vert_angle := _phase_timer * (PI * 4.0 / cycle_dur)
+	# Frequências assimétricas e rápidas para impedir trajetórias óbvias ou repetitivas
+	var lat_wave_1 := sin(t * 2.8) * 0.72
+	var lat_wave_2 := sin(t * 5.4 + 1.2) * 0.28
+	var target_lat := (lat_wave_1 + lat_wave_2) * lateral_span * _side
 
-	var target_lat := sin(sweep_angle) * lateral_span * _side
-	var target_vert := base_height + sin(vert_angle) * vertical_span + cos(sweep_angle * 0.5) * 1.5
-	var target_dist := combat_distance_ahead + sin(u * PI * 2.0) * 12.0
+	var vert_wave_1 := cos(t * 3.4) * 0.65
+	var vert_wave_2 := sin(t * 7.1 + 0.8) * 0.35
+	var target_vert := base_height + (vert_wave_1 + vert_wave_2) * vertical_span
 
-	var target_bank := -cos(sweep_angle) * 0.55 * _side
-	var target_pitch := cos(vert_angle) * 0.22
+	# Variação sutil na distância à frente (oscilação de vanguarda)
+	var target_dist := combat_distance_ahead + sin(t * 2.2) * 16.0 + cos(t * 4.6) * 6.0
 
-	# Interpolação rápida e responsiva
-	var lerp_w := 1.0 - exp(-9.0 * delta)
+	# Inclinações (banking & pitch) dinâmicas baseadas nas velocidades e curvas atuais
+	var target_bank := -cos(t * 2.8) * 0.68 * _side - cos(t * 5.4 + 1.2) * 0.25 * _side
+	var target_pitch := -sin(t * 3.4) * 0.28 + cos(t * 7.1 + 0.8) * 0.15
+
+	# Interpolação rápida e responsiva para movimentos ágeis e agressivos
+	var lerp_w := 1.0 - exp(-14.0 * delta)
 	_current_lateral = lerpf(_current_lateral, target_lat, lerp_w)
 	_current_vertical = lerpf(_current_vertical, target_vert, lerp_w)
 	_current_distance = lerpf(_current_distance, target_dist, lerp_w)

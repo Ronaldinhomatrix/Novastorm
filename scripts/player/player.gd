@@ -40,6 +40,11 @@ extends CharacterBody3D
 @export_category("Combate")
 @export var fire_rate: float = 0.25
 @export var bullet_scene: PackedScene = null
+## Tendência do disparo convergir em direção ao centro da tela (frente do trilho).
+## 0.0 = acompanha 100% a posição da nave na tela (abre em leque).
+## 0.6 = padrão (60% centro / 40% nave), mantendo forte tendência frontal.
+## 1.0 = 100% reto ao centro da tela.
+@export_range(0.0, 1.0) var aim_center_bias: float = 0.6
 
 @export_category("Mísseis e Lock-on (Secundário)")
 @export var missile_scene: PackedScene = preload("res://scenes/projectiles/player_missile.tscn")
@@ -48,7 +53,7 @@ extends CharacterBody3D
 @export var lock_on_max_targets: int = 3
 @export var lock_on_range: float = 650.0
 ## Raio do cone de mira em pixels na tela (área central onde o jogador precisa apontar).
-@export var lock_on_radius: float = 260.0
+@export var lock_on_radius: float = 150.0
 ## Tempo de processamento/trava após marcar o alvo com a mira (em segundos).
 @export var lock_on_confirm_time: float = 1.0
 ## Som de bip ao travar alvo (lock-on).
@@ -577,9 +582,8 @@ func _spawn_bullet() -> void:
 
 
 ## Retorna o vetor de direção do disparo.
-## Meio-termo: 65% da direção natural (câmera → posição da nave na tela)
-## + 35% do centro da tela. Isso dá um spread perceptível sem que o tiro
-## "abra" demais para os cantos — mantém uma tendência suave ao centro.
+## Combina a direção do raio da nave com uma forte tendência ao centro da tela
+## (controlada por aim_center_bias, padrão 60% centro / 40% nave).
 func _get_ship_aim_direction() -> Vector3:
 	var cam := get_viewport().get_camera_3d()
 	if cam:
@@ -587,7 +591,8 @@ func _get_ship_aim_direction() -> Vector3:
 		var center_screen := get_viewport().get_visible_rect().size / 2.0
 		var dir_natural := cam.project_ray_normal(ship_screen).normalized()
 		var dir_center := cam.project_ray_normal(center_screen).normalized()
-		return dir_natural.slerp(dir_center, 0.35).normalized()
+		var bias: float = clampf(aim_center_bias, 0.0, 1.0)
+		return dir_natural.slerp(dir_center, bias).normalized()
 	return -global_basis.z.normalized()
 
 

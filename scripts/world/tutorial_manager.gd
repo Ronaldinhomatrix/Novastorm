@@ -30,6 +30,7 @@ enum State {
 	STEP1_PRESENTING,     # Naves entrando, câmera lenta, aguardando tiro
 	STEP1_ENGAGING,       # Jogador atirando, tempo normal, aguardando destruição
 	STEP1_CLEARED,        # Intervalo entre etapas
+	STEP2_READING,        # Câmera lenta e texto de mirar exibido; delay de 1s antes dos inimigos surgirem
 	STEP2_PRESENTING,     # Novas naves entrando, câmera lenta, aguardando lock-on
 	STEP2_LOCKED,         # Alvo travado, orienta disparo de míssil
 	STEP2_MISSILE_FIRED,  # Míssil lançado, tempo normal restaurado
@@ -140,6 +141,11 @@ func _process(delta: float) -> void:
 			if _state_timer <= 0.0:
 				_start_step_2()
 
+		State.STEP2_READING:
+			_state_timer -= real_delta
+			if _state_timer <= 0.0:
+				_spawn_step2_enemies()
+
 		State.STEP2_MISSILE_FIRED:
 			_clean_dead_enemies(_step2_enemies)
 			if _step2_enemies.is_empty():
@@ -182,10 +188,10 @@ func _start_step_1() -> void:
 
 func _spawn_step1_pair() -> void:
 	_step1_enemies.clear()
-	# Nave 1: lateral esquerda (-6.5m), distância 62m
-	var e1 := _create_tutorial_enemy(-6.5, 62.0, 4.0, false)
-	# Nave 2: lateral direita (+6.5m), distância 62m
-	var e2 := _create_tutorial_enemy(6.5, 62.0, 4.0, false)
+	# Nave 1: lateral esquerda (-7.5m), distância 135m (espaçamento confortável à frente da nave)
+	var e1 := _create_tutorial_enemy(-7.5, 135.0, 4.0, false)
+	# Nave 2: lateral direita (+7.5m), distância 135m (espaçamento confortável à frente da nave)
+	var e2 := _create_tutorial_enemy(7.5, 135.0, 4.0, false)
 
 	if e1:
 		_step1_enemies.append(e1)
@@ -212,23 +218,21 @@ func _on_step1_cleared() -> void:
 # ---------------------------------------------------------------------------
 
 func _start_step_2() -> void:
-	_state = State.STEP2_PRESENTING
+	_state = State.STEP2_READING
+	_state_timer = 3.5  # 3.5s em tempo real para o jogador ler com total tranquilidade
 	tutorial_step_changed.emit(2)
 
 	# 0. Reabilita os mísseis para a etapa de lock-on e mísseis
 	if player and "missiles_enabled" in player:
 		player.missiles_enabled = true
 
-	# 1. Entram três naves inimigas em formação (imunes a laser até o disparo do míssil)
-	_spawn_step2_trio()
+	# 1. Ativa câmera super lenta no exato instante em que a instrução surge na tela
+	Engine.time_scale = 0.08
 
-	# 2. Ativa câmera lenta novamente
-	Engine.time_scale = 0.25
-
-	# 3. Toca som de aviso tático
+	# 2. Toca som de aviso tático
 	_play_chime()
 
-	# 4. Exibe instrução de mirar para travar as 3 no alvo
+	# 3. Exibe instrução de mirar para travar as 3 no alvo (pista livre enquanto o jogador lê)
 	if _overlay:
 		_overlay.show_instruction(
 			"MIRE NAS TRÊS NAVES INIMIGAS",
@@ -238,14 +242,21 @@ func _start_step_2() -> void:
 		)
 
 
+func _spawn_step2_enemies() -> void:
+	_state = State.STEP2_PRESENTING
+	# As naves surgem em posições bem separadas e NÃO convergem para o centro
+	_spawn_step2_trio()
+
+
 func _spawn_step2_trio() -> void:
 	_step2_enemies.clear()
-	# Nave 1: lateral esquerda (-8.5m), distância 105m (imune a laser)
-	var e1 := _create_tutorial_enemy(-8.5, 105.0, 4.2, true)
-	# Nave 2: centro (0.0m), distância 108m (imune a laser)
-	var e2 := _create_tutorial_enemy(0.0, 108.0, 5.2, true)
-	# Nave 3: lateral direita (+8.5m), distância 105m (imune a laser)
-	var e3 := _create_tutorial_enemy(8.5, 105.0, 4.2, true)
+	# As 3 naves ocupam posições separadas e NÃO convergem para o centro:
+	# Nave 1: lateral esquerda (-38.0m), distância 160m, mantém corredor na ponta esquerda
+	var e1 := _create_tutorial_enemy(-38.0, 160.0, 5.0, true, -38.0, 5.0)
+	# Nave 2: lateral direita (+38.0m), distância 160m, mantém corredor na ponta direita
+	var e2 := _create_tutorial_enemy(38.0, 160.0, 5.0, true, 38.0, 5.0)
+	# Nave 3: topo elevado (+28.0m), distância 165m, mantém posição alta sem mergulhar
+	var e3 := _create_tutorial_enemy(0.0, 165.0, 28.0, true, 0.0, 28.0)
 
 	if e1:
 		_step2_enemies.append(e1)
@@ -378,7 +389,7 @@ func _abort_tutorial_at_limit() -> void:
 # Utilitários de Criação e Limpeza
 # ---------------------------------------------------------------------------
 
-func _create_tutorial_enemy(lat: float, dist: float, vert: float, laser_immune: bool) -> Node:
+func _create_tutorial_enemy(lat: float, dist: float, vert: float, laser_immune: bool, start_lat: float = NAN, start_vert: float = NAN) -> Node:
 	var enemy := TutorialEnemyScene.instantiate()
 	if not enemy:
 		return null
@@ -390,7 +401,7 @@ func _create_tutorial_enemy(lat: float, dist: float, vert: float, laser_immune: 
 		add_child(enemy)
 
 	if enemy.has_method("setup_tutorial_formation"):
-		enemy.setup_tutorial_formation(lat, dist, vert, laser_immune)
+		enemy.setup_tutorial_formation(lat, dist, vert, laser_immune, start_lat, start_vert)
 	return enemy
 
 

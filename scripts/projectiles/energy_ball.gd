@@ -107,7 +107,7 @@ func _spawn_explosion(point: Vector3, normal: Vector3) -> void:
 	if ExplosionScript:
 		var explosion: Node3D = ExplosionScript.new()
 		if "size_scale" in explosion:
-			explosion.size_scale = 1.8
+			explosion.size_scale = 2.3
 		get_tree().current_scene.add_child(explosion)
 		explosion.global_position = point + normal * 0.5
 

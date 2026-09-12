@@ -3,7 +3,7 @@
 [ext_resource type="Script" uid="uid://cc6mgpdffx2mj" path="res://scripts/projectiles/energy_ball.gd" id="1_energyball"]
 
 [sub_resource type="SphereShape3D" id="SphereShape3D_ball"]
-radius = 12.0
+radius = 15.6
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_outer_glow"]
 transparency = 1
@@ -14,8 +14,8 @@ albedo_color = Color(1.0, 0.12, 0.04, 0.85)
 
 [sub_resource type="SphereMesh" id="SphereMesh_outer_glow"]
 material = SubResource("StandardMaterial3D_outer_glow")
-radius = 14.0
-height = 28.0
+radius = 18.2
+height = 36.4
 radial_segments = 20
 rings = 10
 
@@ -28,8 +28,8 @@ albedo_color = Color(1.0, 0.35, 0.08, 0.95)
 
 [sub_resource type="SphereMesh" id="SphereMesh_mid_glow"]
 material = SubResource("StandardMaterial3D_mid_glow")
-radius = 9.0
-height = 18.0
+radius = 11.7
+height = 23.4
 radial_segments = 16
 rings = 8
 
@@ -39,8 +39,8 @@ albedo_color = Color(1.0, 0.92, 0.82, 1.0)
 
 [sub_resource type="SphereMesh" id="SphereMesh_core"]
 material = SubResource("StandardMaterial3D_core")
-radius = 5.0
-height = 10.0
+radius = 6.5
+height = 13.0
 radial_segments = 16
 rings = 8
 
@@ -53,7 +53,7 @@ albedo_color = Color(1.0, 0.3, 0.05, 1.0)
 
 [sub_resource type="BoxMesh" id="BoxMesh_spark"]
 material = SubResource("StandardMaterial3D_spark")
-size = Vector3(2.0, 2.0, 2.0)
+size = Vector3(2.6, 2.6, 2.6)
 
 [sub_resource type="Curve" id="Curve_trail"]
 _data = [Vector2(0, 1), 0.0, 0.0, 0, 0, Vector2(1, 0), -1.4, 0.0, 0, 0]
@@ -85,22 +85,22 @@ mesh = SubResource("SphereMesh_core")
 
 [node name="OmniLight3D" type="OmniLight3D" parent="."]
 light_color = Color(1.0, 0.18, 0.05, 1.0)
-light_energy = 28.0
-omni_range = 90.0
+light_energy = 35.0
+omni_range = 117.0
 
 [node name="TrailParticles" type="CPUParticles3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 6)
-amount = 26
-lifetime = 0.5
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 7.8)
+amount = 28
+lifetime = 0.55
 preprocess = 0.05
 randomness = 0.6
 mesh = SubResource("BoxMesh_spark")
 direction = Vector3(0, 0, 1)
 spread = 22.0
 gravity = Vector3(0, 0, 0)
-initial_velocity_min = 30.0
-initial_velocity_max = 90.0
-scale_amount_min = 2.0
-scale_amount_max = 5.0
+initial_velocity_min = 35.0
+initial_velocity_max = 110.0
+scale_amount_min = 2.6
+scale_amount_max = 6.5
 scale_amount_curve = SubResource("Curve_trail")
 color_ramp = SubResource("Gradient_trail")

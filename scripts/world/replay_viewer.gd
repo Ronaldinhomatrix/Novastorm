@@ -138,19 +138,19 @@ func _setup_ui() -> void:
 	top_panel.add_child(top_hbox)
 
 	var title := Label.new()
-	title.text = "🎥 REPLAY 3D"
+	title.text = tr("REPLAY_TITLE")
 	title.add_theme_color_override("font_color", Color(0.0, 1.0, 0.9))
 	title.add_theme_font_size_override("font_size", 15)
 	top_hbox.add_child(title)
 
 	var hints := Label.new()
-	hints.text = "[ESPAÇO]: Play/Pause | [◀ / ▶]: Frame a Frame | [C]: Câmera | [H]: Hitboxes | Botão Dir. Mouse + WASD: Voo Livre"
+	hints.text = tr("REPLAY_HINTS")
 	hints.add_theme_color_override("font_color", Color(0.85, 0.9, 0.95))
 	hints.add_theme_font_size_override("font_size", 12)
 	top_hbox.add_child(hints)
 
 	var btn_exit := Button.new()
-	btn_exit.text = "✕ Voltar ao Jogo (F4)"
+	btn_exit.text = tr("REPLAY_EXIT")
 	btn_exit.pressed.connect(_on_close_replay)
 	top_hbox.add_child(btn_exit)
 
@@ -198,28 +198,28 @@ func _setup_ui() -> void:
 	bot_vbox.add_child(bot_controls)
 
 	var btn_step_back := Button.new()
-	btn_step_back.text = "◀ Quadro"
+	btn_step_back.text = tr("REPLAY_STEP_BACK")
 	btn_step_back.pressed.connect(func(): _step_frame(-1))
 	bot_controls.add_child(btn_step_back)
 
 	_play_btn = Button.new()
-	_play_btn.text = "▶ Reproduzir"
+	_play_btn.text = tr("REPLAY_PLAY")
 	_play_btn.pressed.connect(_toggle_playback)
 	bot_controls.add_child(_play_btn)
 
 	var btn_step_fwd := Button.new()
-	btn_step_fwd.text = "Quadro ▶"
+	btn_step_fwd.text = tr("REPLAY_STEP_FWD")
 	btn_step_fwd.pressed.connect(func(): _step_frame(1))
 	bot_controls.add_child(btn_step_fwd)
 
 	_time_label = Label.new()
-	_time_label.text = "Quadro: 0 / 0 | Tempo: 0.0s"
+	_time_label.text = tr("REPLAY_TIME") % [0, 0, 0.0, 0.0]
 	_time_label.add_theme_font_size_override("font_size", 12)
 	bot_controls.add_child(_time_label)
 
 	# Velocidades
 	var spd_menu := MenuButton.new()
-	spd_menu.text = "Velocidade: 1.0x"
+	spd_menu.text = tr("REPLAY_SPEED") % 1.0
 	var popup := spd_menu.get_popup()
 	popup.add_item("0.05x (Super Slow)", 0)
 	popup.add_item("0.25x (Lento)", 1)
@@ -233,20 +233,20 @@ func _setup_ui() -> void:
 			2: playback_speed = 0.5
 			3: playback_speed = 1.0
 			4: playback_speed = 2.0
-		spd_menu.text = "Velocidade: %.2fx" % playback_speed
+		spd_menu.text = tr("REPLAY_SPEED") % playback_speed
 	)
 	bot_controls.add_child(spd_menu)
 
 	# Botão Câmera
 	var btn_cam := Button.new()
-	btn_cam.text = "📷 Câmera: Livre (C)"
+	btn_cam.text = tr("REPLAY_CAM_FREE")
 	btn_cam.pressed.connect(_toggle_camera_mode)
 	bot_controls.add_child(btn_cam)
 	_cam_mode_label = btn_cam
 
 	# Botão Hitboxes
 	_hitbox_btn = Button.new()
-	_hitbox_btn.text = "📦 Hitboxes 3D: LIGADAS (H)"
+	_hitbox_btn.text = tr("REPLAY_HITBOX_ON")
 	_hitbox_btn.pressed.connect(_toggle_hitboxes)
 	bot_controls.add_child(_hitbox_btn)
 
@@ -327,7 +327,7 @@ func _toggle_playback() -> void:
 
 func _update_play_button_text() -> void:
 	if _play_btn:
-		_play_btn.text = "⏸ Pausar" if is_playing else "▶ Reproduzir"
+		_play_btn.text = tr("REPLAY_PAUSE") if is_playing else "▶ Reproduzir"
 
 
 func _step_frame(direction: int) -> void:
@@ -346,7 +346,7 @@ func _on_slider_value_changed(val: float) -> void:
 func _toggle_camera_mode() -> void:
 	is_freecam = not is_freecam
 	if _cam_mode_label:
-		_cam_mode_label.text = "📷 Câmera: Livre (C)" if is_freecam else "📷 Câmera: Gravada (C)"
+		_cam_mode_label.text = tr("REPLAY_CAM_FREE") if is_freecam else "📷 Câmera: Gravada (C)"
 	if not is_freecam and frames.size() > 0:
 		var f: Dictionary = frames[current_frame_index]
 		if f.has("camera_transform"):
@@ -356,7 +356,7 @@ func _toggle_camera_mode() -> void:
 func _toggle_hitboxes() -> void:
 	show_hitboxes = not show_hitboxes
 	if _hitbox_btn:
-		_hitbox_btn.text = "📦 Hitboxes 3D: LIGADAS (H)" if show_hitboxes else "📦 Hitboxes 3D: DESLIGADAS (H)"
+		_hitbox_btn.text = tr("REPLAY_HITBOX_ON") if show_hitboxes else "📦 Hitboxes 3D: DESLIGADAS (H)"
 	_render_frame(current_frame_index)
 
 
@@ -369,7 +369,7 @@ func _render_frame(idx: int) -> void:
 	if _time_label:
 		var cur_t: float = f.get("time", 0.0)
 		var max_t: float = frames.back().get("time", 0.0) if not frames.is_empty() else 0.0
-		_time_label.text = "Quadro: %d / %d | Tempo: %.2fs / %.2fs" % [
+		_time_label.text = tr("REPLAY_TIME") % [
 			idx + 1, frames.size(), cur_t, max_t
 		]
 
