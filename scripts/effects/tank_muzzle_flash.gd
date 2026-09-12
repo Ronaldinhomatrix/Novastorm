@@ -59,17 +59,7 @@ func _build_bloom_flare() -> void:
 	flare.pixel_size = 0.12
 	flare.no_depth_test = false
 
-	# Criação de textura procedural radial de gradiente suave para o brilho
-	var img := Image.create(64, 64, false, Image.FORMAT_RGBA8)
-	var center := Vector2(31.5, 31.5)
-	for y in range(64):
-		for x in range(64):
-			var dist := center.distance_to(Vector2(x, y)) / 31.5
-			var alpha := clampf(1.0 - dist, 0.0, 1.0)
-			alpha = alpha * alpha # Curva exponencial suave
-			img.set_pixel(x, y, Color(1, 1, 1, alpha))
-	var tex := ImageTexture.create_from_image(img)
-	flare.texture = tex
+	flare.texture = _get_bloom_texture()
 	add_child(flare)
 
 	# Tween para expansão e fade out rápido do clarão/brilho
@@ -164,3 +154,20 @@ func _build_cannon_smoke() -> void:
 	mat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
 	s.material_override = mat
 	add_child(s)
+
+
+static var _cached_bloom_tex: ImageTexture = null
+
+static func _get_bloom_texture() -> ImageTexture:
+	if _cached_bloom_tex:
+		return _cached_bloom_tex
+	var img := Image.create(64, 64, false, Image.FORMAT_RGBA8)
+	var center := Vector2(31.5, 31.5)
+	for y in range(64):
+		for x in range(64):
+			var dist := center.distance_to(Vector2(x, y)) / 31.5
+			var alpha := clampf(1.0 - dist, 0.0, 1.0)
+			alpha = alpha * alpha
+			img.set_pixel(x, y, Color(1, 1, 1, alpha))
+	_cached_bloom_tex = ImageTexture.create_from_image(img)
+	return _cached_bloom_tex

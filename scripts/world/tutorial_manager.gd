@@ -250,13 +250,13 @@ func _spawn_step2_enemies() -> void:
 
 func _spawn_step2_trio() -> void:
 	_step2_enemies.clear()
-	# As 3 naves ocupam posições separadas e NÃO convergem para o centro:
-	# Nave 1: lateral esquerda (-38.0m), distância 160m, mantém corredor na ponta esquerda
-	var e1 := _create_tutorial_enemy(-38.0, 160.0, 5.0, true, -38.0, 5.0)
-	# Nave 2: lateral direita (+38.0m), distância 160m, mantém corredor na ponta direita
-	var e2 := _create_tutorial_enemy(38.0, 160.0, 5.0, true, 38.0, 5.0)
-	# Nave 3: topo elevado (+28.0m), distância 165m, mantém posição alta sem mergulhar
-	var e3 := _create_tutorial_enemy(0.0, 165.0, 28.0, true, 0.0, 28.0)
+	# As 3 naves ocupam posições bem espaçadas dentro do cânion e NÃO convergem para o centro:
+	# Nave 1: lateral esquerda (-20.0m), voa rente à parede esquerda do cânion sem atravessá-la
+	var e1 := _create_tutorial_enemy(-20.0, 160.0, 5.5, true, -20.0, 5.5)
+	# Nave 2: lateral direita (+20.0m), voa rente à parede direita do cânion sem atravessá-la
+	var e2 := _create_tutorial_enemy(20.0, 160.0, 5.5, true, 20.0, 5.5)
+	# Nave 3: topo elevado (+24.0m), no céu aberto do cânion sem mergulhar
+	var e3 := _create_tutorial_enemy(0.0, 165.0, 24.0, true, 0.0, 24.0)
 
 	if e1:
 		_step2_enemies.append(e1)

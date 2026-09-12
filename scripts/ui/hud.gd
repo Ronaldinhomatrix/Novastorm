@@ -26,6 +26,11 @@ extends CanvasLayer
 @onready var hull_label: Label = get_node_or_null("SafeArea/TopRight/TacticalPanel/Margin/StatusVBox/HullRow/HullLabel")
 @onready var hull_pips: HBoxContainer = get_node_or_null("SafeArea/TopRight/TacticalPanel/Margin/StatusVBox/HullRow/HullPips")
 
+# Módulo de Disparo Primário (Laser) Mobile
+@onready var primary_fire_panel: PanelContainer = get_node_or_null("SafeArea/BottomLeft/PrimaryFirePanel")
+@onready var primary_fire_btn: Button = get_node_or_null("SafeArea/BottomLeft/PrimaryFirePanel/PrimaryFireButton")
+@onready var primary_laser_icon: Control = get_node_or_null("SafeArea/BottomLeft/PrimaryFirePanel/Margin/CenterBox/LaserIcon")
+
 # Módulo de Mísseis e Botão Mobile
 @onready var missile_panel: PanelContainer = get_node_or_null("SafeArea/BottomLeft/MissilePanel")
 @onready var missile_btn: Button = get_node_or_null("SafeArea/BottomLeft/MissilePanel/MissileButton")
@@ -41,6 +46,7 @@ extends CanvasLayer
 @onready var warning_title_rich: RichTextLabel = $SafeArea/TopCenter/WarningContainer/TitleRich
 
 var _player_ref: Node = null
+var _is_primary_fire_pressed: bool = false
 var _current_missiles: int = 3
 var _max_missiles: int = 3
 var _is_reloading_missiles: bool = false
@@ -66,6 +72,7 @@ var _target_title_text: String = "WARNING // INCOMING ENEMIES"
 
 var _is_pulsing_critical: bool = false
 var _critical_pulse_time: float = 0.0
+var _missile_panel_sb: StyleBoxFlat = null
 
 const GLYPHS: String = "X0#9@$?>*!/\\%123456789ABCDEF"
 
@@ -82,12 +89,28 @@ func _ready() -> void:
 	if missile_btn:
 		missile_btn.pressed.connect(_on_missile_button_pressed)
 
+	if primary_fire_btn:
+		primary_fire_btn.button_down.connect(_on_primary_fire_down)
+		primary_fire_btn.button_up.connect(_on_primary_fire_up)
+
+	if primary_laser_icon:
+		primary_laser_icon.draw.connect(_draw_primary_laser_icon)
+
+	# O botão de disparo contínuo do laser normal é exclusivo para a versão mobile
+	if primary_fire_panel:
+		primary_fire_panel.visible = GameConfig.is_mobile
+
 	_build_shield_pips()
 	_build_hull_pips()
 	_build_missile_pips()
 	_update_shield_display(false)
 	_update_hull_display(false)
 	_update_missile_display()
+
+	if missile_panel:
+		var sb = missile_panel.get_theme_stylebox("panel")
+		if sb is StyleBoxFlat:
+			_missile_panel_sb = sb as StyleBoxFlat
 
 
 func _process(delta: float) -> void:
@@ -109,9 +132,8 @@ func _process(delta: float) -> void:
 			var border_pulse := lerpf(1.1, 2.2, pulse_wave)
 			var shadow_spread := lerpf(8.0, 22.0, pulse_wave)
 
-			var sb := missile_panel.get_theme_stylebox("panel")
-			if sb is StyleBoxFlat:
-				var sb_flat: StyleBoxFlat = sb as StyleBoxFlat
+			if _missile_panel_sb:
+				var sb_flat := _missile_panel_sb
 				sb_flat.border_color = Color(1.0 * border_pulse, 0.18 * border_pulse, 0.12 * border_pulse, 1.0)
 				sb_flat.shadow_color = Color(1.0, 0.15, 0.1, lerpf(0.5, 0.95, pulse_wave))
 				sb_flat.shadow_size = int(shadow_spread)
@@ -128,9 +150,8 @@ func _process(delta: float) -> void:
 			var pulse := (sin(_missile_pulse_time) + 1.0) * 0.5 * 0.45 + 0.85
 			if missile_btn:
 				missile_btn.modulate = Color(1.35 * pulse, 1.15 * pulse, 0.9 * pulse, 1.0)
-			var sb := missile_panel.get_theme_stylebox("panel")
-			if sb is StyleBoxFlat:
-				var sb_flat: StyleBoxFlat = sb as StyleBoxFlat
+			if _missile_panel_sb:
+				var sb_flat := _missile_panel_sb
 				sb_flat.border_color = Color(0.1, 1.4, 0.45, 1.0)
 				sb_flat.shadow_color = Color(0.1, 1.0, 0.4, 0.8)
 				sb_flat.shadow_size = 12
@@ -139,9 +160,8 @@ func _process(delta: float) -> void:
 				missile_btn.modulate = Color.WHITE
 			if missile_reload_label:
 				missile_reload_label.modulate = Color.WHITE
-			var sb := missile_panel.get_theme_stylebox("panel")
-			if sb is StyleBoxFlat:
-				var sb_flat: StyleBoxFlat = sb as StyleBoxFlat
+			if _missile_panel_sb:
+				var sb_flat := _missile_panel_sb
 				if _current_missiles > 0:
 					sb_flat.border_color = Color(0.1, 1.4, 0.45, 1.0)
 					sb_flat.shadow_color = Color(0.1, 1.0, 0.4, 0.6)
@@ -745,6 +765,60 @@ func _on_player_missile_targeting_updated(locked_targets: Array[Node3D], acquiri
 func _on_missile_button_pressed() -> void:
 	if _player_ref and _player_ref.has_method("fire_missiles"):
 		_player_ref.call("fire_missiles")
+
+
+func _on_primary_fire_down() -> void:
+	_is_primary_fire_pressed = true
+	if primary_fire_panel:
+		var sb := primary_fire_panel.get_theme_stylebox("panel")
+		if sb is StyleBoxFlat:
+			var sb_flat: StyleBoxFlat = sb as StyleBoxFlat
+			sb_flat.border_color = Color(1.8, 2.2, 2.8, 1.0)
+			sb_flat.shadow_color = Color(0.2, 0.9, 1.4, 0.95)
+			sb_flat.shadow_size = 16
+	if primary_laser_icon:
+		primary_laser_icon.queue_redraw()
+	if _player_ref and _player_ref.has_method("start_firing"):
+		_player_ref.call("start_firing")
+
+
+func _on_primary_fire_up() -> void:
+	_is_primary_fire_pressed = false
+	if primary_fire_panel:
+		var sb := primary_fire_panel.get_theme_stylebox("panel")
+		if sb is StyleBoxFlat:
+			var sb_flat: StyleBoxFlat = sb as StyleBoxFlat
+			sb_flat.border_color = Color(0.1, 0.85, 1.2, 1.0)
+			sb_flat.shadow_color = Color(0.05, 0.75, 1.0, 0.7)
+			sb_flat.shadow_size = 10
+	if primary_laser_icon:
+		primary_laser_icon.queue_redraw()
+	if _player_ref and _player_ref.has_method("stop_firing"):
+		_player_ref.call("stop_firing")
+
+
+func _draw_primary_laser_icon() -> void:
+	if not primary_laser_icon:
+		return
+	var size := primary_laser_icon.size
+	var cx := size.x * 0.5
+	var cy := size.y * 0.5
+
+	var active_color: Color = Color(1.8, 2.4, 3.0, 1.0) if _is_primary_fire_pressed else Color(0.2, 0.95, 1.2, 0.95)
+	var glow_color: Color = Color(0.1, 0.8, 1.4, 0.8) if _is_primary_fire_pressed else Color(0.05, 0.5, 0.9, 0.4)
+
+	# Feixe duplo de plasma / canhões lasers gêmeos
+	# Canhão esquerdo
+	primary_laser_icon.draw_line(Vector2(cx - 5.0, 3.0), Vector2(cx - 5.0, size.y - 3.0), glow_color, 4.0)
+	primary_laser_icon.draw_line(Vector2(cx - 5.0, 4.0), Vector2(cx - 5.0, size.y - 4.0), active_color, 2.0)
+
+	# Canhão direito
+	primary_laser_icon.draw_line(Vector2(cx + 5.0, 3.0), Vector2(cx + 5.0, size.y - 3.0), glow_color, 4.0)
+	primary_laser_icon.draw_line(Vector2(cx + 5.0, 4.0), Vector2(cx + 5.0, size.y - 4.0), active_color, 2.0)
+
+	# Flares frontais
+	primary_laser_icon.draw_circle(Vector2(cx - 5.0, 3.0), 3.0, active_color)
+	primary_laser_icon.draw_circle(Vector2(cx + 5.0, 3.0), 3.0, active_color)
 
 
 # ---------------------------------------------------------------------------

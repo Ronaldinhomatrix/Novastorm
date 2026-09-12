@@ -39,6 +39,8 @@ var _engine_audio_player: AudioStreamPlayer3D = null
 var _prev_global_pos: Vector3 = Vector3.ZERO
 var _has_prev_pos: bool = false
 var _linear_velocity: Vector3 = Vector3.ZERO
+var _cached_sound_manager: Node = null
+var _cached_player_ref: Node3D = null
 
 
 func _ready() -> void:
@@ -62,6 +64,7 @@ func _ready() -> void:
 	_setup_audio()
 	_setup_engine_sound()
 	_collect_mesh_instances(self)
+	_cached_sound_manager = get_node_or_null("/root/SoundManager")
 
 
 func _on_area_entered(area: Area3D) -> void:
@@ -169,6 +172,10 @@ func _collect_mesh_instances(node: Node) -> void:
 var _flight_path: Path3D = null
 var _path_follower: PathFollower = null
 var _curve_offset: float = -1.0  ## Offset (unidades) ao longo da curva; -1 = não inicializado
+var _curve_pos: Vector3 = Vector3.ZERO
+var _curve_fwd: Vector3 = Vector3.FORWARD
+var _curve_right: Vector3 = Vector3.RIGHT
+var _curve_up: Vector3 = Vector3.UP
 
 
 func _get_flight_path() -> Path3D:
@@ -253,23 +260,26 @@ func _get_player_progress() -> float:
 	return 0.0
 
 
-## Retorna o referencial local (posição, forward, right, up) em um offset específico com deslocamentos.
+## Atualiza o referencial local (posição, forward, right, up) em um offset específico com deslocamentos.
+## Os resultados são armazenados diretamente em _curve_pos, _curve_fwd, _curve_right, _curve_up.
 func _sample_curve_frame(offset: float, lateral: float = 0.0, vertical: float = 0.0) -> Dictionary:
 	var path := _get_flight_path()
 	if path and path.curve and path.curve.point_count > 1:
-		var fwd := _sample_curve_tangent(offset)
-		var right := fwd.cross(Vector3.UP).normalized()
-		if right.length_squared() < 0.001:
-			right = Vector3.RIGHT
-		var up := right.cross(fwd).normalized()
+		_curve_fwd = _sample_curve_tangent(offset)
+		_curve_right = _curve_fwd.cross(Vector3.UP).normalized()
+		if _curve_right.length_squared() < 0.001:
+			_curve_right = Vector3.RIGHT
+		_curve_up = _curve_right.cross(_curve_fwd).normalized()
 		var center := _sample_curve_position(offset)
-		var pos := center + right * lateral + up * vertical
-		return {"position": pos, "forward": fwd, "right": right, "up": up}
+		_curve_pos = center + _curve_right * lateral + _curve_up * vertical
+		return {"position": _curve_pos, "forward": _curve_fwd, "right": _curve_right, "up": _curve_up}
 
 	# Fallback: voo em linha reta (sem curva disponível).
-	var fwd_fallback := Vector3.FORWARD
-	var pos_fallback := global_position + Vector3.RIGHT * lateral + Vector3.UP * vertical
-	return {"position": pos_fallback, "forward": fwd_fallback, "right": Vector3.RIGHT, "up": Vector3.UP}
+	_curve_fwd = Vector3.FORWARD
+	_curve_right = Vector3.RIGHT
+	_curve_up = Vector3.UP
+	_curve_pos = global_position + Vector3.RIGHT * lateral + Vector3.UP * vertical
+	return {"position": _curve_pos, "forward": _curve_fwd, "right": _curve_right, "up": _curve_up}
 
 
 ## Avança o inimigo ao longo da curva e devolve posição/orientação com offsets
@@ -336,13 +346,9 @@ func _play_hit_flash() -> void:
 	if _mesh_instances.is_empty():
 		_collect_mesh_instances(self)
 
-	var flash_mat: StandardMaterial3D = StandardMaterial3D.new()
-	flash_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	flash_mat.albedo_color = Color(2.5, 0.4, 0.4, 1.0)
-
 	for mi: MeshInstance3D in _mesh_instances:
 		if is_instance_valid(mi):
-			mi.material_override = flash_mat
+			mi.material_override = _get_hit_flash_mat()
 
 	_flash_tween = create_tween()
 	_flash_tween.tween_interval(0.06)
@@ -351,6 +357,16 @@ func _play_hit_flash() -> void:
 			if is_instance_valid(mi):
 				mi.material_override = null
 	)
+
+
+static var _shared_hit_flash_mat: StandardMaterial3D = null
+
+static func _get_hit_flash_mat() -> StandardMaterial3D:
+	if not _shared_hit_flash_mat:
+		_shared_hit_flash_mat = StandardMaterial3D.new()
+		_shared_hit_flash_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		_shared_hit_flash_mat.albedo_color = Color(2.5, 0.4, 0.4, 1.0)
+	return _shared_hit_flash_mat
 
 
 func fire_bullet(from_pos: Vector3, dir: Vector3) -> void:
@@ -367,8 +383,8 @@ func fire_bullet(from_pos: Vector3, dir: Vector3) -> void:
 		bullet.setup(dir)
 
 	if not _is_dead:
-		if has_node("/root/SoundManager"):
-			get_node("/root/SoundManager").play_laser_enemy(laser_volume_db)
+		if _cached_sound_manager:
+			_cached_sound_manager.play_laser_enemy(laser_volume_db)
 		elif _laser_audio_player:
 			_laser_audio_player.pitch_scale = randf_range(0.9, 1.1)
 			_laser_audio_player.play()
@@ -385,10 +401,12 @@ func fire_towards_player(from_pos: Vector3, aim_convergence: float = 0.8) -> voi
 
 
 func _get_player_node() -> Node3D:
-	var player: Node3D = get_tree().get_first_node_in_group("player") as Node3D
-	if not player:
-		player = get_node_or_null("/root/Game/FlightPath/PathFollower/Player")
-	return player
+	if _cached_player_ref and is_instance_valid(_cached_player_ref):
+		return _cached_player_ref
+	_cached_player_ref = get_tree().get_first_node_in_group("player") as Node3D
+	if not _cached_player_ref:
+		_cached_player_ref = get_node_or_null("/root/Game/FlightPath/PathFollower/Player")
+	return _cached_player_ref
 
 
 func _get_player_position() -> Vector3:
@@ -480,8 +498,8 @@ func die() -> void:
 
 ## Toca explosion1 ou explosion2 aleatoriamente via SoundManager (zero latency).
 func _play_explosion_sound() -> void:
-	if has_node("/root/SoundManager"):
-		get_node("/root/SoundManager").play_explosion(explosion_volume_db)
+	if _cached_sound_manager:
+		_cached_sound_manager.play_explosion(explosion_volume_db)
 		return
 
 	if ExplosionSounds.is_empty():

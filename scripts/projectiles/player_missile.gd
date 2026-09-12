@@ -25,6 +25,8 @@ var _is_exploding: bool = false
 var _smoke_particles: CPUParticles3D = null
 var _ray: RayCast3D = null
 var _has_hit: bool = false
+var _target_model: Node3D = null
+var _cached_sound_manager: Node = null
 
 
 func _ready() -> void:
@@ -51,11 +53,14 @@ func _ready() -> void:
 	add_child(_ray)
 
 	_smoke_particles = get_node_or_null("SmokeTrail") as CPUParticles3D
+	_cached_sound_manager = get_node_or_null("/root/SoundManager")
 
 
 ## Inicializa o míssil com o alvo travado, direção de ejeção inicial e velocidade base da nave
 func setup(target: Node3D, initial_dir: Vector3, base_ship_speed: float = 65.0) -> void:
 	_target = target
+	if target:
+		_target_model = target.get_node_or_null("ShipModel") as Node3D
 	# Velocidade inicial real = velocidade que a nave já tem + velocidade de ejeção relativa (10 m/s)
 	_current_speed = base_ship_speed + initial_relative_speed
 	var forward := initial_dir.normalized()
@@ -81,10 +86,7 @@ func _physics_process(delta: float) -> void:
 
 	if is_instance_valid(_target) and not _target.is_queued_for_deletion():
 		# Pega a posição central do alvo
-		var target_pos := _target.global_position
-		var model: Node3D = _target.get_node_or_null("ShipModel") as Node3D
-		if model:
-			target_pos = model.global_position
+		var target_pos := _target_model.global_position if (_target_model and is_instance_valid(_target_model)) else _target.global_position
 
 		var to_target_vec := target_pos - global_position
 		var dist_to_target := to_target_vec.length()
@@ -179,8 +181,8 @@ func _explode() -> void:
 			explosion.set("size_scale", 1.4)
 
 	# Áudio de impacto / explosão
-	if has_node("/root/SoundManager"):
-		get_node("/root/SoundManager").play_heavy_explosion(-1.0)
+	if _cached_sound_manager:
+		_cached_sound_manager.play_heavy_explosion(-1.0)
 
 	# Deixa a fumaça suspensa dissipar antes de remover o nó
 	if _smoke_particles:

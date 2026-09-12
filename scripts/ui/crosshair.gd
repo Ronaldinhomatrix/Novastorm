@@ -19,6 +19,7 @@ var _target_color := Color(0.0, 1.0, 0.3, 0.75)
 var _current_color := Color(0.0, 1.0, 0.3, 0.75)
 var _camera: Camera3D = null
 var _is_mobile: bool = false
+var _ray_query: PhysicsRayQueryParameters3D = null
 
 
 func _ready() -> void:
@@ -29,6 +30,10 @@ func _ready() -> void:
 		position = Vector2.ZERO
 		size = get_viewport().get_visible_rect().size
 	)
+	_ray_query = PhysicsRayQueryParameters3D.new()
+	_ray_query.collision_mask = 2
+	_ray_query.collide_with_areas = true
+	_ray_query.collide_with_bodies = false
 
 
 func set_camera(cam: Camera3D) -> void:
@@ -75,12 +80,10 @@ func _update_enemy_detection() -> void:
 	var origin: Vector3 = _camera.project_ray_origin(aim_pos)
 	var ray_end: Vector3 = origin + _camera.project_ray_normal(aim_pos) * 2000.0
 
-	var query := PhysicsRayQueryParameters3D.create(origin, ray_end)
-	query.collision_mask = 2
-	query.collide_with_areas = true
-	query.collide_with_bodies = false
+	_ray_query.from = origin
+	_ray_query.to = ray_end
 
-	var result: Dictionary = space_state.intersect_ray(query)
+	var result: Dictionary = space_state.intersect_ray(_ray_query)
 	_target_color = color_locked if not result.is_empty() else color_normal
 
 

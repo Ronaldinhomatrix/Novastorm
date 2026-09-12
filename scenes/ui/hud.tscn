@@ -1,4 +1,4 @@
-[gd_scene load_steps=10 format=3 uid="uid://c6j8l2g5vh0m1"]
+[gd_scene load_steps=11 format=3 uid="uid://c6j8l2g5vh0m1"]
 
 [ext_resource type="Script" path="res://scripts/ui/hud.gd" id="1_hud"]
 [ext_resource type="Shader" path="res://assets/shaders/damage_vignette.gdshader" id="2_shader"]
@@ -22,6 +22,21 @@ corner_radius_bottom_left = 4
 shadow_color = Color(0, 0, 0, 0.5)
 shadow_size = 8
 shadow_offset = Vector2(0, 2)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_primary_fire_panel"]
+bg_color = Color(0.02, 0.04, 0.07, 0.85)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.1, 0.85, 1.2, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+shadow_color = Color(0.05, 0.75, 1.0, 0.7)
+shadow_size = 10
+shadow_offset = Vector2(0, 0)
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_missile_panel"]
 bg_color = Color(0.02, 0.04, 0.07, 0.85)
@@ -165,6 +180,51 @@ theme_override_constants/separation = 4
 [node name="BottomLeft" type="Control" parent="SafeArea"]
 layout_mode = 2
 mouse_filter = 2
+
+[node name="PrimaryFirePanel" type="PanelContainer" parent="SafeArea/BottomLeft"]
+custom_minimum_size = Vector2(230, 64)
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 12.0
+offset_top = -158.0
+offset_right = 242.0
+offset_bottom = -94.0
+grow_vertical = 0
+theme_override_styles/panel = SubResource("StyleBoxFlat_primary_fire_panel")
+
+[node name="Margin" type="MarginContainer" parent="SafeArea/BottomLeft/PrimaryFirePanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 8
+
+[node name="CenterBox" type="HBoxContainer" parent="SafeArea/BottomLeft/PrimaryFirePanel/Margin"]
+layout_mode = 2
+alignment = 1
+theme_override_constants/separation = 12
+
+[node name="LaserIcon" type="Control" parent="SafeArea/BottomLeft/PrimaryFirePanel/Margin/CenterBox"]
+custom_minimum_size = Vector2(24, 24)
+layout_mode = 2
+size_flags_vertical = 4
+
+[node name="LaserLabel" type="Label" parent="SafeArea/BottomLeft/PrimaryFirePanel/Margin/CenterBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.15, 0.95, 1, 1)
+theme_override_fonts/font = SubResource("SystemFont_computer_bold")
+theme_override_font_sizes/font_size = 15
+text = "LASER CANNON"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="PrimaryFireButton" type="Button" parent="SafeArea/BottomLeft/PrimaryFirePanel"]
+layout_mode = 2
+focus_mode = 0
+flat = true
 
 [node name="MissilePanel" type="PanelContainer" parent="SafeArea/BottomLeft"]
 custom_minimum_size = Vector2(230, 64)

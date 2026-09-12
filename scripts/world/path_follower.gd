@@ -71,6 +71,7 @@ var _prev_forward: Vector3 = Vector3.ZERO  ## Direcao anterior
 var _barrel_roll_angle: float = 0.0  ## Rotacao adicional de roll em radianos
 var _debug_loop_start_offset: float = -1.0
 var _debug_loop_end_offset: float = -1.0
+var _parent_path: Path3D = null
 
 # Player de áudio da manobra (barrel roll) + controle de disparo único.
 var _maneuver_player: AudioStreamPlayer = null
@@ -91,13 +92,14 @@ func _ready() -> void:
 	_maneuver_player.bus = "Master"
 	_maneuver_player.volume_db = 0.0
 	add_child(_maneuver_player)
+	_parent_path = get_parent() as Path3D
 	_setup_debug_offsets()
 	reset_progress()
 	_align_to_path(0.016)
 
 
 func _setup_debug_offsets() -> void:
-	var parent_path := get_parent() as Path3D
+	var parent_path := _parent_path
 	var c: Curve3D = parent_path.curve if parent_path else null
 	if not c or c.point_count < 2:
 		return
@@ -144,7 +146,7 @@ func get_current_speed() -> float:
 
 func _current_speed() -> float:
 	var base_speed := forward_speed
-	var parent_path := get_parent() as Path3D
+	var parent_path := _parent_path
 	var c: Curve3D = parent_path.curve if parent_path else null
 
 	# 1. Zonas de Velocidade por Pontos (Prioridade alta para trechos específicos)
@@ -192,7 +194,7 @@ func _current_speed() -> float:
 # ---------------------------------------------------------------------------
 
 func _align_to_path(delta: float) -> void:
-	var curve := get_parent() as Path3D
+	var curve := _parent_path
 	if not curve or not curve.curve or curve.curve.point_count < 2:
 		return
 
@@ -400,7 +402,7 @@ func reset_progress() -> void:
 
 ## Teletransporta o follower diretamente para um ponto específico do Path3D
 func jump_to_point(point_index: int) -> void:
-	var parent_path := get_parent() as Path3D
+	var parent_path := _parent_path
 	var c: Curve3D = parent_path.curve if parent_path else null
 	if not c or c.point_count == 0:
 		return
@@ -415,7 +417,7 @@ func jump_to_point(point_index: int) -> void:
 
 ## Teletransporta o follower para uma porcentagem da pista (0.0 a 1.0)
 func jump_to_ratio(target_ratio: float) -> void:
-	var parent_path := get_parent() as Path3D
+	var parent_path := _parent_path
 	var c: Curve3D = parent_path.curve if parent_path else null
 	if not c or c.point_count == 0:
 		return

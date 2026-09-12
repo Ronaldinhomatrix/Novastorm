@@ -170,6 +170,10 @@ var _laser_player: AudioStreamPlayer = null
 var _is_looking_back: bool = false
 var _shield_bubble: ShieldBubble = null
 var _muzzle_flash: Node3D = null
+var _cached_camera: Camera3D = null
+var _cached_vp_size: Vector2 = Vector2.ZERO
+var _is_rail_mode: bool = false
+var _cached_sound_manager: Node = null
 
 @onready var ship_model: Node3D = $ShipModel
 
@@ -247,6 +251,22 @@ func _ready() -> void:
 	if get_parent() is PathFollow3D:
 		position = Vector3(0.0, 0.0, forward_offset)
 	_target_local_pos = position
+	_is_rail_mode = get_parent() is PathFollow3D
+	_cached_sound_manager = get_node_or_null("/root/SoundManager")
+	_update_cached_camera()
+	get_viewport().size_changed.connect(_on_viewport_size_changed)
+
+func _update_cached_camera() -> void:
+	var vp := get_viewport()
+	if vp:
+		_cached_camera = vp.get_camera_3d()
+		_cached_vp_size = vp.get_visible_rect().size
+
+
+func _on_viewport_size_changed() -> void:
+	var vp := get_viewport()
+	if vp:
+		_cached_vp_size = vp.get_visible_rect().size
 
 
 func _exit_tree() -> void:
@@ -305,12 +325,8 @@ func _handle_mobile_input(event: InputEvent) -> void:
 				_touch_index = event.index
 				_drag_active = true
 				_pointer_active = false
-				if not _is_firing:
-					primary_fire_started.emit()
-				_is_firing = true
 		elif event.index == _touch_index:
 			_drag_active = false
-			_is_firing = false
 
 	elif event is InputEventScreenDrag:
 		if event.index == _touch_index and _drag_active:
@@ -326,7 +342,7 @@ func _physics_process(delta: float) -> void:
 	# não processa movimento/combate — mantém a nave exatamente onde foi
 	# posicionada no editor. O movimento só ocorre no modo rail shooter
 	# (nave filha de um PathFollow3D).
-	if not (get_parent() is PathFollow3D):
+	if not _is_rail_mode:
 		return
 
 	# Atualiza o temporizador de invulnerabilidade
@@ -400,7 +416,8 @@ func _physics_process(delta: float) -> void:
 # ---------------------------------------------------------------------------
 
 func _update_screen_extents() -> void:
-	var cam := get_viewport().get_camera_3d()
+	var cam := _cached_camera
+	if not cam: _update_cached_camera(); cam = _cached_camera
 	if not cam:
 		return
 
@@ -412,7 +429,7 @@ func _update_screen_extents() -> void:
 		return
 
 	var half_height := tan(deg_to_rad(cam.fov) * 0.5) * distance
-	var vp := get_viewport().get_visible_rect().size
+	var vp := _cached_vp_size
 	var aspect := vp.x / maxf(vp.y, 0.001)
 	var half_width := half_height * aspect
 
@@ -429,7 +446,7 @@ func _update_screen_extents() -> void:
 # ---------------------------------------------------------------------------
 
 func _update_pointer_target() -> void:
-	var vp_size := get_viewport().get_visible_rect().size
+	var vp_size := _cached_vp_size
 	if vp_size.x < 0.001 or vp_size.y < 0.001:
 		return
 
@@ -459,7 +476,7 @@ func _update_pointer_target() -> void:
 # ---------------------------------------------------------------------------
 
 func _apply_drag_delta(screen_delta: Vector2) -> void:
-	var vp_size := get_viewport().get_visible_rect().size
+	var vp_size := _cached_vp_size
 	if vp_size.x < 0.001 or vp_size.y < 0.001:
 		return
 
@@ -536,7 +553,7 @@ func toggle_look_back() -> void:
 
 
 func _update_camera_look_back(delta: float) -> void:
-	var cam := get_viewport().get_camera_3d()
+	var cam := _cached_camera
 	if not cam:
 		return
 	var target_rot_y := PI if _is_looking_back else 0.0
@@ -575,8 +592,8 @@ func _spawn_bullet() -> void:
 		_muzzle_flash.trigger()
 
 	# Reproduz o som do disparo do laser.
-	if has_node("/root/SoundManager"):
-		get_node("/root/SoundManager").play_laser_player(laser_volume_db)
+	if _cached_sound_manager:
+		_cached_sound_manager.play_laser_player(laser_volume_db)
 	elif _laser_player:
 		_laser_player.pitch_scale = randf_range(0.95, 1.08)
 		_laser_player.play()
@@ -586,10 +603,10 @@ func _spawn_bullet() -> void:
 ## Combina a direção do raio da nave com uma forte tendência ao centro da tela
 ## (controlada por aim_center_bias, padrão 60% centro / 40% nave).
 func _get_ship_aim_direction() -> Vector3:
-	var cam := get_viewport().get_camera_3d()
+	var cam := _cached_camera
 	if cam:
 		var ship_screen := cam.unproject_position(global_position)
-		var center_screen := get_viewport().get_visible_rect().size / 2.0
+		var center_screen := _cached_vp_size / 2.0
 		var dir_natural := cam.project_ray_normal(ship_screen).normalized()
 		var dir_center := cam.project_ray_normal(center_screen).normalized()
 		var bias: float = clampf(aim_center_bias, 0.0, 1.0)
@@ -646,6 +663,18 @@ func _spawn_spark(point: Vector3, normal: Vector3) -> void:
 	spark.global_position = point + normal * 0.5
 	if spark.has_method("setup"):
 		spark.setup(normal)
+
+
+func start_firing() -> void:
+	if not _controls_enabled or _is_dying:
+		return
+	if not _is_firing:
+		primary_fire_started.emit()
+	_is_firing = true
+	# Dispara imediatamente o primeiro tiro se o timer já estiver zerado
+	if _fire_timer <= 0.0:
+		_fire_timer = fire_rate
+		_spawn_bullet()
 
 
 func stop_firing() -> void:
@@ -714,8 +743,8 @@ func take_damage(amount: int) -> void:
 func _play_shield_offline_sound() -> void:
 	if not ShieldOfflineSound:
 		return
-	if has_node("/root/SoundManager"):
-		get_node("/root/SoundManager").play_voice(ShieldOfflineSound)
+	if _cached_sound_manager:
+		_cached_sound_manager.play_voice(ShieldOfflineSound)
 	else:
 		var audio_player := AudioStreamPlayer.new()
 		audio_player.stream = ShieldOfflineSound
@@ -1005,7 +1034,7 @@ func _scan_and_track_targets(delta: float, cam: Camera3D, vp_rect: Rect2, max_al
 			continue
 
 		# O Bomber e as minas de aproximação não devem ser travados no alvo pelos mísseis
-		if enemy is EnemyBomber or enemy.is_in_group("enemy_hazards") or enemy.name.to_lower().contains("bomber") or enemy.name.to_lower().contains("bomb"):
+		if enemy is EnemyBomber or enemy.is_in_group("enemy_hazards"):
 			continue
 		if "is_invulnerable" in enemy and enemy.is_invulnerable:
 			continue

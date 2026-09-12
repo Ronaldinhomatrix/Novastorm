@@ -67,7 +67,10 @@ func _physics_process(delta: float) -> void:
 		global_position += dir * move_speed * delta
 		
 	if snap_to_ground:
-		_snap_to_ground_surface()
+		_snap_timer += delta
+		if _snap_timer >= SNAP_INTERVAL:
+			_snap_timer = 0.0
+			_snap_to_ground_surface()
 
 	# 2. Rastreamento e mira da torreta em direção ao jogador
 	if _turret and is_instance_valid(_turret) and _player_ref and aim_at_player:
@@ -88,14 +91,22 @@ func _physics_process(delta: float) -> void:
 		_fire_timer = randf_range(0.2, 0.5)
 
 
+var _snap_ray_query: PhysicsRayQueryParameters3D = null
+var _snap_timer: float = 0.0
+const SNAP_INTERVAL: float = 0.1  # 10 vezes por segundo em vez de 60
+
 func _snap_to_ground_surface() -> void:
 	var space_state := get_world_3d().direct_space_state
 	if not space_state:
 		return
+	if not _snap_ray_query:
+		_snap_ray_query = PhysicsRayQueryParameters3D.new()
+		_snap_ray_query.collision_mask = WORLD_LAYER_MASK
 	var from_pos := global_position + Vector3.UP * 40.0
 	var to_pos := global_position + Vector3.DOWN * 60.0
-	var query := PhysicsRayQueryParameters3D.create(from_pos, to_pos, WORLD_LAYER_MASK)
-	var result := space_state.intersect_ray(query)
+	_snap_ray_query.from = from_pos
+	_snap_ray_query.to = to_pos
+	var result := space_state.intersect_ray(_snap_ray_query)
 	if result and result.has("position"):
 		global_position.y = result["position"].y
 
@@ -173,9 +184,7 @@ func _play_firing_flash() -> void:
 		_collect_mesh_instances(self)
 
 	# Material emissivo alaranjado/dourado HDR para iluminar todo o tanque e a torreta no exato instante do disparo
-	var fire_flash_mat := StandardMaterial3D.new()
-	fire_flash_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	fire_flash_mat.albedo_color = Color(3.5, 2.2, 0.7, 1.0)
+	var fire_flash_mat := _get_fire_flash_mat()
 
 	for mi: MeshInstance3D in _mesh_instances:
 		if is_instance_valid(mi):
@@ -202,6 +211,16 @@ func _play_tank_firing_sound() -> void:
 	scene.add_child(p)
 	p.finished.connect(p.queue_free)
 	p.play()
+
+
+static var _shared_fire_flash_mat: StandardMaterial3D = null
+
+static func _get_fire_flash_mat() -> StandardMaterial3D:
+	if not _shared_fire_flash_mat:
+		_shared_fire_flash_mat = StandardMaterial3D.new()
+		_shared_fire_flash_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		_shared_fire_flash_mat.albedo_color = Color(3.5, 2.2, 0.7, 1.0)
+	return _shared_fire_flash_mat
 
 
 const GroundVehicleWreckageScript := preload("res://scripts/effects/ground_vehicle_wreckage.gd")

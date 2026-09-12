@@ -40,6 +40,9 @@ var _direction: Vector3 = Vector3.FORWARD
 var _spawn_position: Vector3 = Vector3.ZERO
 var _prev_position: Vector3 = Vector3.ZERO
 var _ray: RayCast3D = null
+var _ray_enemy: PhysicsRayQueryParameters3D = null
+var _ray_world: PhysicsRayQueryParameters3D = null
+var _self_exclude: Array[RID] = []
 
 # --- Visuais (juice) — não afetam a mecânica de colisão/dano ---
 var _light: OmniLight3D = null
@@ -68,6 +71,17 @@ func _ready() -> void:
 	_ray.collide_with_areas = false
 	add_child(_ray)
 	_prev_position = global_position
+	_self_exclude = [self.get_rid()]
+	_ray_enemy = PhysicsRayQueryParameters3D.new()
+	_ray_enemy.collision_mask = 2
+	_ray_enemy.collide_with_areas = true
+	_ray_enemy.collide_with_bodies = true
+	_ray_enemy.exclude = _self_exclude
+	_ray_world = PhysicsRayQueryParameters3D.new()
+	_ray_world.collision_mask = WORLD_LAYER_MASK
+	_ray_world.collide_with_areas = false
+	_ray_world.collide_with_bodies = true
+	_ray_world.exclude = _self_exclude
 
 	_setup_visuals()
 
@@ -161,13 +175,10 @@ func _check_sweep_hit(from_pos: Vector3, to_pos: Vector3) -> bool:
 	# 1. Detecção precisa contra INIMIGOS (Layer 2)
 	# Utiliza raycast no trajeto percorrido no frame
 	# =========================================================================
-	var ray_enemy := PhysicsRayQueryParameters3D.create(from_pos, to_pos)
-	ray_enemy.collision_mask = 2
-	ray_enemy.collide_with_areas = true
-	ray_enemy.collide_with_bodies = true
-	ray_enemy.exclude = [self.get_rid()]
+	_ray_enemy.from = from_pos
+	_ray_enemy.to = to_pos
 
-	var hit_enemy := space.intersect_ray(ray_enemy)
+	var hit_enemy := space.intersect_ray(_ray_enemy)
 	if not hit_enemy.is_empty():
 		var collider: Object = hit_enemy.collider
 		if collider and collider != self:
@@ -183,13 +194,10 @@ func _check_sweep_hit(from_pos: Vector3, to_pos: Vector3) -> bool:
 	# =========================================================================
 	# 2. Detecção contra CENÁRIO / TERRENO (Layer 8)
 	# =========================================================================
-	var ray_world := PhysicsRayQueryParameters3D.create(from_pos, to_pos)
-	ray_world.collision_mask = WORLD_LAYER_MASK
-	ray_world.collide_with_areas = false
-	ray_world.collide_with_bodies = true
-	ray_world.exclude = [self.get_rid()]
+	_ray_world.from = from_pos
+	_ray_world.to = to_pos
 
-	var hit_world := space.intersect_ray(ray_world)
+	var hit_world := space.intersect_ray(_ray_world)
 	if not hit_world.is_empty():
 		if hit_world.has("position") and not hit_world.collider is CharacterBody3D:
 			var normal: Vector3 = hit_world.normal if hit_world.has("normal") else Vector3.UP

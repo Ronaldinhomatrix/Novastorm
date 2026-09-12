@@ -24,6 +24,12 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_find_references()
 
+	# Desabilita gravação de replay no mobile para economizar CPU e memória
+	if GameConfig.is_mobile:
+		_is_recording = false
+		set_physics_process(false)
+		set_process_input(false)
+
 
 func _find_references() -> void:
 	_game_controller = get_parent() as GameController

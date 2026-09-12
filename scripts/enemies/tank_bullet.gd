@@ -14,7 +14,7 @@ const ExplosionScript := preload("res://scripts/effects/explosion.gd")
 var _direction: Vector3 = Vector3.FORWARD
 var _spawn_position: Vector3 = Vector3.ZERO
 var _prev_position: Vector3 = Vector3.ZERO
-var _ray: RayCast3D = null
+var _ray_query: PhysicsRayQueryParameters3D = null
 
 
 func _ready() -> void:
@@ -27,12 +27,10 @@ func _ready() -> void:
 	body_entered.connect(_on_body_entered)
 	area_entered.connect(_on_area_entered)
 
-	_ray = RayCast3D.new()
-	_ray.enabled = false
-	_ray.collision_mask = WORLD_LAYER_MASK
-	_ray.collide_with_bodies = true
-	_ray.collide_with_areas = false
-	add_child(_ray)
+	_ray_query = PhysicsRayQueryParameters3D.new()
+	_ray_query.collision_mask = WORLD_LAYER_MASK
+	_ray_query.collide_with_bodies = true
+	_ray_query.collide_with_areas = false
 	_prev_position = global_position
 
 
@@ -59,21 +57,25 @@ func _physics_process(delta: float) -> void:
 
 
 func _check_world_hit() -> void:
-	if not _ray:
+	if not _ray_query:
 		return
 
 	var travel := global_position - _prev_position
 	if travel.length_squared() < 0.000001:
 		return
 
-	# Desloca a origem do raycast ligeiramente à frente para evitar falso-positivo com a boca do canhão/chão imediato
-	_ray.global_position = _prev_position + _direction * 0.5
-	_ray.target_position = travel
-	_ray.force_raycast_update()
+	var space := get_world_3d().direct_space_state
+	if not space:
+		return
 
-	if _ray.is_colliding():
-		var hit_point := _ray.get_collision_point()
-		var hit_normal := _ray.get_collision_normal()
+	# Desloca a origem do raycast ligeiramente à frente para evitar falso-positivo com a boca do canhão/chão imediato
+	_ray_query.from = _prev_position + _direction * 0.5
+	_ray_query.to = global_position
+	var result := space.intersect_ray(_ray_query)
+
+	if not result.is_empty():
+		var hit_point: Vector3 = result.position
+		var hit_normal: Vector3 = result.normal
 		_spawn_explosion(hit_point, hit_normal)
 		queue_free()
 

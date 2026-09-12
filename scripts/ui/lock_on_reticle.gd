@@ -18,6 +18,7 @@ var _camera: Camera3D = null
 var _targets: Array[Node3D] = []
 var _acquiring: Dictionary = {}  ## Node3D -> float (tempo decorrido)
 var _anim_time: float = 0.0
+var _model_cache: Dictionary = {}  ## Node3D -> Node3D (target -> ShipModel)
 
 
 func _ready() -> void:
@@ -29,12 +30,32 @@ func set_camera(cam: Camera3D) -> void:
 	_camera = cam
 
 
+func _get_target_pos(target: Node3D) -> Vector3:
+	## Retorna a posição do ShipModel se existir, senão a posição global do alvo.
+	if _model_cache.has(target):
+		var model: Node3D = _model_cache[target]
+		if is_instance_valid(model):
+			return model.global_position
+		else:
+			_model_cache.erase(target)
+	var model: Node3D = target.get_node_or_null("ShipModel") as Node3D
+	if model:
+		_model_cache[target] = model
+		return model.global_position
+	return target.global_position
+
+
 func update_targets(targets: Array[Node3D]) -> void:
 	_targets.clear()
 	for t in targets:
 		if is_instance_valid(t) and not t.is_queued_for_deletion():
 			_targets.append(t)
 	queue_redraw()
+	
+	# Limpa cache de modelos para alvos que não existem mais
+	for key in _model_cache.keys():
+		if not is_instance_valid(key):
+			_model_cache.erase(key)
 
 
 func update_targeting_state(locked: Array[Node3D], acquiring: Dictionary) -> void:
@@ -49,6 +70,11 @@ func update_targeting_state(locked: Array[Node3D], acquiring: Dictionary) -> voi
 			_acquiring[a] = acquiring[a]
 
 	queue_redraw()
+	
+	# Limpa cache de modelos para alvos que não existem mais
+	for key in _model_cache.keys():
+		if not is_instance_valid(key):
+			_model_cache.erase(key)
 
 
 func _process(delta: float) -> void:
@@ -79,10 +105,7 @@ func _draw() -> void:
 		if not is_instance_valid(target) or target.is_queued_for_deletion():
 			continue
 
-		var target_pos := target.global_position
-		var model: Node3D = target.get_node_or_null("ShipModel") as Node3D
-		if model:
-			target_pos = model.global_position
+		var target_pos := _get_target_pos(target)
 
 		# Ignora se estiver atrás da câmera
 		if _camera.is_position_behind(target_pos):
@@ -143,10 +166,7 @@ func _draw() -> void:
 		if not is_instance_valid(a_target) or a_target.is_queued_for_deletion():
 			continue
 
-		var a_pos: Vector3 = a_target.global_position
-		var a_model: Node3D = a_target.get_node_or_null("ShipModel") as Node3D
-		if a_model:
-			a_pos = a_model.global_position
+		var a_pos: Vector3 = _get_target_pos(a_target)
 
 		if _camera.is_position_behind(a_pos):
 			continue
