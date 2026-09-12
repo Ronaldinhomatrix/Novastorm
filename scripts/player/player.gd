@@ -52,9 +52,9 @@ extends CharacterBody3D
 @export var missile_reload_time: float = 5.0
 @export var lock_on_max_targets: int = 3
 @export var lock_on_range: float = 650.0
-## Raio do cilindro físico 3D de mira em metros no mundo real (ex: 18m de diâmetro/tolerância).
+## Raio do cilindro físico 3D de mira em metros no mundo real (ex: 50m de raio).
 ## Garante consistência: naves distantes NÃO travam em massa simultaneamente.
-@export var lock_on_cylinder_radius: float = 18.0
+@export var lock_on_cylinder_radius: float = 50.0
 ## Tempo de processamento/trava após marcar o alvo com a mira (em segundos).
 @export var lock_on_confirm_time: float = 1.0
 ## Som de bip ao travar alvo (lock-on).
@@ -112,8 +112,12 @@ const ExplosionSound := preload("res://assets/audio/explosion1.ogg")
 var current_shield: int = 3
 var current_hull: int = 3
 
+# Armas Principais (Laser)
+var primary_fire_enabled: bool = true
+
 # Mísseis e Lock-on
 var missiles_enabled: bool = true
+var min_locks_required: int = 0
 var current_missiles: int = 3
 var _locked_targets: Array[Node3D] = []
 var _targeting_progress: Dictionary = {}  ## Node3D -> float (tempo sustentado na mira)
@@ -570,7 +574,7 @@ func _update_camera_look_back(delta: float) -> void:
 # ---------------------------------------------------------------------------
 
 func _spawn_bullet() -> void:
-	if not bullet_scene:
+	if not bullet_scene or not primary_fire_enabled:
 		return
 
 	primary_fire_started.emit()
@@ -1028,11 +1032,11 @@ func _scan_and_track_targets(delta: float, cam: Camera3D, vp_rect: Rect2, max_al
 
 	# 1. TAGGING: Detecta inimigos que cruzarem o cilindro físico 3D ao redor da mira
 	for enemy in enemies:
+		if not is_instance_valid(enemy) or enemy.is_queued_for_deletion():
+			continue
 		if not (enemy is Node3D):
 			continue
 		if _locked_targets.has(enemy) or _targeting_progress.has(enemy):
-			continue
-		if not is_instance_valid(enemy) or enemy.is_queued_for_deletion():
 			continue
 		if "current_hp" in enemy and enemy.current_hp <= 0:
 			continue
@@ -1131,7 +1135,7 @@ func fire_missiles() -> void:
 			active_targets.append(t)
 	_locked_targets = active_targets
 
-	if _locked_targets.is_empty():
+	if _locked_targets.is_empty() or _locked_targets.size() < min_locks_required:
 		return
 
 	# Dispara somente no alvo que travou primeiro (o mais antigo da fila FIFO)

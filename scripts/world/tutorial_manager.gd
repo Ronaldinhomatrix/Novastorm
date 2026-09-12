@@ -39,7 +39,6 @@ enum State {
 }
 
 const TutorialEnemyScene := preload("res://scenes/enemies/tutorial_enemy.tscn")
-const ChimeSound := preload("res://assets/audio/maneuver2_short.ogg")
 
 @export var enabled: bool = true
 @export var limit_point: int = 7
@@ -61,8 +60,13 @@ func _ready() -> void:
 
 func _exit_tree() -> void:
 	Engine.time_scale = 1.0
-	if player and "missiles_enabled" in player:
-		player.missiles_enabled = true
+	if player:
+		if "primary_fire_enabled" in player:
+			player.primary_fire_enabled = true
+		if "missiles_enabled" in player:
+			player.missiles_enabled = true
+		if "min_locks_required" in player:
+			player.min_locks_required = 0
 	if path_follower and path_follower.has_method("set_speed_multiplier"):
 		path_follower.set_speed_multiplier(1.0)
 	if hud and hud.has_method("stop_tutorial_missile_blink"):
@@ -165,9 +169,12 @@ func _start_step_1() -> void:
 	_state = State.STEP1_PRESENTING
 	tutorial_step_changed.emit(1)
 
-	# 0. Bloqueia os mísseis durante o treinamento de disparo primário (laser)
-	if player and "missiles_enabled" in player:
-		player.missiles_enabled = false
+	# 0. Garante laser liberado e bloqueia os mísseis durante o treinamento de disparo primário (laser)
+	if player:
+		if "primary_fire_enabled" in player:
+			player.primary_fire_enabled = true
+		if "missiles_enabled" in player:
+			player.missiles_enabled = false
 
 	# 1. Spawn de duas naves inimigas na frente
 	_spawn_step1_pair()
@@ -175,10 +182,7 @@ func _start_step_1() -> void:
 	# 2. Ativa câmera lenta
 	Engine.time_scale = 0.20
 
-	# 3. Toca som de aviso tático
-	_play_chime()
-
-	# 4. Exibe texto instrutivo contextualizado por plataforma
+	# 3. Exibe texto instrutivo contextualizado por plataforma
 	if _overlay:
 		if GameConfig.is_mobile:
 			_overlay.show_instruction("USE O DEDO PARA CONTROLAR E DISPARAR")
@@ -208,7 +212,7 @@ func _on_player_primary_fire_started() -> void:
 
 func _on_step1_cleared() -> void:
 	_state = State.STEP1_CLEARED
-	_state_timer = 1.2
+	_state_timer = 2.0  # Aguarda 2.0 segundos após a explosão da última nave antes de iniciar a etapa 2
 	if _overlay:
 		_overlay.hide_instruction()
 
@@ -222,17 +226,19 @@ func _start_step_2() -> void:
 	_state_timer = 3.5  # 3.5s em tempo real para o jogador ler com total tranquilidade
 	tutorial_step_changed.emit(2)
 
-	# 0. Reabilita os mísseis para a etapa de lock-on e mísseis
-	if player and "missiles_enabled" in player:
-		player.missiles_enabled = true
+	# 0. Trava de segurança: bloqueia o laser primário e mantém os mísseis bloqueados até que os 3 alvos sejam travados
+	if player:
+		if "primary_fire_enabled" in player:
+			player.primary_fire_enabled = false
+		if "missiles_enabled" in player:
+			player.missiles_enabled = false
+		if "min_locks_required" in player:
+			player.min_locks_required = 3
 
 	# 1. Ativa câmera super lenta no exato instante em que a instrução surge na tela
 	Engine.time_scale = 0.08
 
-	# 2. Toca som de aviso tático
-	_play_chime()
-
-	# 3. Exibe instrução de mirar para travar as 3 no alvo (pista livre enquanto o jogador lê)
+	# 2. Exibe instrução de mirar para travar as 3 no alvo (pista livre enquanto o jogador lê)
 	if _overlay:
 		_overlay.show_instruction(
 			"MIRE NAS TRÊS NAVES INIMIGAS",
@@ -270,9 +276,10 @@ func _on_player_missile_targets_changed(targets: Array[Node3D]) -> void:
 	if _state == State.STEP2_PRESENTING:
 		var required_locks := mini(3, _step2_enemies.size())
 		if targets.size() >= required_locks and not targets.is_empty():
-			# Todos os 3 alvos foram travados com sucesso!
+			# Todos os 3 alvos foram travados com sucesso! Libera o disparo dos mísseis
 			_state = State.STEP2_LOCKED
-			_play_chime()
+			if player and "missiles_enabled" in player:
+				player.missiles_enabled = true
 
 			if _overlay:
 				if GameConfig.is_mobile:
@@ -295,8 +302,10 @@ func _on_player_missile_targets_changed(targets: Array[Node3D]) -> void:
 	elif _state == State.STEP2_LOCKED:
 		var required_locks := mini(3, _step2_enemies.size())
 		if targets.size() < required_locks:
-			# O jogador perdeu a mira de algum alvo antes de atirar; volta para o estado de mira
+			# O jogador perdeu a mira de algum alvo antes de atirar; volta para o estado de mira e bloqueia o míssil novamente
 			_state = State.STEP2_PRESENTING
+			if player and "missiles_enabled" in player:
+				player.missiles_enabled = false
 			if hud and hud.has_method("stop_tutorial_missile_blink"):
 				hud.stop_tutorial_missile_blink()
 			if _overlay:
@@ -309,10 +318,17 @@ func _on_player_missile_targets_changed(targets: Array[Node3D]) -> void:
 
 
 func _on_player_missile_fired(_remaining: int, _max_val: int) -> void:
-	if _state == State.STEP2_LOCKED or _state == State.STEP2_PRESENTING:
-		# Jogador disparou o primeiro míssil: SAI DA CÂMERA LENTA!
+	if _state == State.STEP2_LOCKED or _state == State.STEP2_MISSILE_FIRED:
+		# Jogador disparou o primeiro míssil: SAI DA CÂMERA LENTA e garante liberação dos mísseis subsequentes e do laser!
 		_state = State.STEP2_MISSILE_FIRED
 		Engine.time_scale = 1.0
+		if player:
+			if "primary_fire_enabled" in player:
+				player.primary_fire_enabled = true
+			if "missiles_enabled" in player:
+				player.missiles_enabled = true
+			if "min_locks_required" in player:
+				player.min_locks_required = 0
 
 		# Permite que quaisquer naves restantes da etapa 2 também sejam vulneráveis a laser
 		for enemy in _step2_enemies:
@@ -340,8 +356,13 @@ func _on_step2_cleared() -> void:
 func _finish_tutorial() -> void:
 	_state = State.COMPLETED
 	Engine.time_scale = 1.0
-	if player and "missiles_enabled" in player:
-		player.missiles_enabled = true
+	if player:
+		if "primary_fire_enabled" in player:
+			player.primary_fire_enabled = true
+		if "missiles_enabled" in player:
+			player.missiles_enabled = true
+		if "min_locks_required" in player:
+			player.min_locks_required = 0
 	if path_follower and path_follower.has_method("set_speed_multiplier"):
 		path_follower.set_speed_multiplier(1.0)
 
@@ -359,8 +380,13 @@ func _abort_tutorial_at_limit() -> void:
 	_state = State.COMPLETED
 	Engine.time_scale = 1.0
 
-	if player and "missiles_enabled" in player:
-		player.missiles_enabled = true
+	if player:
+		if "primary_fire_enabled" in player:
+			player.primary_fire_enabled = true
+		if "missiles_enabled" in player:
+			player.missiles_enabled = true
+		if "min_locks_required" in player:
+			player.min_locks_required = 0
 
 	if path_follower and path_follower.has_method("set_speed_multiplier"):
 		path_follower.set_speed_multiplier(1.0)
@@ -416,17 +442,3 @@ func _clean_dead_enemies(arr: Array[Node]) -> void:
 		elif "_is_dead" in e and e._is_dead:
 			arr.remove_at(i)
 		i -= 1
-
-
-func _play_chime() -> void:
-	if ChimeSound:
-		if has_node("/root/SoundManager"):
-			get_node("/root/SoundManager").play_sfx(ChimeSound, -2.0, 1.05)
-		else:
-			var p := AudioStreamPlayer.new()
-			p.stream = ChimeSound
-			p.volume_db = -2.0
-			p.pitch_scale = 1.05
-			add_child(p)
-			p.finished.connect(p.queue_free)
-			p.play()
