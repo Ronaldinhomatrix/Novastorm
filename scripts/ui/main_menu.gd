@@ -11,8 +11,10 @@ var _stars: Array = []
 var _bg_texture: GradientTexture2D = null
 var _title: Label = null
 var _time: float = 0.0
+var _redraw_timer: float = 0.0
 
-const STAR_COUNT := 170
+const STAR_COUNT_PC := 170
+const STAR_COUNT_MOBILE := 60
 
 
 func _ready() -> void:
@@ -42,7 +44,7 @@ func _build_bg_texture() -> void:
 
 func _generate_stars() -> void:
 	_stars.clear()
-	for i in STAR_COUNT:
+	for i in (STAR_COUNT_MOBILE if GameConfig.is_mobile else STAR_COUNT_PC):
 		_stars.append({
 			"pos": Vector2(randf(), randf()),
 			"size": randf_range(0.6, 2.6),
@@ -59,7 +61,13 @@ func _process(delta: float) -> void:
 		if s["pos"].y > 1.0:
 			s["pos"].y = 0.0
 			s["pos"].x = randf()
-	queue_redraw()
+	if GameConfig.is_mobile:
+		_redraw_timer += delta
+		if _redraw_timer >= 0.033:
+			_redraw_timer = 0.0
+			queue_redraw()
+	else:
+		queue_redraw()
 
 
 func _draw() -> void:

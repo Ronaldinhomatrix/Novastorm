@@ -17,10 +17,12 @@ const FLASH_DECAY: float = 0.3
 
 var _age: float = 0.0
 var _flash_light: OmniLight3D = null
+var _mobile: bool = false
 
 
 func _ready() -> void:
 	scale = Vector3.ONE * size_scale
+	_mobile = GameConfig.is_mobile
 	_build_fire_core()
 	_build_debris()
 	_build_sparks()
@@ -50,7 +52,7 @@ func _build_fire_core() -> void:
 	p.emitting = true
 	p.one_shot = true
 	p.explosiveness = 0.95
-	p.amount = 45
+	p.amount = 20 if _mobile else 45
 	p.lifetime = 0.55
 	p.spread = 180.0
 	p.direction = Vector3.UP
@@ -87,7 +89,7 @@ func _build_debris() -> void:
 	p.emitting = true
 	p.one_shot = true
 	p.explosiveness = 1.0
-	p.amount = 24
+	p.amount = 12 if _mobile else 24
 	p.lifetime = 0.8
 	p.spread = 180.0
 	p.direction = Vector3.UP
@@ -121,7 +123,7 @@ func _build_sparks() -> void:
 	p.emitting = true
 	p.one_shot = true
 	p.explosiveness = 1.0
-	p.amount = 35
+	p.amount = 16 if _mobile else 35
 	p.lifetime = 0.65
 	p.spread = 180.0
 	p.direction = Vector3.UP
@@ -155,7 +157,7 @@ func _build_smoke() -> void:
 	p.emitting = true
 	p.one_shot = true
 	p.explosiveness = 0.7
-	p.amount = 22
+	p.amount = 10 if _mobile else 22
 	p.lifetime = 1.4
 	p.spread = 180.0
 	p.direction = Vector3.UP
@@ -187,6 +189,8 @@ func _build_smoke() -> void:
 # ---------------------------------------------------------------------------
 
 func _build_flash() -> void:
+	if _mobile:
+		return
 	var l := OmniLight3D.new()
 	l.name = "Flash"
 	l.light_color = Color(1.0, 0.75, 0.35)

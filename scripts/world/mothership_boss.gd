@@ -70,6 +70,10 @@ func _enhance_ship_materials(node: Node) -> void:
 
 
 func _setup_ship_lights() -> void:
+	# No mobile, os materiais emissivos já fornecem o brilho visual
+	# sem necessidade de luzes dinâmicas (economia de GPU significativa)
+	if GameConfig.is_mobile:
+		return
 	# Adiciona luzes locais de serviço, navegação e iluminação das baias e conveses
 	# (OmniLights sem sombra, com custo de performance praticamente nulo)
 	var lights_data: Array[Dictionary] = [

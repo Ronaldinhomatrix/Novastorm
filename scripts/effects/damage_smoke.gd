@@ -23,7 +23,7 @@ func _build_effects() -> void:
 	_smoke_1.name = "Smoke1"
 	_smoke_1.position = Vector3(-1.1, 0.15, 1.0)
 	_smoke_1.emitting = false
-	_smoke_1.amount = 18
+	_smoke_1.amount = 8 if GameConfig.is_mobile else 18
 	_smoke_1.lifetime = 0.75
 	_smoke_1.direction = Vector3(0.0, 0.2, 1.0)
 	_smoke_1.spread = 25.0
@@ -53,7 +53,7 @@ func _build_effects() -> void:
 	_smoke_2.name = "Smoke2"
 	_smoke_2.position = Vector3(1.2, 0.1, 0.6)
 	_smoke_2.emitting = false
-	_smoke_2.amount = 32
+	_smoke_2.amount = 14 if GameConfig.is_mobile else 32
 	_smoke_2.lifetime = 0.9
 	_smoke_2.direction = Vector3(0.0, 0.3, 1.0)
 	_smoke_2.spread = 30.0
@@ -81,7 +81,7 @@ func _build_effects() -> void:
 	_fire_2.name = "Fire2"
 	_fire_2.position = Vector3(1.2, 0.1, 0.6)
 	_fire_2.emitting = false
-	_fire_2.amount = 22
+	_fire_2.amount = 10 if GameConfig.is_mobile else 22
 	_fire_2.lifetime = 0.35
 	_fire_2.direction = Vector3(0.0, 0.4, 1.0)
 	_fire_2.spread = 20.0

@@ -26,6 +26,7 @@ var _smoke_particles: CPUParticles3D = null
 var _fire_particles: CPUParticles3D = null
 var _scorch_decal: Decal = null
 var _fading: bool = false
+var _mobile: bool = false
 
 # Componentes da Carcaça e Estilhaços
 var _flying_turret: Node3D = null
@@ -83,12 +84,13 @@ static func _get_scene_parent(node: Node) -> Node:
 
 func _build_for_tank(tank: Node3D) -> void:
 	_init_shared_textures()
+	_mobile = GameConfig.is_mobile
 
 	# 1. Ejeção Balística Realista da Torreta do Tanque
 	_setup_tank_turret_ejection(tank)
 
 	# 2. Estilhaços Metálicos 3D do Casco Explodindo
-	_spawn_vehicle_shrapnel_chunks(tank, 14, 1.6)
+	_spawn_vehicle_shrapnel_chunks(tank, 6 if _mobile else 14, 1.6)
 
 	# 3. Explosão de Fogo Volumétrica e Cinematográfica de Alta Intensidade
 	var blast_origin := Vector3(0.0, 9.0, 0.0)
@@ -115,9 +117,10 @@ func _build_for_tank(tank: Node3D) -> void:
 
 func _build_for_truck(truck: Node3D) -> void:
 	_init_shared_textures()
+	_mobile = GameConfig.is_mobile
 
 	# 1. Estilhaços Metálicos 3D do Caminhão se Desintegrando no Impacto
-	_spawn_vehicle_shrapnel_chunks(truck, 18, 1.8)
+	_spawn_vehicle_shrapnel_chunks(truck, 8 if _mobile else 18, 1.8)
 
 	# 2. Bola de Fogo Volumétrica e Onda Expansiva Massiva (Combustível)
 	var blast_origin := Vector3(0.0, 9.0, 0.0)
@@ -288,6 +291,8 @@ static func _init_shared_textures() -> void:
 # ===========================================================================
 
 func _build_detonation_flash(scale_mult: float) -> void:
+	if _mobile:
+		return
 	_flash_light = OmniLight3D.new()
 	_flash_light.light_color = Color(1.0, 0.88, 0.6)
 	_flash_light.light_energy = 450.0 * scale_mult
@@ -307,7 +312,7 @@ func _build_fire_core_spheres(offset: Vector3, scale_mult: float) -> void:
 	core.emitting = true
 	core.one_shot = true
 	core.explosiveness = 0.96
-	core.amount = 24
+	core.amount = 12 if _mobile else 24
 	core.lifetime = 0.65
 	core.position = offset
 	core.direction = Vector3.UP
@@ -350,7 +355,7 @@ func _build_fireball_burst(offset: Vector3, scale_mult: float) -> void:
 	fb.emitting = true
 	fb.one_shot = true
 	fb.explosiveness = 0.92
-	fb.amount = 55
+	fb.amount = 24 if _mobile else 55
 	fb.lifetime = 1.35
 	fb.position = offset
 	fb.direction = Vector3.UP
@@ -395,7 +400,7 @@ func _build_fire_spout_plumes(offset: Vector3, scale_mult: float) -> void:
 	fs.emitting = true
 	fs.one_shot = true
 	fs.explosiveness = 0.88
-	fs.amount = 28
+	fs.amount = 14 if _mobile else 28
 	fs.lifetime = 1.6
 	fs.position = offset + Vector3.UP * 2.0
 	fs.direction = Vector3.UP
@@ -438,7 +443,7 @@ func _build_shrapnel_and_debris(offset: Vector3, scale_mult: float) -> void:
 	deb.emitting = true
 	deb.one_shot = true
 	deb.explosiveness = 0.98
-	deb.amount = 38
+	deb.amount = 16 if _mobile else 38
 	deb.lifetime = 2.0
 	deb.position = offset + Vector3.UP * 2.0
 	deb.direction = Vector3.UP
@@ -472,7 +477,7 @@ func _build_highspeed_sparks(offset: Vector3, scale_mult: float) -> void:
 	sp.emitting = true
 	sp.one_shot = true
 	sp.explosiveness = 1.0
-	sp.amount = 35
+	sp.amount = 16 if _mobile else 35
 	sp.lifetime = 1.1
 	sp.position = offset
 	sp.direction = Vector3.UP
@@ -506,7 +511,7 @@ func _build_shockwave_dust(scale_mult: float) -> void:
 	wave.emitting = true
 	wave.one_shot = true
 	wave.explosiveness = 0.92
-	wave.amount = 32
+	wave.amount = 14 if _mobile else 32
 	wave.lifetime = 1.8
 	wave.position = Vector3(0, 1.5, 0)
 	wave.direction = Vector3.UP
@@ -547,7 +552,7 @@ func _build_smoke_plume(offset: Vector3, scale_mult: float) -> void:
 	smk.emitting = true
 	smk.one_shot = true
 	smk.explosiveness = 0.80
-	smk.amount = 48
+	smk.amount = 20 if _mobile else 48
 	smk.lifetime = 4.8
 	smk.position = offset + Vector3.UP * 4.0
 	smk.direction = Vector3(0.08, 1.0, 0.04).normalized()
@@ -604,8 +609,9 @@ func _build_scorch_mark(scale_mult: float) -> void:
 	tex.fill = GradientTexture2D.FILL_RADIAL
 	tex.fill_from = Vector2(0.5, 0.5)
 	tex.fill_to = Vector2(0.5, 0.0)
-	tex.width = 128
-	tex.height = 128
+	var tex_size := 64 if _mobile else 128
+	tex.width = tex_size
+	tex.height = tex_size
 
 	_scorch_decal.texture_albedo = tex
 	add_child(_scorch_decal)
@@ -619,7 +625,7 @@ func _build_residual_ground_fire(scale_mult: float) -> void:
 	_fire_particles = CPUParticles3D.new()
 	_fire_particles.name = "ResidualGroundFire"
 	_fire_particles.emitting = true
-	_fire_particles.amount = 18
+	_fire_particles.amount = 8 if _mobile else 18
 	_fire_particles.lifetime = 1.6
 	_fire_particles.position = Vector3(0, 2.0, 0)
 	_fire_particles.direction = Vector3.UP
