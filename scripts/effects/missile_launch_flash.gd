@@ -16,6 +16,11 @@ var _light: OmniLight3D = null
 var _particles: CPUParticles3D = null
 var _timer: float = 0.0
 
+static var _shared_glow_mat_template: StandardMaterial3D = null
+static var _shared_glow_sphere: SphereMesh = null
+static var _shared_particle_mesh: SphereMesh = null
+static var _shared_particle_mat: StandardMaterial3D = null
+static var _shared_particle_ramp: Gradient = null
 
 func _ready() -> void:
 	_setup_visuals()
@@ -23,22 +28,46 @@ func _ready() -> void:
 
 
 func _setup_visuals() -> void:
-	# 1. Material emissivo aditivo brilhante (estilo Afterburner ignição)
-	_glow_mat = StandardMaterial3D.new()
-	_glow_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	_glow_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-	_glow_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	_glow_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-	_glow_mat.albedo_color = Color(1.8, 1.2, 0.4, 1.0)
+	# Inicializa recursos compartilhados (apenas uma vez para todas as instâncias)
+	if not _shared_glow_mat_template:
+		_shared_glow_mat_template = StandardMaterial3D.new()
+		_shared_glow_mat_template.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		_shared_glow_mat_template.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+		_shared_glow_mat_template.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		_shared_glow_mat_template.cull_mode = BaseMaterial3D.CULL_DISABLED
+		_shared_glow_mat_template.albedo_color = Color(1.8, 1.2, 0.4, 1.0)
+	if not _shared_glow_sphere:
+		_shared_glow_sphere = SphereMesh.new()
+		_shared_glow_sphere.radius = 1.6
+		_shared_glow_sphere.height = 3.2
+		_shared_glow_sphere.radial_segments = 10
+		_shared_glow_sphere.rings = 6
+	if not _shared_particle_mesh:
+		_shared_particle_mesh = SphereMesh.new()
+		_shared_particle_mesh.radius = 0.3
+		_shared_particle_mesh.height = 0.6
+	if not _shared_particle_mat:
+		_shared_particle_mat = StandardMaterial3D.new()
+		_shared_particle_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		_shared_particle_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+		_shared_particle_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		_shared_particle_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+		_shared_particle_mat.vertex_color_use_as_albedo = true
+	if not _shared_particle_ramp:
+		_shared_particle_ramp = Gradient.new()
+		_shared_particle_ramp.offsets = PackedFloat32Array([0.0, 0.4, 1.0])
+		_shared_particle_ramp.colors = PackedColorArray([
+			Color(2.0, 1.6, 0.8, 1.0),
+			Color(1.5, 0.6, 0.1, 0.9),
+			Color(0.8, 0.2, 0.05, 0.0)
+		])
 
-	var sphere := SphereMesh.new()
-	sphere.radius = 1.6
-	sphere.height = 3.2
-	sphere.radial_segments = 10
-	sphere.rings = 6
+	# 1. Material emissivo aditivo brilhante (estilo Afterburner ignição)
+	# Duplicado por instância porque albedo_color é animado no _process
+	_glow_mat = _shared_glow_mat_template.duplicate() as StandardMaterial3D
 
 	_glow_mesh = MeshInstance3D.new()
-	_glow_mesh.mesh = sphere
+	_glow_mesh.mesh = _shared_glow_sphere
 	_glow_mesh.material_override = _glow_mat
 	_glow_mesh.scale = Vector3(1.8, 1.5, 2.5)
 	add_child(_glow_mesh)
@@ -64,28 +93,9 @@ func _setup_visuals() -> void:
 	_particles.initial_velocity_max = 16.0
 	_particles.scale_amount_min = 0.6
 	_particles.scale_amount_max = 1.8
-
-	var p_mesh := SphereMesh.new()
-	p_mesh.radius = 0.3
-	p_mesh.height = 0.6
-	_particles.mesh = p_mesh
-
-	var p_mat := StandardMaterial3D.new()
-	p_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	p_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-	p_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	p_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-	p_mat.vertex_color_use_as_albedo = true
-	_particles.material_override = p_mat
-
-	var ramp := Gradient.new()
-	ramp.offsets = PackedFloat32Array([0.0, 0.4, 1.0])
-	ramp.colors = PackedColorArray([
-		Color(2.0, 1.6, 0.8, 1.0),
-		Color(1.5, 0.6, 0.1, 0.9),
-		Color(0.8, 0.2, 0.05, 0.0)
-	])
-	_particles.color_ramp = ramp
+	_particles.mesh = _shared_particle_mesh
+	_particles.material_override = _shared_particle_mat
+	_particles.color_ramp = _shared_particle_ramp
 	add_child(_particles)
 
 

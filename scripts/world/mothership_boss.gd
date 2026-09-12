@@ -35,6 +35,7 @@ func _ready() -> void:
 	_disable_all_shadows(self)
 	call_deferred("_disable_all_shadows", self)
 	_setup_hitboxes()
+	add_to_group("mothership")
 	_setup_ship_lights()
 	_enhance_ship_materials(self)
 	call_deferred("_enhance_ship_materials", self)
@@ -113,6 +114,7 @@ func _setup_hitboxes() -> void:
 	area.monitoring = true
 	area.monitorable = true
 	area.add_to_group("enemies")
+	area.add_to_group("mothership")
 	add_child(area)
 	_hitbox_area = area
 

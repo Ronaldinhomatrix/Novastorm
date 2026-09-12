@@ -124,16 +124,8 @@ func play_explosion(volume_db: float = -2.5, pitch_min: float = 0.95, pitch_max:
 	if _explosion_pool.is_empty() or _explosions.is_empty():
 		return
 
-	# Busca preferencialmente um canal que já terminou de tocar para não cortar sons em andamento
-	var p: AudioStreamPlayer = null
-	for candidate in _explosion_pool:
-		if not candidate.playing:
-			p = candidate
-			break
-
-	if not p:
-		p = _explosion_pool[_idx_explosion]
-		_idx_explosion = (_idx_explosion + 1) % _explosion_pool.size()
+	var p := _explosion_pool[_idx_explosion]
+	_idx_explosion = (_idx_explosion + 1) % _explosion_pool.size()
 
 	p.stream = _explosions.pick_random()
 	p.volume_db = volume_db
@@ -151,15 +143,8 @@ func play_laser_player(volume_db: float = -6.0, pitch_min: float = 0.95, pitch_m
 	if _player_laser_pool.is_empty():
 		return
 
-	var p: AudioStreamPlayer = null
-	for candidate in _player_laser_pool:
-		if not candidate.playing:
-			p = candidate
-			break
-
-	if not p:
-		p = _player_laser_pool[_idx_player_laser]
-		_idx_player_laser = (_idx_player_laser + 1) % _player_laser_pool.size()
+	var p := _player_laser_pool[_idx_player_laser]
+	_idx_player_laser = (_idx_player_laser + 1) % _player_laser_pool.size()
 
 	p.stream = SND_LASER_PLAYER
 	p.volume_db = volume_db
@@ -172,15 +157,8 @@ func play_laser_enemy(volume_db: float = -4.0, pitch_min: float = 0.90, pitch_ma
 	if _enemy_laser_pool.is_empty():
 		return
 
-	var p: AudioStreamPlayer = null
-	for candidate in _enemy_laser_pool:
-		if not candidate.playing:
-			p = candidate
-			break
-
-	if not p:
-		p = _enemy_laser_pool[_idx_enemy_laser]
-		_idx_enemy_laser = (_idx_enemy_laser + 1) % _enemy_laser_pool.size()
+	var p := _enemy_laser_pool[_idx_enemy_laser]
+	_idx_enemy_laser = (_idx_enemy_laser + 1) % _enemy_laser_pool.size()
 
 	p.stream = SND_LASER_ENEMY
 	p.volume_db = volume_db
@@ -193,15 +171,8 @@ func play_sfx(stream: AudioStream, volume_db: float = 0.0, pitch: float = 1.0) -
 	if not stream or _sfx_pool.is_empty():
 		return
 
-	var p: AudioStreamPlayer = null
-	for candidate in _sfx_pool:
-		if not candidate.playing:
-			p = candidate
-			break
-
-	if not p:
-		p = _sfx_pool[_idx_sfx]
-		_idx_sfx = (_idx_sfx + 1) % _sfx_pool.size()
+	var p := _sfx_pool[_idx_sfx]
+	_idx_sfx = (_idx_sfx + 1) % _sfx_pool.size()
 
 	p.stream = stream
 	p.volume_db = volume_db

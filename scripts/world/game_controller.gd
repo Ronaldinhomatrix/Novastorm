@@ -215,6 +215,10 @@ var _convoy_move_end_dist: float = -1.0
 var _bridge_tanks_start_dist: float = -1.0
 var _bridge_tanks_end_dist: float = -1.0
 var _convoy_node: Node3D = null
+var _convoy_regular_tanks: Array[Node] = []
+var _convoy_bridge_tanks: Array[Node] = []
+var _prev_convoy_window: bool = false
+var _prev_bridge_window: bool = false
 
 # Sistema de tremor de câmera (Screen Shake)
 var _shake_time: float = 0.0
@@ -335,6 +339,13 @@ func _ready():
 
 	if convoy_node_path != ^"":
 		_convoy_node = get_node_or_null(convoy_node_path) as Node3D
+
+	if _convoy_node:
+		for child in _convoy_node.get_children():
+			if child.name.begins_with("Tank1_Bridge"):
+				_convoy_bridge_tanks.append(child)
+			else:
+				_convoy_regular_tanks.append(child)
 
 	# Configuração gráfica dinâmica: PC Ultra vs Mobile Otimizado + escolhas do usuário.
 	_apply_graphics_settings()
@@ -686,15 +697,18 @@ func _handle_convoy_logic() -> void:
 		var max_b_dist := maxf(_bridge_tanks_start_dist, _bridge_tanks_end_dist)
 		in_bridge_window = (current_prog >= min_b_dist and current_prog <= max_b_dist)
 
-	for child in _convoy_node.get_children():
-		if not is_instance_valid(child):
-			continue
-		var is_bridge_tank: bool = child.name.begins_with("Tank1_Bridge")
-		var should_shoot: bool = in_bridge_window if is_bridge_tank else in_convoy_window
-		if "active_move" in child:
-			child.set("active_move", false if is_bridge_tank else in_convoy_window)
-		if "can_shoot" in child:
-			child.set("can_shoot", should_shoot)
+	if in_convoy_window != _prev_convoy_window:
+		_prev_convoy_window = in_convoy_window
+		for tank in _convoy_regular_tanks:
+			if is_instance_valid(tank):
+				tank.active_move = in_convoy_window
+				tank.can_shoot = in_convoy_window
+
+	if in_bridge_window != _prev_bridge_window:
+		_prev_bridge_window = in_bridge_window
+		for tank in _convoy_bridge_tanks:
+			if is_instance_valid(tank):
+				tank.can_shoot = in_bridge_window
 
 
 func _update_mothership_rotation() -> void:

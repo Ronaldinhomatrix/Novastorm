@@ -290,28 +290,28 @@ func _dismiss_all_active_enemies() -> void:
 
 func _dismiss_scouts() -> void:
 	for enemy in _active_enemies:
-		if is_instance_valid(enemy) and (enemy is EnemyScout or enemy.name.to_lower().contains("scout")):
+		if is_instance_valid(enemy) and enemy is EnemyScout:
 			if enemy.has_method("force_exit"):
 				enemy.force_exit()
 
 
 func _dismiss_fighters() -> void:
 	for enemy in _active_enemies:
-		if is_instance_valid(enemy) and (enemy is EnemyFighter or enemy.name.to_lower().contains("fighter")):
+		if is_instance_valid(enemy) and enemy is EnemyFighter:
 			if enemy.has_method("force_exit"):
 				enemy.force_exit()
 
 
 func _dismiss_bombers() -> void:
 	for enemy in _active_enemies:
-		if is_instance_valid(enemy) and (enemy is EnemyBomber or enemy.name.to_lower().contains("bomber")):
+		if is_instance_valid(enemy) and enemy is EnemyBomber:
 			if enemy.has_method("force_exit"):
 				enemy.force_exit()
 
 
 func _dismiss_non_bomber_enemies() -> void:
 	for enemy in _active_enemies:
-		if is_instance_valid(enemy) and not (enemy is EnemyBomber or enemy.name.to_lower().contains("bomber")):
+		if is_instance_valid(enemy) and not enemy is EnemyBomber:
 			if enemy.has_method("force_exit"):
 				enemy.force_exit()
 

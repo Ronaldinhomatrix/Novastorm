@@ -374,8 +374,8 @@ func die() -> void:
 	if spawn_parent:
 		spawn_parent.add_child(exp_big)
 	exp_big.global_position = global_position
-	if has_node("/root/SoundManager"):
-		get_node("/root/SoundManager").play_heavy_explosion(explosion_volume_db + 1.0)
+	if _cached_sound_manager and _cached_sound_manager.has_method("play_heavy_explosion"):
+		_cached_sound_manager.play_heavy_explosion(explosion_volume_db + 1.0)
 	else:
 		_play_explosion_sound()
 

@@ -120,6 +120,7 @@ var _targeting_progress: Dictionary = {}  ## Node3D -> float (tempo sustentado n
 var _missile_reload_timer: float = 0.0
 var _is_reloading_missiles: bool = false
 var _lock_scan_timer: float = 0.0
+var _cached_enemies: Array[Node] = []
 var _missile_wing_side: int = 0
 var _lock_audio_player: AudioStreamPlayer = null
 var _missile_audio_player: AudioStreamPlayer = null
@@ -171,6 +172,7 @@ var _is_looking_back: bool = false
 var _shield_bubble: ShieldBubble = null
 var _muzzle_flash: Node3D = null
 var _cached_camera: Camera3D = null
+var _cached_path_follower: PathFollower = null
 var _cached_vp_size: Vector2 = Vector2.ZERO
 var _is_rail_mode: bool = false
 var _cached_sound_manager: Node = null
@@ -252,6 +254,8 @@ func _ready() -> void:
 		position = Vector3(0.0, 0.0, forward_offset)
 	_target_local_pos = position
 	_is_rail_mode = get_parent() is PathFollow3D
+	if _is_rail_mode and get_parent() is PathFollower:
+		_cached_path_follower = get_parent() as PathFollower
 	_cached_sound_manager = get_node_or_null("/root/SoundManager")
 	_update_cached_camera()
 	get_viewport().size_changed.connect(_on_viewport_size_changed)
@@ -517,18 +521,15 @@ func _handle_ship_rotation(delta: float) -> void:
 	var is_barrel_rolling := false
 
 	var parent_node := get_parent()
-	if parent_node:
+	if _cached_path_follower:
 		# Exceção: durante o Barrel Roll (giro em parafuso da câmera), o tilt de curva é desativado na nave
-		if parent_node.has_method("is_in_barrel_roll") and parent_node.call("is_in_barrel_roll"):
+		if _cached_path_follower.is_in_barrel_roll():
 			is_barrel_rolling = true
-		elif parent_node.has_method("get_barrel_roll_angle") and absf(float(parent_node.call("get_barrel_roll_angle"))) > 0.001:
+		elif absf(_cached_path_follower.get_barrel_roll_angle()) > 0.001:
 			is_barrel_rolling = true
 
 		if not is_barrel_rolling:
-			if parent_node.has_method("get_curve_tilt"):
-				curve_tilt = float(parent_node.call("get_curve_tilt"))
-			elif parent_node.has_method("get_smoothed_tilt"):
-				curve_tilt = float(parent_node.call("get_smoothed_tilt"))
+			curve_tilt = _cached_path_follower.get_smoothed_tilt()
 
 	# A nave inclina acompanhando a curvatura do trilho com limite máximo de 30 graus
 	# curve_tilt < 0 é curva para a esquerda -> -curve_tilt gera roll positivo (asa esquerda baixa)
@@ -998,7 +999,12 @@ func _update_lock_on_system(delta: float) -> void:
 
 
 func _scan_and_track_targets(delta: float, cam: Camera3D, vp_rect: Rect2, max_allowed: int) -> bool:
-	var enemies := get_tree().get_nodes_in_group("enemies")
+	_lock_scan_timer -= delta
+	if _lock_scan_timer <= 0.0:
+		_lock_scan_timer = 0.1  # Atualiza lista de inimigos a cada 100ms (10Hz)
+		_cached_enemies = get_tree().get_nodes_in_group("enemies")
+	var enemies := _cached_enemies
+	
 	if enemies.is_empty():
 		_targeting_progress.clear()
 		return false

@@ -26,6 +26,9 @@ const SHOCKWAVE_MAX_RADIUS: float = 7.0
 var _age: float = 0.0
 var _flash_light: OmniLight3D = null
 
+static var _shared_spark_mesh: SphereMesh = null
+static var _shared_spark_mat: StandardMaterial3D = null
+static var _shared_spark_ramp: Gradient = null
 
 func _ready() -> void:
 	scale = Vector3.ONE * size_scale
@@ -70,6 +73,19 @@ func setup(normal: Vector3) -> void:
 # ---------------------------------------------------------------------------
 
 func _build_particles() -> void:
+	if not _shared_spark_mesh:
+		_shared_spark_mesh = _make_sphere(0.5)
+	if not _shared_spark_mat:
+		_shared_spark_mat = _make_material(BaseMaterial3D.BLEND_MODE_ADD)
+	if not _shared_spark_ramp:
+		_shared_spark_ramp = Gradient.new()
+		_shared_spark_ramp.offsets = PackedFloat32Array([0.0, 0.4, 1.0])
+		_shared_spark_ramp.colors = PackedColorArray([
+			Color(1.0, 1.0, 0.85, 1.0),
+			Color(1.0, 0.6, 0.15, 0.95),
+			Color(1.0, 0.3, 0.05, 0.0)
+		])
+
 	var p := CPUParticles3D.new()
 	p.name = "Sparks"
 	p.emitting = true
@@ -87,18 +103,9 @@ func _build_particles() -> void:
 	p.scale_amount_min = 1.0
 	p.scale_amount_max = 4.0
 	p.color = Color(1.0, 1.0, 1.0, 1.0)
-
-	var ramp := Gradient.new()
-	ramp.offsets = PackedFloat32Array([0.0, 0.4, 1.0])
-	ramp.colors = PackedColorArray([
-		Color(1.0, 1.0, 0.85, 1.0),
-		Color(1.0, 0.6, 0.15, 0.95),
-		Color(1.0, 0.3, 0.05, 0.0)
-	])
-	p.color_ramp = ramp
-
-	p.mesh = _make_sphere(0.5)
-	p.material_override = _make_material(BaseMaterial3D.BLEND_MODE_ADD)
+	p.color_ramp = _shared_spark_ramp
+	p.mesh = _shared_spark_mesh
+	p.material_override = _shared_spark_mat
 	add_child(p)
 
 

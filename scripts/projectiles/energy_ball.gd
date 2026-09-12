@@ -90,7 +90,7 @@ func _check_hits() -> void:
 
 	if _ray.is_colliding():
 		var hit_collider = _ray.get_collider()
-		if hit_collider and ("Mothership" in hit_collider.name or "mothership" in hit_collider.name.to_lower()):
+		if hit_collider and hit_collider.is_in_group("mothership"):
 			return
 
 		if hit_collider and hit_collider.has_method("take_damage"):
@@ -114,7 +114,7 @@ func _spawn_explosion(point: Vector3, normal: Vector3) -> void:
 
 
 func _on_body_entered(body: Node3D) -> void:
-	if body and ("Mothership" in body.name or "mothership" in body.name.to_lower()):
+	if body and body.is_in_group("mothership"):
 		return
 
 	if body.has_method("take_damage"):
@@ -129,7 +129,7 @@ func _on_body_entered(body: Node3D) -> void:
 
 
 func _on_area_entered(area: Area3D) -> void:
-	if area and ("Mothership" in area.name or "mothership" in area.name.to_lower()):
+	if area and area.is_in_group("mothership"):
 		return
 
 	if area.has_method("take_damage"):
