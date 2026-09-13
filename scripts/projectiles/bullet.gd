@@ -39,10 +39,7 @@ const ExplosionScript := preload("res://scripts/effects/explosion.gd")
 var _direction: Vector3 = Vector3.FORWARD
 var _spawn_position: Vector3 = Vector3.ZERO
 var _prev_position: Vector3 = Vector3.ZERO
-var _ray: RayCast3D = null
-var _ray_enemy: PhysicsRayQueryParameters3D = null
-var _ray_world: PhysicsRayQueryParameters3D = null
-var _self_exclude: Array[RID] = []
+var _shape_cast: ShapeCast3D = null
 
 # --- Visuais (juice) — não afetam a mecânica de colisão/dano ---
 var _light: OmniLight3D = null
@@ -63,25 +60,26 @@ func _ready() -> void:
 	body_entered.connect(_on_body_entered)
 	area_entered.connect(_on_area_entered)
 
-	# Raycast para detecção precisa de impacto no cenário.
-	_ray = RayCast3D.new()
-	_ray.enabled = false
-	_ray.collision_mask = WORLD_LAYER_MASK
-	_ray.collide_with_bodies = true
-	_ray.collide_with_areas = false
-	add_child(_ray)
 	_prev_position = global_position
-	_self_exclude = [self.get_rid()]
-	_ray_enemy = PhysicsRayQueryParameters3D.new()
-	_ray_enemy.collision_mask = 2
-	_ray_enemy.collide_with_areas = true
-	_ray_enemy.collide_with_bodies = true
-	_ray_enemy.exclude = _self_exclude
-	_ray_world = PhysicsRayQueryParameters3D.new()
-	_ray_world.collision_mask = WORLD_LAYER_MASK
-	_ray_world.collide_with_areas = false
-	_ray_world.collide_with_bodies = true
-	_ray_world.exclude = _self_exclude
+
+	# ShapeCast3D para detecção volumétrica contínua (CCD 3D) cobrindo
+	# o feixe inteiro do laser (3.8m), evitando tunelamento e falso-negativos em alta velocidade.
+	var col_shape: CollisionShape3D = get_node_or_null("CollisionShape3D") as CollisionShape3D
+	_shape_cast = ShapeCast3D.new()
+	_shape_cast.name = "BulletShapeCast"
+	if col_shape and col_shape.shape:
+		_shape_cast.shape = col_shape.shape
+	else:
+		var default_shape := BoxShape3D.new()
+		default_shape.size = Vector3(3.8, 3.8, 18.0)
+		_shape_cast.shape = default_shape
+	_shape_cast.collision_mask = 2 | WORLD_LAYER_MASK
+	_shape_cast.collide_with_areas = true
+	_shape_cast.collide_with_bodies = true
+	_shape_cast.enabled = false
+	_shape_cast.add_exception(self)
+	_shape_cast.add_exception_rid(self.get_rid())
+	add_child(_shape_cast)
 
 	_setup_visuals()
 
@@ -167,43 +165,48 @@ func _physics_process(delta: float) -> void:
 
 
 func _check_sweep_hit(from_pos: Vector3, to_pos: Vector3) -> bool:
-	var space := get_world_3d().direct_space_state
-	if not space:
+	if not _shape_cast:
 		return false
 
-	# =========================================================================
-	# 1. Detecção precisa contra INIMIGOS (Layer 2)
-	# Utiliza raycast no trajeto percorrido no frame
-	# =========================================================================
-	_ray_enemy.from = from_pos
-	_ray_enemy.to = to_pos
+	# Varredura volumétrica 3D contínua no trajeto percorrido no frame (CCD)
+	# Garante que qualquer parte do feixe do laser (3.8m) colidindo registre dano
+	_shape_cast.global_position = from_pos
+	_shape_cast.target_position = _shape_cast.to_local(to_pos)
+	_shape_cast.force_shapecast_update()
 
-	var hit_enemy := space.intersect_ray(_ray_enemy)
-	if not hit_enemy.is_empty():
-		var collider: Object = hit_enemy.collider
-		if collider and collider != self:
-			if collider.has_method("take_damage"):
-				collider.take_damage(damage)
-				queue_free()
-				return true
-			elif collider.get_parent() and collider.get_parent().has_method("take_damage"):
-				collider.get_parent().take_damage(damage)
-				queue_free()
-				return true
+	if not _shape_cast.is_colliding():
+		return false
 
-	# =========================================================================
-	# 2. Detecção contra CENÁRIO / TERRENO (Layer 8)
-	# =========================================================================
-	_ray_world.from = from_pos
-	_ray_world.to = to_pos
+	var hit_world: bool = false
+	var world_point: Vector3 = Vector3.ZERO
+	var world_normal: Vector3 = Vector3.UP
 
-	var hit_world := space.intersect_ray(_ray_world)
-	if not hit_world.is_empty():
-		if hit_world.has("position") and not hit_world.collider is CharacterBody3D:
-			var normal: Vector3 = hit_world.normal if hit_world.has("normal") else Vector3.UP
-			_spawn_explosion(hit_world.position, normal)
+	var count := _shape_cast.get_collision_count()
+	for i in range(count):
+		var collider: Object = _shape_cast.get_collider(i)
+		if not collider or collider == self:
+			continue
+
+		# 1. Alvos com método take_damage (inimigos, partes de chefe, etc.)
+		if collider.has_method("take_damage"):
+			collider.take_damage(damage)
 			queue_free()
 			return true
+		elif collider.get_parent() and collider.get_parent().has_method("take_damage"):
+			collider.get_parent().take_damage(damage)
+			queue_free()
+			return true
+
+		# 2. Cenário / Terreno (World Layer 4)
+		if not collider is CharacterBody3D and collider is Node3D:
+			hit_world = true
+			world_point = _shape_cast.get_collision_point(i)
+			world_normal = _shape_cast.get_collision_normal(i)
+
+	if hit_world:
+		_spawn_explosion(world_point, world_normal)
+		queue_free()
+		return true
 
 	return false
 

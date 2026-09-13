@@ -69,8 +69,11 @@ func _exit_tree() -> void:
 			player.min_locks_required = 0
 	if path_follower and path_follower.has_method("set_speed_multiplier"):
 		path_follower.set_speed_multiplier(1.0)
-	if hud and hud.has_method("stop_tutorial_missile_blink"):
-		hud.stop_tutorial_missile_blink()
+	if hud:
+		if hud.has_method("stop_tutorial_laser_blink"):
+			hud.stop_tutorial_laser_blink()
+		if hud.has_method("stop_tutorial_missile_blink"):
+			hud.stop_tutorial_missile_blink()
 
 
 func setup(p_follower: PathFollower, p_player: Player, p_hud: CombatHUD) -> void:
@@ -185,7 +188,9 @@ func _start_step_1() -> void:
 	# 3. Exibe texto instrutivo contextualizado por plataforma
 	if _overlay:
 		if GameConfig.is_mobile:
-			_overlay.show_instruction("USE O DEDO PARA CONTROLAR E DISPARAR")
+			_overlay.show_instruction("USE O DEDO PARA CONTROLAR")
+			if hud and hud.has_method("start_tutorial_laser_blink"):
+				hud.start_tutorial_laser_blink("DISPARAR LASERS")
 		else:
 			_overlay.show_instruction("CLIQUE COM O MOUSE PARA DISPARAR")
 
@@ -208,11 +213,15 @@ func _on_player_primary_fire_started() -> void:
 		# Jogador começou a disparar: SAI DA CÂMERA LENTA!
 		_state = State.STEP1_ENGAGING
 		Engine.time_scale = 1.0
+		if hud and hud.has_method("stop_tutorial_laser_blink"):
+			hud.stop_tutorial_laser_blink()
 
 
 func _on_step1_cleared() -> void:
 	_state = State.STEP1_CLEARED
 	_state_timer = 2.0  # Aguarda 2.0 segundos após a explosão da última nave antes de iniciar a etapa 2
+	if hud and hud.has_method("stop_tutorial_laser_blink"):
+		hud.stop_tutorial_laser_blink()
 	if _overlay:
 		_overlay.hide_instruction()
 
@@ -226,12 +235,12 @@ func _start_step_2() -> void:
 	_state_timer = 3.5  # 3.5s em tempo real para o jogador ler com total tranquilidade
 	tutorial_step_changed.emit(2)
 
-	# 0. Trava de segurança: bloqueia o laser primário e mantém os mísseis bloqueados até que os 3 alvos sejam travados
+	# 0. Trava de segurança: bloqueia o laser primário e exige 3 miras travadas antes de disparar mísseis
 	if player:
 		if "primary_fire_enabled" in player:
 			player.primary_fire_enabled = false
 		if "missiles_enabled" in player:
-			player.missiles_enabled = false
+			player.missiles_enabled = true
 		if "min_locks_required" in player:
 			player.min_locks_required = 3
 
@@ -250,6 +259,9 @@ func _start_step_2() -> void:
 
 func _spawn_step2_enemies() -> void:
 	_state = State.STEP2_PRESENTING
+	# Garante que o sistema de mísseis/mira esteja ativo para escanear os alvos
+	if player and "missiles_enabled" in player:
+		player.missiles_enabled = true
 	# As naves surgem em posições bem separadas e NÃO convergem para o centro
 	_spawn_step2_trio()
 
@@ -257,12 +269,12 @@ func _spawn_step2_enemies() -> void:
 func _spawn_step2_trio() -> void:
 	_step2_enemies.clear()
 	# As 3 naves ocupam posições bem espaçadas dentro do cânion e NÃO convergem para o centro:
-	# Nave 1: lateral esquerda (-20.0m), voa rente à parede esquerda do cânion sem atravessá-la
-	var e1 := _create_tutorial_enemy(-20.0, 160.0, 5.5, true, -20.0, 5.5)
-	# Nave 2: lateral direita (+20.0m), voa rente à parede direita do cânion sem atravessá-la
-	var e2 := _create_tutorial_enemy(20.0, 160.0, 5.5, true, 20.0, 5.5)
-	# Nave 3: topo elevado (+24.0m), no céu aberto do cânion sem mergulhar
-	var e3 := _create_tutorial_enemy(0.0, 165.0, 24.0, true, 0.0, 24.0)
+	# Nave 1: lateral esquerda (-20.0m), voa rente à parede esquerda do cânion em altitude reduzida (2.5m)
+	var e1 := _create_tutorial_enemy(-20.0, 160.0, 2.5, true, -20.0, 2.5)
+	# Nave 2: lateral direita (+20.0m), voa rente à parede direita do cânion em altitude reduzida (2.5m)
+	var e2 := _create_tutorial_enemy(20.0, 160.0, 2.5, true, 20.0, 2.5)
+	# Nave 3: topo central (+12.0m), em altitude intermediária mais confortável para mira
+	var e3 := _create_tutorial_enemy(0.0, 165.0, 12.0, true, 0.0, 12.0)
 
 	if e1:
 		_step2_enemies.append(e1)
@@ -302,10 +314,8 @@ func _on_player_missile_targets_changed(targets: Array[Node3D]) -> void:
 	elif _state == State.STEP2_LOCKED:
 		var required_locks := mini(3, _step2_enemies.size())
 		if targets.size() < required_locks:
-			# O jogador perdeu a mira de algum alvo antes de atirar; volta para o estado de mira e bloqueia o míssil novamente
+			# O jogador perdeu a mira de algum alvo antes de atirar; volta para o estado de mira
 			_state = State.STEP2_PRESENTING
-			if player and "missiles_enabled" in player:
-				player.missiles_enabled = false
 			if hud and hud.has_method("stop_tutorial_missile_blink"):
 				hud.stop_tutorial_missile_blink()
 			if _overlay:
@@ -366,8 +376,11 @@ func _finish_tutorial() -> void:
 	if path_follower and path_follower.has_method("set_speed_multiplier"):
 		path_follower.set_speed_multiplier(1.0)
 
-	if hud and hud.has_method("stop_tutorial_missile_blink"):
-		hud.stop_tutorial_missile_blink()
+	if hud:
+		if hud.has_method("stop_tutorial_laser_blink"):
+			hud.stop_tutorial_laser_blink()
+		if hud.has_method("stop_tutorial_missile_blink"):
+			hud.stop_tutorial_missile_blink()
 
 	if _overlay:
 		_overlay.flash_completion()
@@ -391,8 +404,11 @@ func _abort_tutorial_at_limit() -> void:
 	if path_follower and path_follower.has_method("set_speed_multiplier"):
 		path_follower.set_speed_multiplier(1.0)
 
-	if hud and hud.has_method("stop_tutorial_missile_blink"):
-		hud.stop_tutorial_missile_blink()
+	if hud:
+		if hud.has_method("stop_tutorial_laser_blink"):
+			hud.stop_tutorial_laser_blink()
+		if hud.has_method("stop_tutorial_missile_blink"):
+			hud.stop_tutorial_missile_blink()
 
 	if _overlay:
 		_overlay.hide_instruction()

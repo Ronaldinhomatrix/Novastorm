@@ -837,14 +837,25 @@ func get_tutorial_overlay() -> TutorialOverlay:
 	return _tutorial_overlay
 
 
+func start_tutorial_laser_blink(arrow_text: String = "DISPARAR LASERS") -> void:
+	var overlay := get_tutorial_overlay()
+	if overlay and primary_fire_panel:
+		overlay.start_mobile_button_prompt(primary_fire_panel, arrow_text, Color(0.2, 1.4, 1.8, 1.0))
+
+
+func stop_tutorial_laser_blink() -> void:
+	if _tutorial_overlay:
+		_tutorial_overlay.stop_mobile_button_prompt()
+
+
 func start_tutorial_missile_blink(arrow_text: String = "DISPARAR") -> void:
 	var overlay := get_tutorial_overlay()
 	if overlay and missile_panel:
-		overlay.start_mobile_missile_prompt(missile_panel, arrow_text)
+		overlay.start_mobile_button_prompt(missile_panel, arrow_text, Color(1.5, 1.1, 0.2, 1.0))
 
 
 func stop_tutorial_missile_blink() -> void:
 	if _tutorial_overlay:
-		_tutorial_overlay.stop_mobile_missile_prompt()
+		_tutorial_overlay.stop_mobile_button_prompt()
 
 

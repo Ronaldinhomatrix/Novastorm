@@ -421,6 +421,8 @@ func _render_enemies(f: Dictionary) -> void:
 		var hitbox: MeshInstance3D = vis_node.get_node_or_null("HitboxMesh") as MeshInstance3D
 		if hitbox:
 			hitbox.visible = show_hitboxes
+			if e_info.has("hitbox_offset"):
+				hitbox.position = e_info["hitbox_offset"]
 
 	for stored_id: int in _vis_enemies.keys():
 		if not active_ids.has(stored_id):
@@ -471,7 +473,8 @@ func _create_enemy_visual(e_info: Dictionary) -> Node3D:
 				(node as Node3D).visible = (m_clean == target_ship)
 
 	# Hitbox 3D Amarela Translúcida
-	var hitbox_size: Vector3 = e_info.get("hitbox_size", Vector3(21, 9, 18))
+	var hitbox_size: Vector3 = e_info.get("hitbox_size", Vector3(10, 6, 16))
+	var hitbox_offset: Vector3 = e_info.get("hitbox_offset", Vector3.ZERO)
 	var box_mesh := BoxMesh.new()
 	box_mesh.size = hitbox_size
 	box_mesh.material = _hitbox_mat
@@ -479,6 +482,7 @@ func _create_enemy_visual(e_info: Dictionary) -> Node3D:
 	var hitbox_inst := MeshInstance3D.new()
 	hitbox_inst.name = "HitboxMesh"
 	hitbox_inst.mesh = box_mesh
+	hitbox_inst.position = hitbox_offset
 	hitbox_inst.visible = show_hitboxes
 	root.add_child(hitbox_inst)
 
@@ -493,19 +497,30 @@ func _render_bullets(f: Dictionary) -> void:
 		var b_id: int = b_info.get("id", 0)
 		active_bullet_ids[b_id] = true
 
+		var is_enemy: bool = b_info.get("is_enemy", false)
 		var b_vis: MeshInstance3D = _vis_bullets.get(b_id, null)
 		if not b_vis:
 			b_vis = MeshInstance3D.new()
-			var cap := CapsuleMesh.new()
-			cap.radius = 0.7
-			cap.height = 12.0
-			b_vis.mesh = cap
+			if is_enemy:
+				var sph := SphereMesh.new()
+				sph.radius = 1.2
+				sph.height = 2.4
+				b_vis.mesh = sph
+			else:
+				var cap := CapsuleMesh.new()
+				cap.radius = 1.35
+				cap.height = 18.0
+				b_vis.mesh = cap
 			_entities_container.add_child(b_vis)
 			_vis_bullets[b_id] = b_vis
 
 		b_vis.visible = true
-		b_vis.global_transform = b_info.get("transform", Transform3D())
-		var is_enemy: bool = b_info.get("is_enemy", false)
+		var t: Transform3D = b_info.get("transform", Transform3D())
+		if is_enemy:
+			b_vis.global_transform = t
+		else:
+			# Alinha a cápsula (que nasce ao longo do eixo Y) com a direção de voo do projétil (+Z)
+			b_vis.global_transform = t * Transform3D(Basis(Vector3.RIGHT, deg_to_rad(90)), Vector3.ZERO)
 		b_vis.material_override = _enemy_laser_mat if is_enemy else _player_laser_mat
 
 	# Oculta projéteis que já atingiram o alvo ou expiraram

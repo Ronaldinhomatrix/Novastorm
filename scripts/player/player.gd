@@ -579,10 +579,16 @@ func _spawn_bullet() -> void:
 
 	primary_fire_started.emit()
 
-	# O tiro nasce alinhado com o centro e a frente da nave,
-	# avançado 4 unidades para nascer fora do cockpit sem distorcer o ângulo de mira.
+	# Calcula a ponta frontal da nave (bico) no espaço global considerando o roll/pitch de ShipModel
+	var nose_local := Vector3(0.0, -0.52, -15.15)
+	var nose_pos: Vector3 = ship_model.to_global(nose_local) if ship_model else to_global(nose_local * 1.5)
+
 	var aim_dir := _get_ship_aim_direction()
-	var spawn_pos: Vector3 = global_position + aim_dir * 4.0
+
+	# O projétil tem 18m de comprimento e seu centro fica no meio (offset ±9m).
+	# Posicionamos o centro 9.0m à frente do bico na direção do tiro para que a cauda
+	# do projétil coincida exatamente com a ponta da nave, nascendo 100% à frente sem invadir o cockpit/corpo.
+	var spawn_pos: Vector3 = nose_pos + aim_dir * 9.0
 
 	var bullet: Bullet = bullet_scene.instantiate() as Bullet
 	if not bullet:

@@ -91,17 +91,14 @@ func _record_current_frame() -> void:
 				"type": e_node.get_script().get_global_name() if e_node.get_script() else e_node.name
 			}
 			
-			# Hitbox size
-			if e_node is EnemyScout or e_node.name.contains("Scout"):
-				e_dict["hitbox_size"] = Vector3(21, 9, 18)
-			elif e_node is EnemyFighter or e_node.name.contains("Fighter"):
-				e_dict["hitbox_size"] = Vector3(27, 11, 21)
-			elif e_node is EnemyHeavy or e_node.name.contains("Heavy"):
-				e_dict["hitbox_size"] = Vector3(39, 15, 30)
-			elif e_node.name.contains("Bomber"):
-				e_dict["hitbox_size"] = Vector3(34, 10, 22)
+			# Hitbox real do colisor físico
+			var col: CollisionShape3D = e_node.get_node_or_null("CollisionShape3D") as CollisionShape3D
+			if col and col.shape is BoxShape3D:
+				e_dict["hitbox_size"] = (col.shape as BoxShape3D).size
+				e_dict["hitbox_offset"] = col.position
 			else:
-				e_dict["hitbox_size"] = Vector3(15, 8, 15)
+				e_dict["hitbox_size"] = Vector3(10, 6, 16)
+				e_dict["hitbox_offset"] = Vector3.ZERO
 
 			enemies_data.append(e_dict)
 

@@ -16,8 +16,6 @@ var _bg_glow: TextureRect = null
 var _mobile_arrow_container: Control = null
 var _mobile_arrow_label: Label = null
 var _mobile_arrow_text: Label = null
-var _mobile_hint: PanelContainer = null
-var _mobile_hint_label: Label = null
 var _is_pulsing_mobile: bool = false
 var _pulse_timer: float = 0.0
 
@@ -27,7 +25,8 @@ var _elastic_time: float = 1.0
 var _elastic_duration: float = 0.60
 var _idle_time: float = 0.0
 
-var _missile_panel_ref: Control = null
+var _prompt_panel_ref: Control = null
+var _prompt_arrow_color: Color = Color(1.5, 1.1, 0.2, 1.0)
 var _current_accent_color: Color = Color(0.2, 0.9, 1.0)
 
 
@@ -196,43 +195,6 @@ func _build_ui() -> void:
 	_mobile_arrow_label.add_theme_constant_override("shadow_offset_y", 4)
 	arrow_vbox.add_child(_mobile_arrow_label)
 
-	# 3. Painel de chamada complementar
-	_mobile_hint = PanelContainer.new()
-	_mobile_hint.name = "MobileMissileHint"
-	_mobile_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_mobile_hint.anchor_top = 1.0
-	_mobile_hint.anchor_bottom = 1.0
-	_mobile_hint.offset_left = 270.0
-	_mobile_hint.offset_right = 720.0
-	_mobile_hint.offset_top = -84.0
-	_mobile_hint.offset_bottom = -16.0
-	_mobile_hint.pivot_offset = Vector2(0.0, 34.0)
-	_mobile_hint.visible = false
-
-	var hint_sb := StyleBoxFlat.new()
-	hint_sb.bg_color = Color(0.02, 0.04, 0.08, 0.94)
-	hint_sb.border_color = Color(1.3, 0.85, 0.1, 1.0) # Dourado Neon
-	hint_sb.set_border_width_all(3)
-	hint_sb.corner_radius_top_left = 8
-	hint_sb.corner_radius_top_right = 8
-	hint_sb.corner_radius_bottom_left = 8
-	hint_sb.corner_radius_bottom_right = 8
-	hint_sb.shadow_color = Color(1.0, 0.6, 0.05, 0.6)
-	hint_sb.shadow_size = 14
-	hint_sb.set_content_margin_all(10)
-	_mobile_hint.add_theme_stylebox_override("panel", hint_sb)
-	add_child(_mobile_hint)
-
-	_mobile_hint_label = Label.new()
-	_mobile_hint_label.text = tr("TUTORIAL_HINT_FIRE")
-	_mobile_hint_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_mobile_hint_label.add_theme_font_override("font", font_impact)
-	_mobile_hint_label.add_theme_font_size_override("font_size", 20)
-	_mobile_hint_label.add_theme_color_override("font_color", Color(1.4, 0.95, 0.3, 1.0))
-	_mobile_hint_label.add_theme_color_override("font_outline_color", Color(0.4, 0.15, 0.0, 0.9))
-	_mobile_hint_label.add_theme_constant_override("outline_size", 6)
-	_mobile_hint.add_child(_mobile_hint_label)
-
 
 func _process(delta: float) -> void:
 	# Como o jogo entra em slow motion (time_scale = 0.25), computamos delta real
@@ -262,16 +224,22 @@ func _process(delta: float) -> void:
 		_pulse_timer += real_delta * 9.0
 		var wave := (sin(_pulse_timer) + 1.0) * 0.5 # 0.0 a 1.0
 
-		if _missile_panel_ref and is_instance_valid(_missile_panel_ref):
-			_missile_panel_ref.pivot_offset = _missile_panel_ref.size * 0.5
-			# Pisca o botão de míssil com brilho neon dourado e leve aumento de escala
-			_missile_panel_ref.modulate = Color(1.0, 1.0, 1.0).lerp(Color(2.2, 1.6, 0.2, 1.0), wave)
-			_missile_panel_ref.scale = Vector2.ONE * lerpf(1.0, 1.12, wave)
+		if _prompt_panel_ref and is_instance_valid(_prompt_panel_ref):
+			_prompt_panel_ref.pivot_offset = _prompt_panel_ref.size * 0.5
+			# Pisca o botão com brilho neon e leve aumento de escala
+			var glow_target := Color(
+				maxf(1.0, _prompt_arrow_color.r * 1.5),
+				maxf(1.0, _prompt_arrow_color.g * 1.5),
+				maxf(1.0, _prompt_arrow_color.b * 1.5),
+				1.0
+			)
+			_prompt_panel_ref.modulate = Color.WHITE.lerp(glow_target, wave)
+			_prompt_panel_ref.scale = Vector2.ONE * lerpf(1.0, 1.10, wave)
 
 			# Flecha grande e comprida com texto trazido mais para cima e para a direita
 			if _mobile_arrow_container:
 				_mobile_arrow_container.visible = true
-				var p_rect := _missile_panel_ref.get_global_rect()
+				var p_rect := _prompt_panel_ref.get_global_rect()
 				var w := 320.0
 				var h := 125.0
 				_mobile_arrow_container.size = Vector2(w, h)
@@ -285,23 +253,27 @@ func _process(delta: float) -> void:
 
 				# Apenas o TEXTO pisca (intensidade de cor e pulso suave)
 				if _mobile_arrow_text:
-					_mobile_arrow_text.modulate = Color(1.0 + wave * 0.8, 1.0 + wave * 0.5, 0.3 + wave * 0.7, lerpf(0.5, 1.0, wave))
+					var text_col := Color(
+						_prompt_arrow_color.r * (1.0 + wave * 0.3),
+						_prompt_arrow_color.g * (1.0 + wave * 0.3),
+						_prompt_arrow_color.b * (1.0 + wave * 0.3),
+						lerpf(0.55, 1.0, wave)
+					)
+					_mobile_arrow_text.modulate = text_col
 					_mobile_arrow_text.scale = Vector2.ONE * lerpf(0.96, 1.08, wave)
 					_mobile_arrow_text.pivot_offset = _mobile_arrow_text.size * 0.5
 
 				# A SETA NÃO PISCA: mantém-se firme, visível e estática apontando para o botão
 				if _mobile_arrow_label:
-					_mobile_arrow_label.modulate = Color(1.4, 1.05, 0.2, 1.0)
+					_mobile_arrow_label.modulate = _prompt_arrow_color
 					_mobile_arrow_label.scale = Vector2.ONE
 	else:
 		if _mobile_arrow_container and _mobile_arrow_container.visible:
 			_mobile_arrow_container.visible = false
-		if _mobile_hint and _mobile_hint.visible:
-			_mobile_hint.visible = false
-		if _missile_panel_ref and is_instance_valid(_missile_panel_ref):
-			_missile_panel_ref.modulate = Color.WHITE
-			if _missile_panel_ref.scale != Vector2.ONE:
-				_missile_panel_ref.scale = Vector2.ONE
+		if _prompt_panel_ref and is_instance_valid(_prompt_panel_ref):
+			_prompt_panel_ref.modulate = Color.WHITE
+			if _prompt_panel_ref.scale != Vector2.ONE:
+				_prompt_panel_ref.scale = Vector2.ONE
 
 
 ## Efeito matemático padrão de Ease Elastic Out (Cresce, ultrapassa 1.0 e oscila como mola)
@@ -360,25 +332,40 @@ func hide_instruction() -> void:
 	_target_alpha = 0.0
 
 
-## Inicia o piscar da flecha e do botão de mísseis apontando para o painel
-func start_mobile_missile_prompt(missile_panel: Control, arrow_text: String = "DISPARAR") -> void:
-	_missile_panel_ref = missile_panel
+## Inicia o piscar da flecha e do botão apontando para um painel específico
+func start_mobile_button_prompt(target_panel: Control, arrow_text: String = "DISPARAR", arrow_color: Color = Color(1.5, 1.1, 0.2, 1.0)) -> void:
+	# Restaura painel anterior se estivesse ativo
+	if _prompt_panel_ref and is_instance_valid(_prompt_panel_ref) and _prompt_panel_ref != target_panel:
+		_prompt_panel_ref.modulate = Color.WHITE
+		_prompt_panel_ref.scale = Vector2.ONE
+
+	_prompt_panel_ref = target_panel
+	_prompt_arrow_color = arrow_color
 	_is_pulsing_mobile = true
 	_pulse_timer = 0.0
 	if _mobile_arrow_text:
 		_mobile_arrow_text.text = arrow_text
 
 
-## Interrompe o piscar do botão e flecha de mísseis
-func stop_mobile_missile_prompt() -> void:
+## Inicia o piscar da flecha e do botão de mísseis apontando para o painel (compatibilidade retroativa)
+func start_mobile_missile_prompt(missile_panel: Control, arrow_text: String = "DISPARAR") -> void:
+	start_mobile_button_prompt(missile_panel, arrow_text, Color(1.5, 1.1, 0.2, 1.0))
+
+
+## Interrompe o piscar do botão e flecha móvel
+func stop_mobile_button_prompt() -> void:
 	_is_pulsing_mobile = false
 	if _mobile_arrow_container:
 		_mobile_arrow_container.visible = false
-	if _mobile_hint:
-		_mobile_hint.visible = false
-	if _missile_panel_ref and is_instance_valid(_missile_panel_ref):
-		_missile_panel_ref.modulate = Color.WHITE
-		_missile_panel_ref.scale = Vector2.ONE
+	if _prompt_panel_ref and is_instance_valid(_prompt_panel_ref):
+		_prompt_panel_ref.modulate = Color.WHITE
+		_prompt_panel_ref.scale = Vector2.ONE
+	_prompt_panel_ref = null
+
+
+## Interrompe o piscar do botão e flecha de mísseis (compatibilidade retroativa)
+func stop_mobile_missile_prompt() -> void:
+	stop_mobile_button_prompt()
 
 
 ## Mostra mensagem de sucesso temporária com efeito elástico
