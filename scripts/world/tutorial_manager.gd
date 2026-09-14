@@ -50,7 +50,9 @@ var _state: State = State.INACTIVE
 var _step1_enemies: Array[Node] = []
 var _step2_enemies: Array[Node] = []
 var _state_timer: float = 0.0
+var _step_timeout: float = 0.0
 var _limit_offset: float = -1.0
+var _limit_ratio: float = -1.0
 var _overlay: TutorialOverlay = null
 
 
@@ -67,6 +69,10 @@ func _exit_tree() -> void:
 			player.missiles_enabled = true
 		if "min_locks_required" in player:
 			player.min_locks_required = 0
+		if "_locked_targets" in player:
+			player._locked_targets.clear()
+			if player.has_signal("missile_targets_changed"):
+				player.missile_targets_changed.emit([])
 	if path_follower and path_follower.has_method("set_speed_multiplier"):
 		path_follower.set_speed_multiplier(1.0)
 	if hud:
@@ -74,6 +80,7 @@ func _exit_tree() -> void:
 			hud.stop_tutorial_laser_blink()
 		if hud.has_method("stop_tutorial_missile_blink"):
 			hud.stop_tutorial_missile_blink()
+	_purge_all_tutorial_enemies()
 
 
 func setup(p_follower: PathFollower, p_player: Player, p_hud: CombatHUD) -> void:
@@ -102,6 +109,8 @@ func _calculate_limit_offset() -> void:
 	var c: Curve3D = parent_path.curve if parent_path else null
 	if c and limit_point >= 0 and limit_point < c.point_count:
 		_limit_offset = c.get_closest_offset(c.get_point_position(limit_point))
+		var total_len := maxf(1.0, c.get_baked_length())
+		_limit_ratio = _limit_offset / total_len
 
 
 func start_tutorial() -> void:
@@ -112,7 +121,7 @@ func start_tutorial() -> void:
 		_calculate_limit_offset()
 
 	if path_follower and path_follower.has_method("set_speed_multiplier"):
-		path_follower.set_speed_multiplier(0.5)
+		path_follower.set_speed_multiplier(1.0)
 
 	_state = State.WAITING_START
 	_state_timer = 0.8
@@ -123,10 +132,16 @@ func _process(delta: float) -> void:
 	if _state == State.INACTIVE or _state == State.COMPLETED:
 		return
 
-	# Checagem de limite no Path3D: se o jogador atingir o ponto 7 sem concluir, encerra o tutorial imediatamente
-	if _limit_offset > 0.0 and path_follower and path_follower.progress >= _limit_offset:
-		_abort_tutorial_at_limit()
-		return
+	# Checagem de limite absoluto no Path3D: se o jogador atingir o ponto 7 sem concluir, encerra o tutorial imediatamente
+	if path_follower:
+		var reached_limit: bool = false
+		if _limit_offset > 0.0 and path_follower.progress >= _limit_offset:
+			reached_limit = true
+		elif _limit_ratio > 0.0 and path_follower.progress_ratio >= _limit_ratio:
+			reached_limit = true
+		if reached_limit:
+			_abort_tutorial_at_limit()
+			return
 
 	# Como time_scale pode estar reduzido (0.2), usamos delta de tempo real
 	var real_delta: float = (delta / maxf(Engine.time_scale, 0.05)) if Engine.time_scale < 0.9 else delta
@@ -137,11 +152,31 @@ func _process(delta: float) -> void:
 			if _state_timer <= 0.0:
 				_start_step_1()
 
+		State.STEP1_PRESENTING:
+			_step_timeout -= real_delta
+			if _step_timeout <= 0.0:
+				# Timeout anti-inatividade no Step 1: cancela slow motion e permite nave avançar em velocidade normal
+				Engine.time_scale = 1.0
+				if hud and hud.has_method("stop_tutorial_laser_blink"):
+					hud.stop_tutorial_laser_blink()
+				if _overlay:
+					_overlay.hide_instruction()
+				_state = State.STEP1_ENGAGING
+				_step_timeout = 5.0
+
 		State.STEP1_ENGAGING:
 			# Verifica se ambas as naves da etapa 1 foram destruídas
 			_clean_dead_enemies(_step1_enemies)
 			if _step1_enemies.is_empty():
 				_on_step1_cleared()
+			else:
+				_step_timeout -= real_delta
+				if _step_timeout <= 0.0:
+					for e in _step1_enemies:
+						if is_instance_valid(e):
+							e.queue_free()
+					_step1_enemies.clear()
+					_on_step1_cleared()
 
 		State.STEP1_CLEARED:
 			_state_timer -= real_delta
@@ -153,10 +188,24 @@ func _process(delta: float) -> void:
 			if _state_timer <= 0.0:
 				_spawn_step2_enemies()
 
+		State.STEP2_PRESENTING, State.STEP2_LOCKED:
+			_step_timeout -= real_delta
+			if _step_timeout <= 0.0:
+				# Timeout anti-inatividade na etapa 2: aborta com restauração total antes do cânion principal
+				_abort_tutorial_at_limit()
+
 		State.STEP2_MISSILE_FIRED:
 			_clean_dead_enemies(_step2_enemies)
 			if _step2_enemies.is_empty():
 				_on_step2_cleared()
+			else:
+				_step_timeout -= real_delta
+				if _step_timeout <= 0.0:
+					for e in _step2_enemies:
+						if is_instance_valid(e):
+							e.queue_free()
+					_step2_enemies.clear()
+					_on_step2_cleared()
 
 		State.STEP2_RELOADING:
 			_state_timer -= real_delta
@@ -170,6 +219,7 @@ func _process(delta: float) -> void:
 
 func _start_step_1() -> void:
 	_state = State.STEP1_PRESENTING
+	_step_timeout = 10.0
 	tutorial_step_changed.emit(1)
 
 	# 0. Garante laser liberado e bloqueia os mísseis durante o treinamento de disparo primário (laser)
@@ -212,6 +262,7 @@ func _on_player_primary_fire_started() -> void:
 	if _state == State.STEP1_PRESENTING:
 		# Jogador começou a disparar: SAI DA CÂMERA LENTA!
 		_state = State.STEP1_ENGAGING
+		_step_timeout = 5.0
 		Engine.time_scale = 1.0
 		if hud and hud.has_method("stop_tutorial_laser_blink"):
 			hud.stop_tutorial_laser_blink()
@@ -259,6 +310,7 @@ func _start_step_2() -> void:
 
 func _spawn_step2_enemies() -> void:
 	_state = State.STEP2_PRESENTING
+	_step_timeout = 12.0
 	# Garante que o sistema de mísseis/mira esteja ativo para escanear os alvos
 	if player and "missiles_enabled" in player:
 		player.missiles_enabled = true
@@ -268,12 +320,12 @@ func _spawn_step2_enemies() -> void:
 
 func _spawn_step2_trio() -> void:
 	_step2_enemies.clear()
-	# As 3 naves ocupam posições bem espaçadas dentro do cânion e NÃO convergem para o centro:
-	# Nave 1: lateral esquerda (-20.0m), voa rente à parede esquerda do cânion em altitude reduzida (2.5m)
-	var e1 := _create_tutorial_enemy(-20.0, 160.0, 2.5, true, -20.0, 2.5)
-	# Nave 2: lateral direita (+20.0m), voa rente à parede direita do cânion em altitude reduzida (2.5m)
-	var e2 := _create_tutorial_enemy(20.0, 160.0, 2.5, true, 20.0, 2.5)
-	# Nave 3: topo central (+12.0m), em altitude intermediária mais confortável para mira
+	# As 3 naves ocupam posições com maior espaçamento lateral para exigir movimento de mira do jogador:
+	# Nave 1: lateral esquerda (-26.0m), voa mais afastada à esquerda em altitude reduzida (2.5m)
+	var e1 := _create_tutorial_enemy(-26.0, 160.0, 2.5, true, -26.0, 2.5)
+	# Nave 2: lateral direita (+26.0m), voa mais afastada à direita em altitude reduzida (2.5m)
+	var e2 := _create_tutorial_enemy(26.0, 160.0, 2.5, true, 26.0, 2.5)
+	# Nave 3: topo central (+12.0m), mantida no centro elevado
 	var e3 := _create_tutorial_enemy(0.0, 165.0, 12.0, true, 0.0, 12.0)
 
 	if e1:
@@ -331,6 +383,7 @@ func _on_player_missile_fired(_remaining: int, _max_val: int) -> void:
 	if _state == State.STEP2_LOCKED or _state == State.STEP2_MISSILE_FIRED:
 		# Jogador disparou o primeiro míssil: SAI DA CÂMERA LENTA e garante liberação dos mísseis subsequentes e do laser!
 		_state = State.STEP2_MISSILE_FIRED
+		_step_timeout = 8.0
 		Engine.time_scale = 1.0
 		if player:
 			if "primary_fire_enabled" in player:
@@ -351,19 +404,21 @@ func _on_player_missile_fired(_remaining: int, _max_val: int) -> void:
 
 
 func _on_step2_cleared() -> void:
-	# Terceiro inimigo destruído! Inicia a parte 3: flecha apontando para o botão dos mísseis com "Mísseis carregando" por 3s
+	# Terceiro inimigo destruído! Inicia a parte 3: recarga dos mísseis em super slow motion (0.05) por 2.0s com escurecimento de tela
 	_state = State.STEP2_RELOADING
-	_state_timer = 3.0
-	Engine.time_scale = 1.0
+	_state_timer = 2.0
+	Engine.time_scale = 0.05
 
 	if _overlay:
 		_overlay.hide_instruction()
 
 	if hud and hud.has_method("start_tutorial_missile_blink"):
-		hud.start_tutorial_missile_blink("Mísseis carregando")
+		hud.start_tutorial_missile_blink(tr("TUTORIAL_MISSILES_RELOADING"))
 
 
 func _finish_tutorial() -> void:
+	if _state == State.COMPLETED:
+		return
 	_state = State.COMPLETED
 	Engine.time_scale = 1.0
 	if player:
@@ -373,6 +428,11 @@ func _finish_tutorial() -> void:
 			player.missiles_enabled = true
 		if "min_locks_required" in player:
 			player.min_locks_required = 0
+		if "_locked_targets" in player:
+			player._locked_targets.clear()
+			if player.has_signal("missile_targets_changed"):
+				player.missile_targets_changed.emit([])
+
 	if path_follower and path_follower.has_method("set_speed_multiplier"):
 		path_follower.set_speed_multiplier(1.0)
 
@@ -385,11 +445,15 @@ func _finish_tutorial() -> void:
 	if _overlay:
 		_overlay.flash_completion()
 
+	_purge_all_tutorial_enemies()
+
 	tutorial_completed.emit()
 
 
-## Encerramento forçado caso o jogador atinja o ponto 7 do Path3D sem ter executado os passos do tutorial
+## Encerramento forçado caso o jogador atinja o ponto 7 do Path3D ou expire o timeout sem ter executado os passos do tutorial
 func _abort_tutorial_at_limit() -> void:
+	if _state == State.COMPLETED:
+		return
 	_state = State.COMPLETED
 	Engine.time_scale = 1.0
 
@@ -400,6 +464,10 @@ func _abort_tutorial_at_limit() -> void:
 			player.missiles_enabled = true
 		if "min_locks_required" in player:
 			player.min_locks_required = 0
+		if "_locked_targets" in player:
+			player._locked_targets.clear()
+			if player.has_signal("missile_targets_changed"):
+				player.missile_targets_changed.emit([])
 
 	if path_follower and path_follower.has_method("set_speed_multiplier"):
 		path_follower.set_speed_multiplier(1.0)
@@ -413,7 +481,16 @@ func _abort_tutorial_at_limit() -> void:
 	if _overlay:
 		_overlay.hide_instruction()
 
-	# Remove naves do tutorial que possam ter restado na pista
+	_purge_all_tutorial_enemies()
+
+	tutorial_completed.emit()
+
+
+# ---------------------------------------------------------------------------
+# Utilitários de Criação e Limpeza
+# ---------------------------------------------------------------------------
+
+func _purge_all_tutorial_enemies() -> void:
 	for e in _step1_enemies:
 		if is_instance_valid(e):
 			e.queue_free()
@@ -424,17 +501,16 @@ func _abort_tutorial_at_limit() -> void:
 			e.queue_free()
 	_step2_enemies.clear()
 
-	tutorial_completed.emit()
+	if get_tree():
+		get_tree().call_group("tutorial_enemies", "queue_free")
 
-
-# ---------------------------------------------------------------------------
-# Utilitários de Criação e Limpeza
-# ---------------------------------------------------------------------------
 
 func _create_tutorial_enemy(lat: float, dist: float, vert: float, laser_immune: bool, start_lat: float = NAN, start_vert: float = NAN) -> Node:
 	var enemy := TutorialEnemyScene.instantiate()
 	if not enemy:
 		return null
+
+	enemy.add_to_group("tutorial_enemies")
 
 	var scene_root: Node = get_tree().current_scene if (get_tree() and get_tree().current_scene) else get_parent()
 	if scene_root:

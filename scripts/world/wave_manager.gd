@@ -50,6 +50,7 @@ var _wave_bomber_triggered: bool = false
 var _wave_bomber_exit_triggered: bool = false
 var _wave_3_triggered: bool = false
 var _penultimate_exit_triggered: bool = false
+var _tutorial_enemies_purged: bool = false
 
 var _target_ratio_1_alert: float = -1.0
 var _target_ratio_1: float = -1.0
@@ -213,6 +214,20 @@ func _process(_delta: float) -> void:
 		return
 
 	var current_progress: float = path_follower.progress_ratio
+	var total_len: float = 1.0
+
+	# -1. Sentinela de Segurança: garante purga de qualquer nave do tutorial no Ponto 8 (saída do cânion do tutorial)
+	if not _tutorial_enemies_purged:
+		var parent_path := path_follower.get_parent() as Path3D
+		var curve: Curve3D = parent_path.curve if parent_path else null
+		if curve and curve.point_count > 8:
+			total_len = maxf(1.0, curve.get_baked_length())
+			var p8_ratio := _get_point_ratio(curve, 8, total_len)
+			if p8_ratio > 0.0 and current_progress >= p8_ratio:
+				_tutorial_enemies_purged = true
+				get_tree().call_group("tutorial_enemies", "queue_free")
+				if Engine.time_scale < 1.0:
+					Engine.time_scale = 1.0
 
 	# 0. Áudio: Alerta de naves inimigas (ponto anterior à Wave 1)
 	if not _alert_enemy_ships_triggered and _target_ratio_1_alert >= 0.0 and current_progress >= _target_ratio_1_alert:

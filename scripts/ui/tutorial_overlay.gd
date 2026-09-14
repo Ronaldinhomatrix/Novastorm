@@ -13,6 +13,7 @@ var _line_top: ColorRect = null
 var _line_bottom: ColorRect = null
 var _bg_glow: TextureRect = null
 
+var _dim_overlay: ColorRect = null
 var _mobile_arrow_container: Control = null
 var _mobile_arrow_label: Label = null
 var _mobile_arrow_text: Label = null
@@ -21,8 +22,8 @@ var _pulse_timer: float = 0.0
 
 var _target_alpha: float = 0.0
 var _current_alpha: float = 0.0
-var _elastic_time: float = 1.0
-var _elastic_duration: float = 0.60
+var _elastic_time: float = 2.0
+var _elastic_duration: float = 2.0  # Duração estendida para a animação rodar a 30% da velocidade anterior
 var _idle_time: float = 0.0
 
 var _prompt_panel_ref: Control = null
@@ -48,6 +49,16 @@ func _build_ui() -> void:
 	font_mono.font_names = PackedStringArray(["Consolas", "Cascadia Code", "Courier New", "Lucida Console", "Monospace"])
 	font_mono.font_weight = 800
 	font_mono.subpixel_positioning = TextServer.SUBPIXEL_POSITIONING_DISABLED
+
+	# Fundo escurecedor para destaque do tutorial (Dim Layer)
+	_dim_overlay = ColorRect.new()
+	_dim_overlay.name = "DimOverlay"
+	_dim_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_dim_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_dim_overlay.color = Color(0.0, 0.0, 0.0, 0.70)
+	_dim_overlay.modulate.a = 0.0
+	_dim_overlay.visible = false
+	add_child(_dim_overlay)
 
 	# 1. Container Central Flutuante para os Textos (Sem caixa fechada)
 	_banner_container = Control.new()
@@ -175,24 +186,25 @@ func _build_ui() -> void:
 	_mobile_arrow_text.text = tr("TUTORIAL_FIRE")
 	_mobile_arrow_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_mobile_arrow_text.add_theme_font_override("font", font_impact)
-	_mobile_arrow_text.add_theme_font_size_override("font_size", 28)
+	_mobile_arrow_text.add_theme_font_size_override("font_size", 42)
 	_mobile_arrow_text.add_theme_color_override("font_color", Color(1.5, 1.1, 0.2, 1.0))
 	_mobile_arrow_text.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.95))
-	_mobile_arrow_text.add_theme_constant_override("outline_size", 8)
+	_mobile_arrow_text.add_theme_constant_override("outline_size", 12)
 	_mobile_arrow_text.add_theme_color_override("font_shadow_color", Color(1.0, 0.5, 0.0, 0.9))
-	_mobile_arrow_text.add_theme_constant_override("shadow_offset_y", 3)
+	_mobile_arrow_text.add_theme_constant_override("shadow_offset_y", 4)
+	_mobile_arrow_text.add_theme_constant_override("line_spacing", -4)
 	arrow_vbox.add_child(_mobile_arrow_text)
 
 	_mobile_arrow_label = Label.new()
 	_mobile_arrow_label.text = "🠇"
 	_mobile_arrow_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_mobile_arrow_label.add_theme_font_override("font", font_impact)
-	_mobile_arrow_label.add_theme_font_size_override("font_size", 64)
+	_mobile_arrow_label.add_theme_font_size_override("font_size", 96)
 	_mobile_arrow_label.add_theme_color_override("font_color", Color(1.5, 1.1, 0.2, 1.0))
 	_mobile_arrow_label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.95))
-	_mobile_arrow_label.add_theme_constant_override("outline_size", 10)
+	_mobile_arrow_label.add_theme_constant_override("outline_size", 14)
 	_mobile_arrow_label.add_theme_color_override("font_shadow_color", Color(1.0, 0.4, 0.0, 0.9))
-	_mobile_arrow_label.add_theme_constant_override("shadow_offset_y", 4)
+	_mobile_arrow_label.add_theme_constant_override("shadow_offset_y", 6)
 	arrow_vbox.add_child(_mobile_arrow_label)
 
 
@@ -201,9 +213,9 @@ func _process(delta: float) -> void:
 	# para que o efeito elástico e as letras cresçam com dinamismo fluido
 	var real_delta: float = (delta / maxf(Engine.time_scale, 0.05)) if Engine.time_scale < 0.9 else delta
 
-	# Fade de transparência
+	# Fade de transparência (30% da velocidade anterior)
 	if _banner_container:
-		_current_alpha = move_toward(_current_alpha, _target_alpha, 6.0 * real_delta)
+		_current_alpha = move_toward(_current_alpha, _target_alpha, 1.8 * real_delta)
 		_banner_container.modulate.a = _current_alpha
 		_banner_container.visible = (_current_alpha > 0.01)
 
@@ -224,9 +236,13 @@ func _process(delta: float) -> void:
 		_pulse_timer += real_delta * 9.0
 		var wave := (sin(_pulse_timer) + 1.0) * 0.5 # 0.0 a 1.0
 
+		if _dim_overlay:
+			_dim_overlay.visible = true
+			_dim_overlay.modulate.a = move_toward(_dim_overlay.modulate.a, 1.0, 4.0 * real_delta)
+
 		if _prompt_panel_ref and is_instance_valid(_prompt_panel_ref):
 			_prompt_panel_ref.pivot_offset = _prompt_panel_ref.size * 0.5
-			# Pisca o botão com brilho neon e leve aumento de escala
+			# Pisca o botão com brilho neon e aumento de escala
 			var glow_target := Color(
 				maxf(1.0, _prompt_arrow_color.r * 1.5),
 				maxf(1.0, _prompt_arrow_color.g * 1.5),
@@ -234,40 +250,49 @@ func _process(delta: float) -> void:
 				1.0
 			)
 			_prompt_panel_ref.modulate = Color.WHITE.lerp(glow_target, wave)
-			_prompt_panel_ref.scale = Vector2.ONE * lerpf(1.0, 1.10, wave)
+			_prompt_panel_ref.scale = Vector2.ONE * lerpf(1.0, 1.12, wave)
 
-			# Flecha grande e comprida com texto trazido mais para cima e para a direita
+			# Flecha grande e comprida alinhada PERFEITAMENTE SOBRE O BOTÃO
 			if _mobile_arrow_container:
 				_mobile_arrow_container.visible = true
 				var p_rect := _prompt_panel_ref.get_global_rect()
-				var w := 320.0
-				var h := 125.0
+				var w := 520.0
+				var h := 220.0 if (_mobile_arrow_text and _mobile_arrow_text.text.contains("\n")) else 170.0
 				_mobile_arrow_container.size = Vector2(w, h)
 				_mobile_arrow_container.pivot_offset = Vector2(w * 0.5, h * 0.5)
-				# Trazido para a direita (+55px) e para cima (-135px do topo do botão)
+
+				# Posição X: alinhada centralizada exatamente em cima do botão apontado
+				var button_center_x := p_rect.position.x + p_rect.size.x * 0.5
+				var target_x := button_center_x - w * 0.5
+
 				_mobile_arrow_container.global_position = Vector2(
-					p_rect.position.x + p_rect.size.x * 0.5 - w * 0.5 + 55.0,
-					p_rect.position.y - h - 15.0
+					target_x,
+					p_rect.position.y - h - 10.0
 				)
 				_mobile_arrow_container.scale = Vector2.ONE
 
-				# Apenas o TEXTO pisca (intensidade de cor e pulso suave)
+				# O TEXTO PISCA INTENSAMENTE (brilho neon + variação de escala evidente)
 				if _mobile_arrow_text:
 					var text_col := Color(
-						_prompt_arrow_color.r * (1.0 + wave * 0.3),
-						_prompt_arrow_color.g * (1.0 + wave * 0.3),
-						_prompt_arrow_color.b * (1.0 + wave * 0.3),
-						lerpf(0.55, 1.0, wave)
+						_prompt_arrow_color.r * (1.0 + wave * 0.6),
+						_prompt_arrow_color.g * (1.0 + wave * 0.6),
+						_prompt_arrow_color.b * (1.0 + wave * 0.6),
+						lerpf(0.6, 1.0, wave)
 					)
 					_mobile_arrow_text.modulate = text_col
-					_mobile_arrow_text.scale = Vector2.ONE * lerpf(0.96, 1.08, wave)
+					_mobile_arrow_text.scale = Vector2.ONE * lerpf(0.95, 1.15, wave)
 					_mobile_arrow_text.pivot_offset = _mobile_arrow_text.size * 0.5
 
-				# A SETA NÃO PISCA: mantém-se firme, visível e estática apontando para o botão
+				# A SETA FICA GIGANTE, FIRME E DESTACADA
 				if _mobile_arrow_label:
 					_mobile_arrow_label.modulate = _prompt_arrow_color
 					_mobile_arrow_label.scale = Vector2.ONE
 	else:
+		if _dim_overlay and _dim_overlay.visible:
+			_dim_overlay.modulate.a = move_toward(_dim_overlay.modulate.a, 0.0, 4.0 * real_delta)
+			if _dim_overlay.modulate.a <= 0.01:
+				_dim_overlay.visible = false
+
 		if _mobile_arrow_container and _mobile_arrow_container.visible:
 			_mobile_arrow_container.visible = false
 		if _prompt_panel_ref and is_instance_valid(_prompt_panel_ref):

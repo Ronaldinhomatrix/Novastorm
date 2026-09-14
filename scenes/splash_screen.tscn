@@ -1,0 +1,45 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/splash_screen.gd" id="1_splash"]
+[ext_resource type="Texture2D" path="res://assets/Nivora_logo.png" id="2_logo"]
+
+[sub_resource type="Environment" id="Environment_splash"]
+background_mode = 1
+background_color = Color(0.008, 0.014, 0.03, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.28, 0.31, 0.38, 1)
+ambient_light_energy = 0.55
+glow_enabled = true
+glow_intensity = 0.85
+glow_bloom = 0.25
+
+[node name="SplashScreen" type="Node3D"]
+script = ExtResource("1_splash")
+
+[node name="Camera3D" type="Camera3D" parent="."]
+fov = 60.0
+current = true
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_splash")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+light_energy = 1.4
+shadow_enabled = false
+
+[node name="Logo" type="Sprite3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -110)
+texture = ExtResource("2_logo")
+pixel_size = 0.13
+
+[node name="FlashOverlay" type="CanvasLayer" parent="."]
+layer = 50
+
+[node name="FlashRect" type="ColorRect" parent="FlashOverlay"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(1, 1, 1, 0)

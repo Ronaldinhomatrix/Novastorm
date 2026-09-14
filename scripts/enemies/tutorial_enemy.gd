@@ -22,6 +22,7 @@ var _is_holding_formation: bool = false
 
 
 func _ready() -> void:
+	add_to_group("tutorial_enemies")
 	max_hp = 1
 	current_hp = 1
 	score_value = 100

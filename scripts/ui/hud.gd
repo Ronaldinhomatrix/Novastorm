@@ -123,28 +123,34 @@ func _process(delta: float) -> void:
 	# Efeito visual tático do painel e botão de mísseis (Alerta de Reload pulsante ou Lock-on ativo)
 	if missile_panel:
 		if _is_reloading_missiles:
-			# Frequência de pulso acelera conforme a recarga avança (de 6.0 rad/s até 16.0 rad/s)
-			var pulse_speed := lerpf(6.5, 15.0, _current_reload_progress)
+			# Frequência de pulso acelera conforme a recarga avança (de 6.5 rad/s até 16.0 rad/s)
+			var pulse_speed := lerpf(6.5, 16.0, _current_reload_progress)
 			_missile_reload_pulse_time += delta * pulse_speed
 			var pulse_wave := (sin(_missile_reload_pulse_time) + 1.0) * 0.5  # 0.0 a 1.0
 
 			# Brilho dinâmico do painel e botão: oscila entre vermelho alerta e vermelho neon incandescente
-			var border_pulse := lerpf(1.1, 2.2, pulse_wave)
-			var shadow_spread := lerpf(8.0, 22.0, pulse_wave)
+			var border_pulse := lerpf(1.2, 2.5, pulse_wave)
+			var shadow_spread := lerpf(14.0, 32.0, pulse_wave)
 
 			if _missile_panel_sb:
 				var sb_flat := _missile_panel_sb
-				sb_flat.border_color = Color(1.0 * border_pulse, 0.18 * border_pulse, 0.12 * border_pulse, 1.0)
-				sb_flat.shadow_color = Color(1.0, 0.15, 0.1, lerpf(0.5, 0.95, pulse_wave))
+				sb_flat.border_width_left = 3
+				sb_flat.border_width_top = 3
+				sb_flat.border_width_right = 3
+				sb_flat.border_width_bottom = 3
+				sb_flat.border_color = Color(1.0 * border_pulse, 0.12 * border_pulse, 0.1 * border_pulse, 1.0)
+				sb_flat.shadow_color = Color(1.8, 0.15, 0.12, lerpf(0.65, 1.0, pulse_wave))
 				sb_flat.shadow_size = int(shadow_spread)
 
 			# Efeito de respiração suave no texto RELOADING com brilho
 			if missile_reload_label:
-				var label_glow := lerpf(0.55, 1.35, pulse_wave)
-				missile_reload_label.modulate = Color(label_glow, label_glow * 0.9, label_glow * 0.85, 1.0)
+				var label_glow := lerpf(0.6, 1.4, pulse_wave)
+				missile_reload_label.modulate = Color(label_glow, label_glow * 0.85, label_glow * 0.8, 1.0)
 
 			if missile_btn:
-				missile_btn.modulate = Color(1.0, 0.85 + 0.15 * pulse_wave, 0.85 + 0.15 * pulse_wave, 0.9)
+				# Pulso sutil no próprio botão para acompanhar o contorno
+				var btn_glow := lerpf(0.9, 1.25, pulse_wave)
+				missile_btn.modulate = Color(btn_glow, 0.75 + 0.25 * (1.0 - pulse_wave), 0.75 + 0.25 * (1.0 - pulse_wave), 1.0)
 		elif _has_locked_targets and _current_missiles > 0:
 			_missile_pulse_time += delta * 7.5
 			var pulse := (sin(_missile_pulse_time) + 1.0) * 0.5 * 0.45 + 0.85
@@ -671,6 +677,7 @@ func _update_missile_display() -> void:
 			sb.shadow_size = 4
 
 		missile_panel.add_theme_stylebox_override("panel", sb)
+		_missile_panel_sb = sb
 
 	if _is_reloading_missiles:
 		if missile_reload_label:
@@ -851,7 +858,14 @@ func stop_tutorial_laser_blink() -> void:
 func start_tutorial_missile_blink(arrow_text: String = "DISPARAR") -> void:
 	var overlay := get_tutorial_overlay()
 	if overlay and missile_panel:
-		overlay.start_mobile_button_prompt(missile_panel, arrow_text, Color(1.5, 1.1, 0.2, 1.0))
+		var txt := arrow_text
+		if txt == "MÍSSEIS CARREGANDO" or txt == "TUTORIAL_MISSILES_RELOADING" or txt == "MÍSSEIS\nCARREGANDO":
+			var translated := tr("TUTORIAL_MISSILES_RELOADING")
+			txt = translated if translated != "TUTORIAL_MISSILES_RELOADING" else "MÍSSEIS\nCARREGANDO"
+		elif txt == "DISPARAR" or txt == "TUTORIAL_FIRE":
+			var translated := tr("TUTORIAL_FIRE")
+			txt = translated if translated != "TUTORIAL_FIRE" else "DISPARAR"
+		overlay.start_mobile_button_prompt(missile_panel, txt, Color(1.5, 1.1, 0.2, 1.0))
 
 
 func stop_tutorial_missile_blink() -> void:

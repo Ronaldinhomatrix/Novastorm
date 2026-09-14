@@ -11,6 +11,7 @@ extends Node3D
 ## 100% autossuficiente (sem assets externos necessários) e otimizado para 60 FPS.
 
 @export var size_scale: float = 1.0
+@export var enable_flash: bool = true  ## se false, não cria o flash de luz (usado na splashscreen)
 
 const MAX_LIFETIME: float = 1.6
 const FLASH_DECAY: float = 0.3
@@ -189,7 +190,7 @@ func _build_smoke() -> void:
 # ---------------------------------------------------------------------------
 
 func _build_flash() -> void:
-	if _mobile:
+	if _mobile or not enable_flash:
 		return
 	var l := OmniLight3D.new()
 	l.name = "Flash"
