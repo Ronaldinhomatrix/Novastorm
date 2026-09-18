@@ -83,6 +83,22 @@ func _process(delta: float) -> void:
 		queue_redraw()
 
 
+func _draw_bordered_arc(center: Vector2, radius: float, start_angle: float, end_angle: float, point_count: int, color: Color, width: float) -> void:
+	# Contorno escuro sólido para garantir 100% de contraste sobre qualquer cenário
+	draw_arc(center, radius, start_angle, end_angle, point_count, Color(0.0, 0.0, 0.0, 0.95 * color.a), width + 3.0, true)
+	draw_arc(center, radius, start_angle, end_angle, point_count, color, width, true)
+
+
+func _draw_bordered_line(from: Vector2, to: Vector2, color: Color, width: float) -> void:
+	draw_line(from, to, Color(0.0, 0.0, 0.0, 0.95 * color.a), width + 3.0)
+	draw_line(from, to, color, width)
+
+
+func _draw_bordered_circle(center: Vector2, radius: float, color: Color) -> void:
+	draw_circle(center, radius + 1.8, Color(0.0, 0.0, 0.0, 0.95 * color.a))
+	draw_circle(center, radius, color)
+
+
 func _draw() -> void:
 	if not _camera:
 		return
@@ -91,14 +107,22 @@ func _draw() -> void:
 
 	var vp_rect := get_viewport_rect()
 	var default_font := ThemeDB.fallback_font
-	var default_font_size: int = 12
+	var is_mobile := GameConfig.is_mobile
 
-	# Efeito de piscar contínuo (Blink): modula transparência e intensidade luminosa
-	# Gera alternância rápida entre foco brilhante e semi-transparência
+	# Calibração de tamanho: no Mobile o retículo é bem maior e mais espesso para ser imediatamente visível
+	var r_base := 48.0 if is_mobile else 32.0
+	var t_width := 4.0 if is_mobile else 2.5
+	var cross_len := 24.0 if is_mobile else 18.0
+	var cross_g := 9.0 if is_mobile else 6.0
+	var corner_l := 16.0 if is_mobile else 10.0
+	var tick_l := 8.0 if is_mobile else 5.0
+	var font_sz := 16 if is_mobile else 12
+
+	# Efeito de piscar luminoso contínuo (Blink): nunca fica invisível (oscila entre 0.72 e 1.0)
 	var blink_cycle := sin(_anim_time)
 	var is_blink_on := blink_cycle > -0.2
-	var blink_alpha := 1.0 if is_blink_on else 0.35
-	var outer_pulse := (blink_cycle + 1.0) * 0.5 * 4.0
+	var blink_alpha := 1.0 if is_blink_on else 0.72
+	var outer_pulse := (blink_cycle + 1.0) * 0.5 * (6.0 if is_mobile else 4.0)
 
 	for i in range(_targets.size()):
 		var target := _targets[i]
@@ -117,49 +141,50 @@ func _draw() -> void:
 		if not vp_rect.has_point(screen_pos):
 			continue
 
-		var c_ring := color_locked
-		c_ring.a *= blink_alpha
-		var c_cross := color_cross
-		c_cross.a *= blink_alpha
+		# Cores de alta emissividade com pulso
+		var c_ring := Color(1.2, 0.28, 0.15, blink_alpha)
+		var c_cross := Color(1.2, 1.0, 0.25, blink_alpha)
 
-		var r := reticle_radius + (outer_pulse if is_blink_on else 0.0)
+		var r := r_base + (outer_pulse if is_blink_on else 0.0)
 
-		# 1. Círculo principal da mira
-		draw_arc(screen_pos, r, 0.0, TAU, 36, c_ring, line_thickness, true)
+		# 0. Disco de mira semi-transparente escurecido para isolar o alvo do fundo desértico
+		draw_circle(screen_pos, r, Color(0.01, 0.03, 0.06, 0.32 * blink_alpha))
 
-		# 2. Círculo interno tático (anel secundário pontilhado ou menor)
-		draw_arc(screen_pos, r * 0.45, 0.0, TAU, 24, Color(c_ring.r, c_ring.g, c_ring.b, c_ring.a * 0.6), 1.2, true)
+		# 1. Círculo principal da mira com contorno escuro nítido
+		_draw_bordered_arc(screen_pos, r, 0.0, TAU, 40, c_ring, t_width)
+
+		# 2. Círculo interno tático
+		_draw_bordered_arc(screen_pos, r * 0.52, 0.0, TAU, 28, Color(c_ring.r, c_ring.g, c_ring.b, c_ring.a * 0.75), t_width * 0.6)
 
 		# 3. Ponto central
-		draw_circle(screen_pos, 2.5, c_cross)
+		_draw_bordered_circle(screen_pos, 4.0 if is_mobile else 2.8, c_cross)
 
-		# 4. Cruz da mira (4 segmentos saindo a partir de cross_gap até cross_length)
-		var t := line_thickness
-		var g := cross_gap
-		var l := cross_length
+		# 4. Cruz da mira com contorno
+		var t := t_width
+		var g := cross_g
+		var l := cross_len
 
 		# Linha de Cima
-		draw_line(screen_pos + Vector2(0, -g), screen_pos + Vector2(0, -g - l), c_cross, t)
+		_draw_bordered_line(screen_pos + Vector2(0, -g), screen_pos + Vector2(0, -g - l), c_cross, t)
 		# Linha de Baixo
-		draw_line(screen_pos + Vector2(0, g), screen_pos + Vector2(0, g + l), c_cross, t)
+		_draw_bordered_line(screen_pos + Vector2(0, g), screen_pos + Vector2(0, g + l), c_cross, t)
 		# Linha da Esquerda
-		draw_line(screen_pos + Vector2(-g, 0), screen_pos + Vector2(-g - l, 0), c_cross, t)
+		_draw_bordered_line(screen_pos + Vector2(-g, 0), screen_pos + Vector2(-g - l, 0), c_cross, t)
 		# Linha da Direita
-		draw_line(screen_pos + Vector2(g, 0), screen_pos + Vector2(g + l, 0), c_cross, t)
+		_draw_bordered_line(screen_pos + Vector2(g, 0), screen_pos + Vector2(g + l, 0), c_cross, t)
 
-		# 5. Marcadores angulares nos 4 cantos do círculo (marcações táticas militares)
-		var tick_len := 4.5
-		draw_line(screen_pos + Vector2(0, -r), screen_pos + Vector2(0, -r + tick_len), c_cross, t)
-		draw_line(screen_pos + Vector2(0, r), screen_pos + Vector2(0, r - tick_len), c_cross, t)
-		draw_line(screen_pos + Vector2(-r, 0), screen_pos + Vector2(-r + tick_len, 0), c_cross, t)
-		draw_line(screen_pos + Vector2(r, 0), screen_pos + Vector2(r - tick_len, 0), c_cross, t)
+		# 5. Marcadores angulares militares
+		_draw_bordered_line(screen_pos + Vector2(0, -r), screen_pos + Vector2(0, -r + tick_l), c_cross, t)
+		_draw_bordered_line(screen_pos + Vector2(0, r), screen_pos + Vector2(0, r - tick_l), c_cross, t)
+		_draw_bordered_line(screen_pos + Vector2(-r, 0), screen_pos + Vector2(-r + tick_l, 0), c_cross, t)
+		_draw_bordered_line(screen_pos + Vector2(r, 0), screen_pos + Vector2(r - tick_l, 0), c_cross, t)
 
-		# 6. Rótulo de travamento com ordem de disparo (T-1, T-2, T-3)
-		if is_blink_on:
-			var label_text := "LOCK // T-%d" % (i + 1)
-			var text_pos := Vector2(screen_pos.x - 30.0, screen_pos.y + r + 16.0)
-			if default_font:
-				draw_string(default_font, text_pos, label_text, HORIZONTAL_ALIGNMENT_CENTER, 60, default_font_size, c_ring)
+		# 6. Rótulo de travamento com contorno escuro grosso
+		var label_text := "LOCK // T-%d" % (i + 1)
+		var text_pos := Vector2(screen_pos.x - 60.0, screen_pos.y + r + (20.0 if is_mobile else 15.0))
+		if default_font:
+			draw_string_outline(default_font, text_pos, label_text, HORIZONTAL_ALIGNMENT_CENTER, 120, font_sz, 5, Color(0.0, 0.0, 0.0, 0.95))
+			draw_string(default_font, text_pos, label_text, HORIZONTAL_ALIGNMENT_CENTER, 120, font_sz, c_cross)
 
 	# Desenha alvos em processo de aquisição (Marcados / Tagged - Aguardando confirmação)
 	for a_target in _acquiring.keys():
@@ -176,38 +201,36 @@ func _draw() -> void:
 			continue
 
 		var progress: float = clampf(_acquiring[a_target] / 1.0, 0.0, 1.0)
-		var c_acq := color_acquiring
-		# Efeito de mira fechando/focando conforme aproxima de 1.0s
-		var ar := reticle_radius * lerpf(1.35, 1.0, progress)
+		# Ciano elétrico com alto contraste em relação ao canyon desértico
+		var c_col := Color(0.2, 0.95, 1.2, 0.95)
+		var ar := r_base * lerpf(1.4, 1.0, progress)
 
-		# 4 cantos de mira quadrada em aproximação (Target Acquired/Tracking)
-		var corner_len := 9.0
-		var c_col := Color(c_acq.r, c_acq.g, c_acq.b, 0.85)
-
+		# 4 cantos de mira quadrada em aproximação com contorno escuro
 		# Canto Superior Esquerdo
-		draw_line(a_screen + Vector2(-ar, -ar), a_screen + Vector2(-ar + corner_len, -ar), c_col, 2.0)
-		draw_line(a_screen + Vector2(-ar, -ar), a_screen + Vector2(-ar, -ar + corner_len), c_col, 2.0)
+		_draw_bordered_line(a_screen + Vector2(-ar, -ar), a_screen + Vector2(-ar + corner_l, -ar), c_col, t_width)
+		_draw_bordered_line(a_screen + Vector2(-ar, -ar), a_screen + Vector2(-ar, -ar + corner_l), c_col, t_width)
 
 		# Canto Superior Direito
-		draw_line(a_screen + Vector2(ar, -ar), a_screen + Vector2(ar - corner_len, -ar), c_col, 2.0)
-		draw_line(a_screen + Vector2(ar, -ar), a_screen + Vector2(ar, -ar + corner_len), c_col, 2.0)
+		_draw_bordered_line(a_screen + Vector2(ar, -ar), a_screen + Vector2(ar - corner_l, -ar), c_col, t_width)
+		_draw_bordered_line(a_screen + Vector2(ar, -ar), a_screen + Vector2(ar, -ar + corner_l), c_col, t_width)
 
 		# Canto Inferior Esquerdo
-		draw_line(a_screen + Vector2(-ar, ar), a_screen + Vector2(-ar + corner_len, ar), c_col, 2.0)
-		draw_line(a_screen + Vector2(-ar, ar), a_screen + Vector2(-ar, ar - corner_len), c_col, 2.0)
+		_draw_bordered_line(a_screen + Vector2(-ar, ar), a_screen + Vector2(-ar + corner_l, ar), c_col, t_width)
+		_draw_bordered_line(a_screen + Vector2(-ar, ar), a_screen + Vector2(-ar, ar - corner_l), c_col, t_width)
 
 		# Canto Inferior Direito
-		draw_line(a_screen + Vector2(ar, ar), a_screen + Vector2(ar - corner_len, ar), c_col, 2.0)
-		draw_line(a_screen + Vector2(ar, ar), a_screen + Vector2(ar, ar - corner_len), c_col, 2.0)
+		_draw_bordered_line(a_screen + Vector2(ar, ar), a_screen + Vector2(ar - corner_l, ar), c_col, t_width)
+		_draw_bordered_line(a_screen + Vector2(ar, ar), a_screen + Vector2(ar, ar - corner_l), c_col, t_width)
 
-		# Arco circular de progresso (carregando até fechar o círculo e travar)
-		draw_arc(a_screen, ar * 0.75, -PI * 0.5, -PI * 0.5 + (TAU * progress), 28, c_col, 1.5, true)
+		# Arco circular de progresso (carregando até travar)
+		_draw_bordered_arc(a_screen, ar * 0.72, -PI * 0.5, -PI * 0.5 + (TAU * progress), 32, c_col, t_width * 0.75)
 
 		# Ponto central
-		draw_circle(a_screen, 2.0, c_col)
+		_draw_bordered_circle(a_screen, 3.5 if is_mobile else 2.2, c_col)
 
-		# Rótulo de aquisição
-		var acq_label := "TRACKING"
-		var acq_text_pos := Vector2(a_screen.x - 30.0, a_screen.y + ar + 14.0)
+		# Rótulo de aquisição com contorno
+		var acq_label := "TRACKING (%.0f%%)" % (progress * 100.0)
+		var acq_text_pos := Vector2(a_screen.x - 60.0, a_screen.y + ar + (18.0 if is_mobile else 14.0))
 		if default_font:
-			draw_string(default_font, acq_text_pos, acq_label, HORIZONTAL_ALIGNMENT_CENTER, 60, 10, c_col)
+			draw_string_outline(default_font, acq_text_pos, acq_label, HORIZONTAL_ALIGNMENT_CENTER, 120, font_sz - 2, 4, Color(0.0, 0.0, 0.0, 0.95))
+			draw_string(default_font, acq_text_pos, acq_label, HORIZONTAL_ALIGNMENT_CENTER, 120, font_sz - 2, c_col)

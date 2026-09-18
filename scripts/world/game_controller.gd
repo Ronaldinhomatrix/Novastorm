@@ -267,6 +267,12 @@ func _ready():
 
 	# Aplica o padrão oficial global de enquadramento de câmera e posição do player
 	CameraConfig.apply_standard_setup(camera, player)
+	if camera:
+		_default_camera_pos = camera.position
+		_default_camera_rot = camera.rotation
+	if GameConfig.is_mobile:
+		dynamic_camera_base_distance = CameraConfig.DYNAMIC_CAMERA_BASE_DISTANCE_MOBILE
+		_current_camera_distance = dynamic_camera_base_distance
 
 	# Configura o ouvinte de áudio 3D na câmera.
 	_setup_audio_listener()
@@ -702,13 +708,18 @@ func _handle_convoy_logic() -> void:
 		for tank in _convoy_regular_tanks:
 			if is_instance_valid(tank):
 				tank.active_move = in_convoy_window
-				tank.can_shoot = in_convoy_window
+				# Apenas tanques possuem canhão: os caminhões do comboio (EnemyTruck)
+				# são veículos de transporte e não têm a propriedade can_shoot.
+				if tank is EnemyTank:
+					tank.can_shoot = in_convoy_window
 
 	if in_bridge_window != _prev_bridge_window:
 		_prev_bridge_window = in_bridge_window
 		for tank in _convoy_bridge_tanks:
 			if is_instance_valid(tank):
-				tank.can_shoot = in_bridge_window
+				# Guarda de tipo: EnemyTruck não possui a propriedade can_shoot.
+				if tank is EnemyTank:
+					tank.can_shoot = in_bridge_window
 
 
 func _update_mothership_rotation() -> void:
@@ -803,6 +814,9 @@ func _get_terrain_node() -> Node:
 
 const TERRAIN_PC_PATH := "res://assets/materials/terrain_detailed_pc.tres"
 const TERRAIN_MOBILE_PATH := "res://assets/materials/terrain_detailed_mobile.tres"
+## Nó do cânion construído por código (mesh assado a partir do CanyonMeshGenerator)
+## que recebe o mesmo material do terreno baixado para não destoar do cenário.
+const PROCEDURAL_CANYON_NODE := "TutorialCanyon"
 const SettingsMenuScript := preload("res://scripts/ui/settings_menu.gd")
 
 var _settings_menu: CanvasLayer = null
@@ -855,6 +869,17 @@ func _apply_graphics_settings() -> void:
 	if world_env and world_env.environment:
 		if enable_depth_fog:
 			CameraConfig.apply_depth_fog(world_env.environment, target_far)
+
+		# Ajuste de contraste para mobile: compensa a ausência de SSAO e sombras do terreno
+		# sem usar ACES nem aumentar exposição (evitando imagem estourada/esbranquiçada).
+		if is_mobile:
+			world_env.environment.adjustment_enabled = true
+			world_env.environment.adjustment_contrast = 1.14
+			world_env.environment.adjustment_saturation = 1.16
+			world_env.environment.adjustment_brightness = 0.97
+		else:
+			world_env.environment.adjustment_enabled = false
+
 		world_env.environment.glow_enabled = UserSettings.get_glow()
 		if UserSettings.get_glow() and is_mobile:
 			# Glow mais leve no mobile (menos intensidade/bloom), preservando o
@@ -875,9 +900,20 @@ func _apply_graphics_settings() -> void:
 
 
 func _apply_scenery_materials_and_shadows(mat: Material, shadow_setting: GeometryInstance3D.ShadowCastingSetting) -> void:
+	# Recebem o material por plataforma o terreno baixado (GrandCanyon/Mountains1)
+	# e também o cânion construído por código (TutorialCanyon, mesh assado a partir
+	# do CanyonMeshGenerator). Antes o cânion por código ficava com
+	# terrain_detailed.tres e destoava do restante do cenário.
+	var material_roots: Array[Node] = []
 	var mountains := _get_terrain_node()
 	if mountains:
-		var stack: Array = [mountains]
+		material_roots.append(mountains)
+	var procedural_canyon := get_node_or_null(PROCEDURAL_CANYON_NODE)
+	if procedural_canyon:
+		material_roots.append(procedural_canyon)
+
+	for root_node in material_roots:
+		var stack: Array = [root_node]
 		while stack.size() > 0:
 			var node: Node = stack.pop_back()
 			if node is MeshInstance3D:

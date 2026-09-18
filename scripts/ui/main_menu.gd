@@ -31,6 +31,13 @@ const STAR_COUNT_PC     := 140
 const STAR_COUNT_MOBILE := 50
 
 
+## Duração do fade-in lento da tela inicial (segundos).
+@export var main_menu_fade_in_duration: float = 8.0
+
+## Overlay temporário que faz o fade-in lento cobrir toda a tela em _ready().
+var _startup_overlay: ColorRect = null
+
+
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_build_bg_texture()
@@ -44,7 +51,9 @@ func _ready() -> void:
 	_generate_stars()
 	_build_ui()
 	_setup_settings_menu()
+	_startup_overlay = _make_full_fade_overlay()
 	_start_animations()
+	_start_fade_in()
 
 
 func _build_bg_texture() -> void:
@@ -169,8 +178,8 @@ func _draw_glow(center: Vector2, radius: float, col: Color) -> void:
 
 func _draw_planet(sz: Vector2) -> void:
 	var cx: float = sz.x * 0.50
-	var cy: float = sz.y * 1.40
-	var r: float  = sz.y * 0.72
+	var cy: float = (sz.y * 1.34) if GameConfig.is_mobile else (sz.y * 1.40)
+	var r: float  = (sz.y * 0.78) if GameConfig.is_mobile else (sz.y * 0.72)
 
 	# Corpo do planeta (espaço ocupado em azul-marinho muito escuro)
 	draw_circle(Vector2(cx, cy), r, Color(0.008, 0.015, 0.035, 0.92))
@@ -227,6 +236,27 @@ func _draw_shooting_stars() -> void:
 		draw_line(tail, head, Color(0.85, 0.95, 1.0, a * 0.70), 1.6)
 		draw_circle(head, 2.4, Color(1.0, 1.0, 1.0, a))
 
+func _make_full_fade_overlay() -> ColorRect:
+	var overlay := ColorRect.new()
+	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.color = Color(0, 0, 0, 1.0)
+	overlay.z_index = 200
+	add_child(overlay)
+	return overlay
+
+
+func _start_fade_in() -> void:
+	if not _startup_overlay:
+		return
+	var tw := create_tween()
+	tw.set_trans(Tween.TRANS_SINE)
+	tw.set_ease(Tween.EASE_IN_OUT)
+	tw.tween_property(_startup_overlay, "color:a", 0.0, main_menu_fade_in_duration) \
+		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tw.tween_callback(func():
+		_startup_overlay.queue_free()
+		_startup_overlay = null
+	)
 
 func _build_ui() -> void:
 	var center := CenterContainer.new()
@@ -237,42 +267,45 @@ func _build_ui() -> void:
 	var vbox := VBoxContainer.new()
 	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
 	vbox.add_theme_constant_override("separation", 0)
-	vbox.custom_minimum_size = Vector2(460, 0)
+	var vbox_w: float = 960.0 if GameConfig.is_mobile else 460.0
+	vbox.custom_minimum_size = Vector2(vbox_w, 0)
 	center.add_child(vbox)
 
 	# Título com alto contraste luminoso no fundo escuro
 	_title = Label.new()
 	_title.text = tr("MENU_TITLE")
 	_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_title.add_theme_font_size_override("font_size", 84)
+	var title_size: int = 140 if GameConfig.is_mobile else 84
+	_title.add_theme_font_size_override("font_size", title_size)
 	_title.add_theme_color_override("font_color",         Color(0.40, 0.95, 1.00))
 	_title.add_theme_color_override("font_outline_color", Color(0.00, 0.35, 0.75, 1.0))
-	_title.add_theme_constant_override("outline_size",    14)
+	_title.add_theme_constant_override("outline_size",    22 if GameConfig.is_mobile else 14)
 	_title.add_theme_color_override("font_shadow_color",  Color(0.00, 0.65, 1.00, 0.85))
 	_title.add_theme_constant_override("shadow_offset_x", 0)
-	_title.add_theme_constant_override("shadow_offset_y", 4)
-	_title.add_theme_constant_override("shadow_outline_size", 10)
+	_title.add_theme_constant_override("shadow_offset_y", 6 if GameConfig.is_mobile else 4)
+	_title.add_theme_constant_override("shadow_outline_size", 14 if GameConfig.is_mobile else 10)
 	vbox.add_child(_title)
 
 	var subtitle := Label.new()
 	subtitle.text = tr("MENU_SUBTITLE")
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	subtitle.add_theme_font_size_override("font_size", 18)
+	var sub_size: int = 34 if GameConfig.is_mobile else 18
+	subtitle.add_theme_font_size_override("font_size", sub_size)
 	subtitle.add_theme_color_override("font_color", Color(0.60, 0.82, 0.96, 0.90))
 	vbox.add_child(subtitle)
 
 	var line_margin := MarginContainer.new()
-	line_margin.add_theme_constant_override("margin_top",    18)
-	line_margin.add_theme_constant_override("margin_bottom", 26)
+	line_margin.add_theme_constant_override("margin_top",    26 if GameConfig.is_mobile else 18)
+	line_margin.add_theme_constant_override("margin_bottom", 36 if GameConfig.is_mobile else 26)
 	vbox.add_child(line_margin)
 
 	_sub_line = ColorRect.new()
-	_sub_line.custom_minimum_size = Vector2(440, 2)
+	_sub_line.custom_minimum_size = Vector2(920 if GameConfig.is_mobile else 440, 4 if GameConfig.is_mobile else 2)
 	_sub_line.color = Color(0.30, 0.88, 1.0, 0.75)
 	line_margin.add_child(_sub_line)
 
 	_buttons_root = VBoxContainer.new()
-	_buttons_root.add_theme_constant_override("separation", 16)
+	_buttons_root.add_theme_constant_override("separation", 28 if GameConfig.is_mobile else 16)
 	_buttons_root.modulate.a = 0.0
 	vbox.add_child(_buttons_root)
 
@@ -285,13 +318,13 @@ func _build_ui() -> void:
 	_buttons_root.add_child(settings_btn)
 
 	var sp2 := Control.new()
-	sp2.custom_minimum_size = Vector2(0, 18)
+	sp2.custom_minimum_size = Vector2(0, 32 if GameConfig.is_mobile else 18)
 	_buttons_root.add_child(sp2)
 
 	var version := Label.new()
 	version.text = tr("MENU_VERSION")
 	version.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	version.add_theme_font_size_override("font_size", 13)
+	version.add_theme_font_size_override("font_size", 20 if GameConfig.is_mobile else 13)
 	version.add_theme_color_override("font_color", Color(0.40, 0.52, 0.68, 0.80))
 	_buttons_root.add_child(version)
 
@@ -305,8 +338,8 @@ func _build_logo() -> void:
 	var logo := TextureRect.new()
 	logo.texture = logo_tex
 	logo.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
-	logo.offset_left   = -130.0
-	logo.offset_top    = -110.0
+	logo.offset_left   = -170.0 if GameConfig.is_mobile else -130.0
+	logo.offset_top    = -140.0 if GameConfig.is_mobile else -110.0
 	logo.offset_right  = -24.0
 	logo.offset_bottom = -24.0
 	logo.expand_mode   = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
@@ -318,8 +351,11 @@ func _build_logo() -> void:
 func _make_button(label: String, font_size: int, primary: bool, cb: Callable) -> Button:
 	var btn := Button.new()
 	btn.text = label
-	btn.custom_minimum_size = Vector2(440, 66 if primary else 54)
-	btn.add_theme_font_size_override("font_size", font_size)
+	var btn_w: float = 920.0 if GameConfig.is_mobile else 440.0
+	var btn_h: float = (122.0 if primary else 100.0) if GameConfig.is_mobile else (66.0 if primary else 54.0)
+	btn.custom_minimum_size = Vector2(btn_w, btn_h)
+	var final_font_size: int = (46 if primary else 36) if GameConfig.is_mobile else font_size
+	btn.add_theme_font_size_override("font_size", final_font_size)
 	btn.pressed.connect(cb)
 	_style_button_glass(btn, primary)
 	return btn
@@ -334,12 +370,12 @@ func _style_button_glass(btn: Button, primary: bool) -> void:
 	var s := StyleBoxFlat.new()
 	s.bg_color = bg_col
 	s.border_color = bdr_col
-	s.set_border_width_all(2 if primary else 1)
-	s.border_width_top = 3 if primary else 2
-	s.set_corner_radius_all(10)
-	s.set_content_margin_all(14)
-	s.shadow_color = Color(0.0, 0.5, 0.9, 0.35 if primary else 0.15)
-	s.shadow_size = 8 if primary else 4
+	s.set_border_width_all(4 if (primary and GameConfig.is_mobile) else (2 if primary else 1))
+	s.border_width_top = 5 if (primary and GameConfig.is_mobile) else (3 if primary else 2)
+	s.set_corner_radius_all(18 if GameConfig.is_mobile else 10)
+	s.set_content_margin_all(24 if GameConfig.is_mobile else 14)
+	s.shadow_color = Color(0.0, 0.5, 0.9, 0.40 if primary else 0.20)
+	s.shadow_size = 16 if (primary and GameConfig.is_mobile) else (8 if primary else 4)
 
 	var h := s.duplicate() as StyleBoxFlat
 	h.bg_color = hov_col

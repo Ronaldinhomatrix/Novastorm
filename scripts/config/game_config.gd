@@ -23,15 +23,15 @@ var is_web: bool = false
 # Fonte única de verdade dos números de performance/qualidade do guideline.
 # O far de câmera pode ser sobrescrito por nível (ver game_controller.gd).
 
-const CAMERA_FAR_PC := 4000.0
+const CAMERA_FAR_PC := 12000.0
 const CAMERA_FAR_MOBILE := 3500.0
 const MAX_FPS_PC := 0
 const MAX_FPS_MOBILE := 60
 const RENDER_SCALE_PC := 1.0
-const RENDER_SCALE_MOBILE := 0.75
-const FSR_SHARPNESS_MOBILE := 0.3
+const RENDER_SCALE_MOBILE := 0.85
+const FSR_SHARPNESS_MOBILE := 0.8
 const SHADOW_MAX_DISTANCE_PC := 1200.0
-const SHADOW_MAX_DISTANCE_MOBILE := 100.0
+const SHADOW_MAX_DISTANCE_MOBILE := 250.0
 
 # Defaults dos toggles gráficos do usuário (usados pelo UserSettings quando o
 # jogador ainda não escolheu). O menu de opções é o MESMO nas duas plataformas.

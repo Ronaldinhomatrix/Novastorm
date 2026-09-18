@@ -12,6 +12,12 @@ enum GenerationMode {
 	HYBRID_VALLEY  ## Cânion aberto que se fecha em túnel no trecho intermediário
 }
 
+## Materiais do cenário por plataforma — os MESMOS que o GameController aplica no
+## terreno baixado (GrandCanyon / Mountains1), para que o cânion gerado por código
+## tenha exatamente a mesma textura/aparência do restante do cenário.
+const TERRAIN_PC_MATERIAL_PATH := "res://assets/materials/terrain_detailed_pc.tres"
+const TERRAIN_MOBILE_MATERIAL_PATH := "res://assets/materials/terrain_detailed_mobile.tres"
+
 @export_group("Path & Mesh References")
 @export var path_node: Path3D
 @export var terrain_material: Material
@@ -86,15 +92,17 @@ func _apply_platform_material() -> void:
 	
 	if is_mobile:
 		if mobile_material == null:
-			mobile_material = load("res://assets/materials/terrain_detailed_mobile.tres")
+			mobile_material = load(TERRAIN_MOBILE_MATERIAL_PATH)
 		base_mat = mobile_material
 	elif terrain_material:
 		base_mat = terrain_material
 	else:
-		base_mat = load("res://assets/materials/terrain_detailed.tres")
+		base_mat = load(TERRAIN_PC_MATERIAL_PATH)
 		
 	if base_mat:
-		# Duplica para configurar renderização suave sem culling de faces traseiras
+		# Duplica para não alterar o material compartilhado do cenário.
+		# StandardMaterial3D: desativa o culling das faces traseiras (paredes internas).
+		# ShaderMaterial (PC Ultra): o cull vem do shader (cull_back), igual ao terreno.
 		var mat = base_mat.duplicate()
 		if mat is StandardMaterial3D:
 			mat.cull_mode = BaseMaterial3D.CULL_DISABLED

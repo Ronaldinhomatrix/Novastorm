@@ -6,11 +6,13 @@ extends Node3D
 ## Sequência:
 ##   1. O logo Nivora (Sprite3D) surge suavemente com fade-in e realiza um zoom
 ##      contínuo e suave em direção à câmera até o instante do impacto.
-##   2. Dois mísseis rasantes de alta velocidade disparam da base da tela em sequência 1-2
+##   2. Dois mísseis rasantes de alta velocidade disparam de TRÁS da câmera em sequência 1-2
 ##      (staggered launch), deixando uma densa esteira volumétrica de fumaça branca
 ##      (baforadas tridimensionais que permanecem ancoradas no espaço do mundo).
-##   3. Os mísseis descrevem uma curva em arco pronunciada e agressiva (swoop outward aberto
-##      com banking roll aerodinâmico correto na curva), convergindo em direção ao logo central.
+##   3. Cada míssil cruza rente à câmera (passando por dentro do plano de visão, fora de quadro,
+##      e reaparecendo já colado na lente), descreve um arco pronunciado e agressivo
+##      (swoop outward aberto com banking roll aerodinâmico correto na curva)
+##      e converge em direção ao logo central.
 ##   4. No momento do impacto:
 ##      - O 1º míssil atinge o topo-esquerdo do logo: flash brilhante, som de explosão ensurdecedor,
 ##        sacudida violenta de câmera e explosão procedural em chamas.
@@ -21,7 +23,9 @@ extends Node3D
 ##      - 0.1s depois, o 2º míssil impacta na base-direita, gerando uma segunda detonação que acelera ainda
 ##        mais a dispersão de todos os fragmentos no espaço.
 ##   5. Transição suave com fade branco para res://scenes/main_menu.tscn.
-##   6. Suporte completo a skip instantâneo (qualquer tecla, clique ou toque) sem travas.
+##   6. Splashsceen OBRIGATÓRIA: não existe skip. Todo input (teclado, mouse,
+##      toque, gamepad) é consumido e o botão "voltar" do Android é bloqueado,
+##      tanto em PC quanto em Mobile.
 
 signal splash_finished
 
@@ -59,42 +63,64 @@ const MAIN_MENU_SCENE := "res://scenes/main_menu.tscn"
 @export var logo_fade_duration: float = 0.8          ## Duração do fade-in inicial do logo
 
 # ---------------------------------------------------------------------------
-# Trajetória dos mísseis (Arco Pronunciado com Banking Correto)
+# Trajetória dos mísseis (Rasante rente à câmera + Arco com Banking Correto)
 # ---------------------------------------------------------------------------
-@export_group("Missile Arc Trajectory")
+# A rota é uma spline Catmull-Rom (centrípeta) que passa exatamente por 4 waypoints:
+#   W0 nascimento (ATRÁS da câmera, fora de quadro)
+#   W1 rasante (rente à câmera, o momento em que o míssil "encosta" na lente)
+#   W2 ápice do arco aberto para fora
+#   W3 impacto no logo
+# O avanço é reparametrizado por comprimento de arco, então o míssil voa em
+# velocidade constante (sem freada/arrancada entre os trechos).
+@export_group("Missile Flyby Trajectory")
 @export_enum("Opposite Flank (Inverted)", "Cross Diagonal") var trajectory_mode: int = 0 ## Modo da curva dos mísseis
-@export var spawn_distance: float = 8.0              ## Posição Z de spawn inicial relativa à câmera
-@export var spawn_side: float = 5.2                  ## Deslocamento lateral inicial de spawn
-@export var spawn_vertical: float = 3.8              ## Deslocamento vertical inicial de spawn
-@export var arc_flare_x: float = 32.0                ## Amplitude lateral da curva aberta para fora
-@export var arc_flare_y: float = 12.0                ## Amplitude vertical da curva aberta para fora
-@export var arc_flare_z: float = 32.0                ## Posição Z do ápice da curva aberta
+@export var spawn_behind: float = 16.0               ## Distância ATRÁS da câmera onde o míssil nasce (fora de quadro)
+# IMPORTANTE: mantenha spawn_* MENOR que flyby_*. O míssil nasce perto do eixo e vai
+# abrindo sempre; se nascer mais afastado que o rasante ele "entra" antes de abrir,
+# desenhando um S (duas curvas) na tela.
+@export var spawn_side: float = 1.6                  ## Deslocamento lateral do nascimento (atrás da câmera)
+@export var spawn_vertical: float = 1.0              ## Deslocamento vertical do nascimento (atrás da câmera)
+@export var flyby_side: float = 2.4                  ## Deslocamento lateral no ponto de rasante (controla o quanto ele raspa)
+@export var flyby_vertical: float = 1.5              ## Deslocamento vertical no ponto de rasante
+@export var flyby_distance: float = 2.8              ## Distância à FRENTE da câmera onde acontece o rasante
+@export var arc_flare_x: float = 20.0                ## Amplitude lateral do ápice do arco (maior = arco mais aberto e gancho final mais fechado)
+@export var arc_flare_y: float = 1.5                 ## Altura do ápice em relação à linha de centro (o arco cruza o centro aqui)
+@export var arc_flare_z: float = 52.0                ## Posição Z do ápice da curva aberta
 @export var bank_angle_degrees: float = 50.0         ## Inclinação lateral máxima (roll) na curva
 @export var impact_offset_x: float = 0.35            ## Deslocamento X relativo do ponto de impacto
 @export var impact_offset_y: float = 0.28            ## Deslocamento Y relativo do ponto de impacto
+@export_range(32, 512, 8) var path_samples: int = 128 ## Resolução da tabela de comprimento de arco
 
 # ---------------------------------------------------------------------------
 # Visual dos Mísseis & Fumaça Volumétrica
 # ---------------------------------------------------------------------------
 @export_group("Missile & Smoke Visuals")
 @export var missile_scale: float = 1.6               ## Escala do modelo 3D do míssil na splash
-@export var missile_smoke_amount: int = 650          ## Quantidade de partículas de fumaça na esteira
-@export var missile_smoke_scale: float = 1.0         ## Fator de escala das baforadas de fumaça
+@export var missile_smoke_amount: int = 500          ## Quantidade de partículas de fumaça na esteira
+@export var missile_smoke_scale: float = 0.9         ## Fator de escala das baforadas de fumaça
 @export var missile_smoke_lifetime: float = 3.2      ## Tempo de vida da fumaça suspensa no ar
+@export var missile_smoke_opacity: float = 0.35      ## Multiplicador de opacidade da fumaça (35% = baforadas bem transparentes)
+@export var missile_smoke_growth: float = 2.4        ## Escala máxima que cada baforada atinge ao longo da vida
+@export var missile_smoke_spread: float = 0.0        ## Abertura do cone de emissão da fumaça em graus (0 = rastro reto, sem leque diagonal)
+@export var smoke_proximity_fade: float = 12.0       ## Distância (m) em que a fumaça desvanece perto da câmera (0 = desligado)
+@export var missile_smoke_preprocess: float = 0.18   ## Warm-up da esteira (s): aquece o sistema no disparo para a fumaça já nascer cheia em vez de subir do zero
 
 # ---------------------------------------------------------------------------
-# Despedaçamento 3D do Logo (Physical Shatter - Velocidade Reduzida a 1/3)
+# Despedaçamento 3D do Logo (Physical Shatter - Expansão Lenta e Majestosa)
 # ---------------------------------------------------------------------------
 @export_group("Logo Shatter")
 @export var shatter_grid_size: int = 18              ## Resolução da grade de blocos (18x18 = 324 blocos)
 @export var shatter_block_depth: float = 0.55        ## Espessura 3D de cada bloco
-@export var shatter_radial_speed_min: float = 18.0   ## Velocidade radial mínima de expansão
-@export var shatter_radial_speed_max: float = 40.0   ## Velocidade radial máxima de expansão
-@export var shatter_forward_speed_min: float = 12.0  ## Velocidade em direção à câmera mínima (+Z)
-@export var shatter_forward_speed_max: float = 30.0  ## Velocidade em direção à câmera máxima (+Z)
-@export var shatter_tumble_speed_min: float = 1.8    ## Velocidade de rotação mínima dos blocos
-@export var shatter_tumble_speed_max: float = 4.8    ## Velocidade de rotação máxima dos blocos
-@export var camera_shake_intensity: float = 6.0      ## Intensidade do shake de câmera
+@export var shatter_radial_speed_min: float = 9.0    ## Velocidade radial mínima de expansão
+@export var shatter_radial_speed_max: float = 20.0   ## Velocidade radial máxima de expansão
+@export var shatter_forward_speed_min: float = 6.0   ## Velocidade em direção à câmera mínima (+Z)
+@export var shatter_forward_speed_max: float = 15.0  ## Velocidade em direção à câmera máxima (+Z)
+@export var shatter_tumble_speed_min: float = 1.0    ## Velocidade de rotação mínima dos blocos
+@export var shatter_tumble_speed_max: float = 2.6    ## Velocidade de rotação máxima dos blocos
+@export var camera_shake_intensity: float = 2.6      ## Intensidade do shake de câmera (deslocamento em unidades)
+@export var camera_shake_roll: float = 0.006         ## Rotação (roll) máxima do shake em radianos
+@export_range(0.0, 1.0, 0.01) var impact_flash_opacity: float = 0.10 ## Opacidade do clarão branco no impacto (menor = flash mais discreto)
+@export_range(0.05, 1.0, 0.05) var explosion_brightness: float = 0.35 ## Brilho do núcleo da explosão na splash (menor = menos estourado)
 
 # ---------------------------------------------------------------------------
 # Estado Interno
@@ -118,10 +144,12 @@ var _shatter_elapsed: float = 0.0
 var _shake_time: float = 0.0
 var _shake_intensity: float = 0.0
 var _is_transitioning: bool = false
+var _prev_quit_on_go_back: bool = true
 
 
 func _ready() -> void:
 	Engine.max_fps = splash_fps
+	_lock_inputs()
 	_sound_manager = get_node_or_null("/root/SoundManager")
 	_camera = get_node_or_null("Camera3D") as Camera3D
 	if _camera:
@@ -342,16 +370,16 @@ func _launch_missile(index: int) -> void:
 	if col:
 		col.disabled = true
 	add_child(missile)
-	missile.global_position = path["p0"]
+	missile.global_position = path["points"][0]
 
 	_apply_splash_missile_look(missile)
 
 	_missiles.append({
 		"index": index,
 		"node": missile,
-		"p0": path["p0"],
-		"p1": path["p1"],
-		"p2": path["p2"],
+		"points": path["points"],
+		"arc_u": path["arc_u"],
+		"arc_cum": path["arc_cum"],
 		"p3": path["p3"],
 		"t": 0.0,
 		"flight_duration": flight_duration,
@@ -388,7 +416,7 @@ func _apply_splash_missile_look(missile: Node3D) -> void:
 		smoke.amount = int(missile_smoke_amount * 0.45) if is_mobile else missile_smoke_amount
 		smoke.lifetime = missile_smoke_lifetime
 		smoke.direction = Vector3(0.0, 0.0, 1.0)
-		smoke.spread = 16.0
+		smoke.spread = missile_smoke_spread
 		smoke.gravity = Vector3(0.0, 0.4, 0.0)
 		smoke.initial_velocity_min = 1.5
 		smoke.initial_velocity_max = 3.5
@@ -396,64 +424,200 @@ func _apply_splash_missile_look(missile: Node3D) -> void:
 		smoke.scale_amount_max = 2.4 * missile_smoke_scale
 
 		var curve := Curve.new()
-		curve.add_point(Vector2(0.0, 0.4))
-		curve.add_point(Vector2(0.15, 1.2))
-		curve.add_point(Vector2(0.5, 2.2))
-		curve.add_point(Vector2(1.0, 3.2))
+		var growth := maxf(missile_smoke_growth, 0.1)
+		curve.add_point(Vector2(0.0, 0.12 * growth))
+		curve.add_point(Vector2(0.15, 0.38 * growth))
+		curve.add_point(Vector2(0.5, 0.69 * growth))
+		curve.add_point(Vector2(1.0, growth))
 		smoke.scale_amount_curve = curve
 
+		var opacity := clampf(missile_smoke_opacity, 0.0, 1.0)
 		var ramp := Gradient.new()
 		ramp.offsets = PackedFloat32Array([0.0, 0.05, 0.15, 0.5, 0.8, 1.0])
 		ramp.colors = PackedColorArray([
-			Color(2.2, 1.4, 0.4, 0.95),    # Chama inicial do propulsor
-			Color(1.1, 0.7, 0.2, 0.85),    # Borda incandescente
-			Color(0.95, 0.95, 0.98, 0.85), # Baforada branca densa
-			Color(0.8, 0.82, 0.85, 0.65),  # Nuvem volumétrica cinza
-			Color(0.5, 0.52, 0.55, 0.35),  # Fumaça dispersando
-			Color(0.25, 0.26, 0.28, 0.0)   # Dissipação total
+			Color(2.2, 1.4, 0.4, 0.95 * opacity),    # Chama inicial do propulsor
+			Color(1.1, 0.7, 0.2, 0.85 * opacity),    # Borda incandescente
+			Color(0.95, 0.95, 0.98, 0.85 * opacity), # Baforada branca densa
+			Color(0.8, 0.82, 0.85, 0.65 * opacity),  # Nuvem volumétrica cinza
+			Color(0.5, 0.52, 0.55, 0.35 * opacity),  # Fumaça dispersando
+			Color(0.25, 0.26, 0.28, 0.0)             # Dissipação total
 		])
 		smoke.color_ramp = ramp
 
+		_apply_smoke_proximity_fade(smoke)
 
-## Calcula a curva Bézier cúbica com o arco agressivo 100% visível em tela e banking correto.
+		# Warm-up da esteira: o Godot só aquece o sistema quando ele (re)inicia com o
+		# relógio interno zerado (cpu_particles_3d.cpp: _update_internal() roda
+		# `todo = pre_process_time` apenas quando time == 0) e set_pre_process_time()
+		# por si só não reinicia nada. Como o míssil já entrou na árvore emitindo com
+		# preprocess = 0, o restart() é obrigatório para o warm-up realmente rodar.
+		#
+		# MEDIDO (PC, 1920x1080, frames congelados): o warm-up aquece o sistema na
+		# posição ATUAL do emissor — no W0 isso é 16 m ATRÁS da câmera, fora de quadro.
+		# Ele NÃO pré-preenche a esteira visível: os frames em t=2,62 s (míssil cruzando
+		# a lente, ainda sem fumaça) e em t=3,00 s ficaram visualmente idênticos com
+		# preprocess 0,0 / 0,18 / 4,0. A esteira visível é, por definição, o histórico das
+		# posições do míssil À FRENTE da câmera. O parâmetro fica exposto para ajuste e
+		# experimentação; para a fumaça "aparecer mais cedo" o que pesa é densidade
+		# (missile_smoke_amount) e smoke_proximity_fade.
+		smoke.preprocess = maxf(missile_smoke_preprocess, 0.0)
+		if smoke.preprocess > 0.0:
+			smoke.restart()
+
+
+## Aplica "proximity fade" à fumaça da splash.
+##
+## A esteira fica ancorada no espaço do mundo (local_coords = false). Como os mísseis
+## agora passam rente à câmera, as baforadas emitidas perto da lente crescem até ~6
+## unidades e acabam "lavando" a tela inteira, escondendo o logo. O proximity fade
+## desvanece apenas o que está colado na câmera, preservando a esteira em si.
+##
+## O material é duplicado (malha + material) para NÃO afetar o míssil de gameplay,
+## que compartilha o mesmo recurso de cena.
+func _apply_smoke_proximity_fade(smoke: CPUParticles3D) -> void:
+	if smoke_proximity_fade <= 0.0 or not smoke.mesh:
+		return
+
+	var mesh_dup := smoke.mesh.duplicate() as PrimitiveMesh
+	if not mesh_dup:
+		return
+
+	var mat := mesh_dup.material
+	var mat_dup: StandardMaterial3D
+	if mat:
+		mat_dup = mat.duplicate() as StandardMaterial3D
+	else:
+		mat_dup = StandardMaterial3D.new()
+	if not mat_dup:
+		return
+	mat_dup.proximity_fade_enabled = true
+	mat_dup.proximity_fade_distance = smoke_proximity_fade
+	mesh_dup.material = mat_dup
+	smoke.mesh = mesh_dup
+
+
+## Monta os 4 waypoints da rota do míssil e pré-calcula a tabela de comprimento de arco.
 func _compute_missile_path(index: int) -> Dictionary:
-	# Míssil 0: Canto inferior-esquerdo (X negativo, Y negativo)
-	# Míssil 1: Canto superior-direito (X positivo, Y positivo) - totalmente oposto!
+	# Míssil 0: nasce atrás/baixo-esquerda  |  Míssil 1: nasce atrás/cima-direita
 	var sign_x := -1.0 if index == 0 else 1.0
 	var sign_y := -1.0 if index == 0 else 1.0
 	var logo_half := _get_logo_half()
 
-	# P0: Nascendo nos cantos totalmente opostos da tela visíveis pela câmera
-	var p0 := Vector3(sign_x * spawn_side, sign_y * spawn_vertical, -spawn_distance)
+	# W0: nasce ATRÁS da câmera (z positivo), deslocado para fora do quadro.
+	var w0 := Vector3(sign_x * spawn_side, sign_y * spawn_vertical, spawn_behind)
 
-	# P1: Abre em arco pronunciado para a borda lateral externa
-	var p1 := Vector3(sign_x * arc_flare_x, sign_y * arc_flare_y, -arc_flare_z)
+	# W1: rasante — passa raspando pela câmera, logo à frente da lente.
+	var w1 := Vector3(sign_x * flyby_side, sign_y * flyby_vertical, -flyby_distance)
 
-	var p2: Vector3
-	var p3: Vector3
+	var w2: Vector3
+	var w3: Vector3
 
 	if trajectory_mode == 0:
 		# Modo 0: Flancos opostos (Inversão Rotacional)
-		# Míssil 0 (baixo-esquerda) curva e sobe atingindo o topo-esquerdo do logo
-		# Míssil 1 (cima-direita) curva e desce atingindo a base-direita do logo
-		p2 = Vector3(sign_x * 16.0, -sign_y * 14.0, -logo_distance * 0.65)
-		p3 = Vector3(
+		# O arco abre para FORA no eixo X e cruza a linha de centro no eixo Y,
+		# fechando num gancho suave em direção ao logo (sem "mergulhar" abaixo).
+		w2 = Vector3(sign_x * arc_flare_x, -sign_y * arc_flare_y, -arc_flare_z)
+		w3 = Vector3(
 			sign_x * (logo_half * impact_offset_x),
 			-sign_y * (logo_half * impact_offset_y),
 			-logo_distance
 		)
 	else:
 		# Modo 1: Cruzamento Diagonal
-		# Míssil 0 (baixo-esquerda) cruza em arco para a base-direita do logo
-		# Míssil 1 (cima-direita) cruza em arco para o topo-esquerdo do logo
-		p2 = Vector3(-sign_x * 6.0, sign_y * 14.0, -logo_distance * 0.65)
-		p3 = Vector3(
+		# Mesmo arco, porém cruzando já o eixo X no ápice.
+		w2 = Vector3(-sign_x * arc_flare_x, -sign_y * arc_flare_y, -arc_flare_z)
+		w3 = Vector3(
 			-sign_x * (logo_half * impact_offset_x),
-			sign_y * (logo_half * impact_offset_y),
+			-sign_y * (logo_half * impact_offset_y),
 			-logo_distance
 		)
 
-	return {"p0": p0, "p1": p1, "p2": p2, "p3": p3}
+	var points := PackedVector3Array([w0, w1, w2, w3])
+	var arc := _build_arc_table(points, path_samples)
+	return {"points": points, "arc_u": arc[0], "arc_cum": arc[1], "p3": w3}
+
+
+## Pré-calcula t -> comprimento de arco acumulado, permitindo vôo em velocidade constante.
+func _build_arc_table(points: PackedVector3Array, samples: int) -> Array:
+	var total := maxi(samples, 8)
+	var us := PackedFloat32Array()
+	var cum := PackedFloat32Array()
+	var prev := _catmull_rom(points, 0.0)
+	us.append(0.0)
+	cum.append(0.0)
+	for i in range(1, total + 1):
+		var u := float(i) / float(total)
+		var p := _catmull_rom(points, u)
+		us.append(u)
+		cum.append(cum[cum.size() - 1] + prev.distance_to(p))
+		prev = p
+	return [us, cum]
+
+
+## Converte o tempo normalizado (0..1) no parâmetro u da spline, por comprimento de arco.
+func _arc_u_at(m: Dictionary, t: float) -> float:
+	var cum: PackedFloat32Array = m["arc_cum"]
+	var us: PackedFloat32Array = m["arc_u"]
+	var last := cum.size() - 1
+	var target := clampf(t, 0.0, 1.0) * cum[last]
+	var lo := 0
+	var hi := last
+	while lo < hi - 1:
+		var mid := int((lo + hi) * 0.5)
+		if cum[mid] <= target:
+			lo = mid
+		else:
+			hi = mid
+	var span := cum[hi] - cum[lo]
+	var w := 0.0 if span < 0.000001 else (target - cum[lo]) / span
+	return lerpf(us[lo], us[hi], w)
+
+
+## Spline Catmull-Rom centrípeta: passa exatamente por todos os waypoints da rota.
+func _catmull_rom(points: PackedVector3Array, t: float) -> Vector3:
+	var count := points.size()
+	if count == 0:
+		return Vector3.ZERO
+	if count == 1:
+		return points[0]
+
+	var segments := count - 1
+	var scaled := clampf(t, 0.0, 1.0) * float(segments)
+	var seg := mini(int(scaled), segments - 1)
+	var local := scaled - float(seg)
+
+	var p0 := points[maxi(seg - 1, 0)]
+	var p1 := points[seg]
+	var p2 := points[seg + 1]
+	var p3 := points[mini(seg + 2, count - 1)]
+	return _catmull_rom_segment(p0, p1, p2, p3, local)
+
+
+func _catmull_rom_segment(p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3, t: float) -> Vector3:
+	# Nós centrípetos (alpha = 0.5): evita laços e overshoot quando os trechos
+	# têm comprimentos muito diferentes (nascimento curto x arco longo).
+	var t0 := 0.0
+	var t1 := t0 + _knot_delta(p0, p1)
+	var t2 := t1 + _knot_delta(p1, p2)
+	var t3 := t2 + _knot_delta(p2, p3)
+	var tt := t1 + (t2 - t1) * t
+	var a1 := _knot_lerp(p0, p1, t0, t1, tt)
+	var a2 := _knot_lerp(p1, p2, t1, t2, tt)
+	var a3 := _knot_lerp(p2, p3, t2, t3, tt)
+	var b1 := _knot_lerp(a1, a2, t0, t2, tt)
+	var b2 := _knot_lerp(a2, a3, t1, t3, tt)
+	return _knot_lerp(b1, b2, t1, t2, tt)
+
+
+func _knot_delta(a: Vector3, b: Vector3) -> float:
+	return maxf(sqrt(a.distance_to(b)), 0.000001)
+
+
+func _knot_lerp(a: Vector3, b: Vector3, ta: float, tb: float, tt: float) -> Vector3:
+	var span := tb - ta
+	if absf(span) < 0.000001:
+		return a
+	return a * ((tb - tt) / span) + b * ((tt - ta) / span)
 
 
 # ---------------------------------------------------------------------------
@@ -487,39 +651,27 @@ func _update_missiles(delta: float) -> void:
 
 func _advance_missile(m: Dictionary) -> void:
 	var t: float = m["t"]
-	var p0: Vector3 = m["p0"]
-	var p1: Vector3 = m["p1"]
-	var p2: Vector3 = m["p2"]
-	var p3: Vector3 = m["p3"]
+	var points: PackedVector3Array = m["points"]
 
-	var pos := _cubic_bezier(p0, p1, p2, p3, t)
-	var tangent := _cubic_bezier_tangent(p0, p1, p2, p3, t)
+	var pos := _catmull_rom(points, _arc_u_at(m, t))
 
 	var node: Node3D = m["node"]
 	if not is_instance_valid(node):
 		return
 
 	node.global_position = pos
+
+	# Tangente por diferença central no parâmetro da spline (estável nas pontas).
+	var eps := 0.01
+	var u_prev := _arc_u_at(m, maxf(t - eps, 0.0))
+	var u_next := _arc_u_at(m, minf(t + eps, 1.0))
+	var tangent := _catmull_rom(points, u_next) - _catmull_rom(points, u_prev)
 	if not tangent.is_zero_approx():
 		node.look_at(pos + tangent, Vector3.UP)
 		var sign_x := -1.0 if m["index"] == 0 else 1.0
 		# Banking roll aerodinâmico correto (inclina para o lado da curva)
 		var roll := sign_x * deg_to_rad(bank_angle_degrees) * sin(t * PI)
 		node.rotate_object_local(Vector3.FORWARD, roll)
-
-
-func _cubic_bezier(p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3, t: float) -> Vector3:
-	var u := 1.0 - t
-	var uu := u * u
-	var uuu := uu * u
-	var tt := t * t
-	var ttt := tt * t
-	return uuu * p0 + 3.0 * uu * t * p1 + 3.0 * u * tt * p2 + ttt * p3
-
-
-func _cubic_bezier_tangent(p0: Vector3, p1: Vector3, p2: Vector3, p3: Vector3, t: float) -> Vector3:
-	var u := 1.0 - t
-	return 3.0 * u * u * (p1 - p0) + 6.0 * u * t * (p2 - p1) + 3.0 * t * t * (p3 - p2)
 
 
 # ---------------------------------------------------------------------------
@@ -550,14 +702,14 @@ func _on_missile_hit(m: Dictionary) -> void:
 
 	if m["index"] == 0:
 		# 1º Impacto: Despedaça o logo fisicamente
-		_trigger_flash(Color(1.0, 0.98, 0.92, 0.75), 0.22)
+		_trigger_flash(Color(1.0, 0.98, 0.92, impact_flash_opacity), 0.22)
 		_shake_time = 0.45
 		_shake_intensity = camera_shake_intensity
 		_play_sfx(SND_EXPLOSION_1, -1.0, 1.0)
 		_trigger_shatter(hit_pos)
 	else:
 		# 2º Impacto: Adiciona impulso secundário violento a todos os blocos
-		_trigger_flash(Color(1.0, 0.90, 0.75, 0.65), 0.20)
+		_trigger_flash(Color(1.0, 0.90, 0.75, impact_flash_opacity * 0.87), 0.20)
 		_shake_time = 0.55
 		_shake_intensity = camera_shake_intensity * 1.15
 		_play_sfx(SND_EXPLOSION_2, -0.5, 1.05)
@@ -634,10 +786,14 @@ func _add_shatter_impulse(hit_point: Vector3) -> void:
 		var dir_norm := dir_xy.normalized() if dir_xy.length_squared() > 0.001 else Vector2(randf_range(-1, 1), randf_range(-1, 1)).normalized()
 
 		var proximity := clampf(1.0 - dist / (logo_half * 1.8), 0.2, 1.0)
-		chunk["vel"].x += dir_norm.x * randf_range(11.0, 24.0) * proximity
-		chunk["vel"].y += dir_norm.y * randf_range(11.0, 24.0) * proximity
-		chunk["vel"].z += randf_range(7.0, 16.0) * proximity
-		chunk["ang_speed"] += randf_range(1.2, 3.0)
+		# Impulso secundário proporcional às velocidades base, para que ajustar
+		# shatter_*_speed_* no Inspetor continue escalando as duas detonações juntas.
+		var impulse_radial := randf_range(shatter_radial_speed_min, shatter_radial_speed_max) * 0.60
+		var impulse_forward := randf_range(shatter_forward_speed_min, shatter_forward_speed_max) * 0.55
+		chunk["vel"].x += dir_norm.x * impulse_radial * proximity
+		chunk["vel"].y += dir_norm.y * impulse_radial * proximity
+		chunk["vel"].z += impulse_forward * proximity
+		chunk["ang_speed"] += randf_range(shatter_tumble_speed_min, shatter_tumble_speed_max) * 0.65
 
 
 func _update_shatter(delta: float) -> void:
@@ -712,7 +868,7 @@ func _update_camera_shake(delta: float) -> void:
 			randf_range(-0.5, 0.5)
 		) * _shake_intensity * falloff
 		_camera.position = _camera_base_pos + offset
-		_camera.rotation.z = randf_range(-0.015, 0.015) * falloff
+		_camera.rotation.z = randf_range(-camera_shake_roll, camera_shake_roll) * falloff
 	else:
 		_camera.position = _camera_base_pos
 		_camera.rotation.z = 0.0
@@ -727,6 +883,9 @@ func _spawn_explosion(pos: Vector3) -> void:
 	var logo_half := _get_logo_half()
 	explosion.set("size_scale", logo_half * 0.45)
 	explosion.set("enable_flash", false)
+	# O núcleo aditivo em HDR satura a tela inteira de branco; na splash ele é
+	# atenuado para o clarão não "apagar" a logo no instante do impacto.
+	explosion.set("brightness", explosion_brightness)
 	add_child(explosion)
 	explosion.global_position = pos
 
@@ -750,25 +909,37 @@ func _play_sfx(stream: AudioStream, volume_db: float, pitch: float) -> void:
 
 
 # ---------------------------------------------------------------------------
-# Input & Transição para o Menu Principal
+# Bloqueio de Input & Transição para o Menu Principal
 # ---------------------------------------------------------------------------
 
-func _unhandled_input(event: InputEvent) -> void:
-	if _is_transitioning:
-		return
-	if event.is_pressed() and not event.is_echo():
-		_finish_immediately()
+## A splashscreen é OBRIGATÓRIA: não existe skip. Consumimos TODO evento de input
+## (teclado, mouse, toque, gamepad) aqui, antes que qualquer outro nó — inclusive
+## Controles de UI — possa reagir e interromper a sequência.
+func _input(_event: InputEvent) -> void:
+	var vp := get_viewport()
+	if vp:
+		vp.set_input_as_handled()
 
 
-func _finish_immediately() -> void:
-	if _is_transitioning:
-		return
-	_is_transitioning = true
-	if _zoom_tween and _zoom_tween.is_valid():
-		_zoom_tween.kill()
-	if _flash_tween and _flash_tween.is_valid():
-		_flash_tween.kill()
-	_on_splash_finished()
+## Bloqueia o encerramento da splash pelo botão/gesto "voltar" do Android.
+## O valor original é restaurado ao sair, para não alterar o resto do jogo.
+func _lock_inputs() -> void:
+	var tree := get_tree()
+	if tree:
+		_prev_quit_on_go_back = tree.quit_on_go_back
+		tree.quit_on_go_back = false
+
+
+func _restore_inputs() -> void:
+	var tree := get_tree()
+	if tree:
+		tree.quit_on_go_back = _prev_quit_on_go_back
+
+
+func _exit_tree() -> void:
+	# Rede de segurança: garante a restauração mesmo se a cena for trocada
+	# por outro caminho que não seja _transition_to_main_menu().
+	_restore_inputs()
 
 
 func _on_splash_finished() -> void:
@@ -787,32 +958,8 @@ func _restore_engine_fps() -> void:
 
 func _transition_to_main_menu() -> void:
 	_restore_engine_fps()
-
-	var tree := get_tree()
-	if not tree or not tree.root:
-		return
-
-	var layer := CanvasLayer.new()
-	layer.layer = 100
-	var rect := ColorRect.new()
-	rect.color = Color(1.0, 1.0, 1.0, 0.0)
-	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	layer.add_child(rect)
-	tree.root.add_child.call_deferred(layer)
-
-	await layer.ready
-
-	var tween := tree.create_tween()
-	tween.tween_property(rect, "color:a", 1.0, fade_duration)
-	tween.tween_callback(_on_fade_in_complete.bind(rect, layer))
-
-
-func _on_fade_in_complete(rect: ColorRect, layer: CanvasLayer) -> void:
+	_restore_inputs()
 	var tree := get_tree()
 	if not tree:
 		return
 	tree.change_scene_to_file(MAIN_MENU_SCENE)
-	var tween_out := tree.create_tween()
-	tween_out.tween_property(rect, "color:a", 0.0, fade_duration)
-	tween_out.tween_callback(layer.queue_free)

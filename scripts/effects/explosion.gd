@@ -12,6 +12,7 @@ extends Node3D
 
 @export var size_scale: float = 1.0
 @export var enable_flash: bool = true  ## se false, não cria o flash de luz (usado na splashscreen)
+@export var brightness: float = 1.0    ## Multiplicador do brilho HDR das camadas aditivas (menor = explosão menos estourada)
 
 const MAX_LIFETIME: float = 1.6
 const FLASH_DECAY: float = 0.3
@@ -37,7 +38,7 @@ func _process(delta: float) -> void:
 	# Decaimento rápido e suave do flash de luz
 	if _flash_light:
 		var flash_t := clampf(_age / FLASH_DECAY, 0.0, 1.0)
-		_flash_light.light_energy = lerpf(70.0 * size_scale, 0.0, flash_t * flash_t)
+		_flash_light.light_energy = lerpf(70.0 * size_scale * brightness, 0.0, flash_t * flash_t)
 
 	if _age >= MAX_LIFETIME:
 		queue_free()
@@ -68,10 +69,10 @@ func _build_fire_core() -> void:
 	var ramp := Gradient.new()
 	ramp.offsets = PackedFloat32Array([0.0, 0.15, 0.5, 1.0])
 	ramp.colors = PackedColorArray([
-		Color(2.0, 2.0, 1.8, 1.0),   # Núcleo branco incandescente
-		Color(1.0, 0.85, 0.2, 1.0),  # Dourado elétrico
-		Color(1.0, 0.35, 0.05, 0.85), # Laranja fogo
-		Color(0.6, 0.08, 0.02, 0.0)   # Vermelho brasa fade
+		_dim(Color(2.0, 2.0, 1.8, 1.0)),   # Núcleo branco incandescente
+		_dim(Color(1.0, 0.85, 0.2, 1.0)),  # Dourado elétrico
+		_dim(Color(1.0, 0.35, 0.05, 0.85)), # Laranja fogo
+		Color(0.6, 0.08, 0.02, 0.0)        # Vermelho brasa fade
 	])
 	p.color_ramp = ramp
 
@@ -137,8 +138,8 @@ func _build_sparks() -> void:
 	var ramp := Gradient.new()
 	ramp.offsets = PackedFloat32Array([0.0, 0.5, 1.0])
 	ramp.colors = PackedColorArray([
-		Color(2.0, 1.6, 0.8, 1.0),
-		Color(1.0, 0.6, 0.1, 0.8),
+		_dim(Color(2.0, 1.6, 0.8, 1.0)),
+		_dim(Color(1.0, 0.6, 0.1, 0.8)),
 		Color(1.0, 0.1, 0.0, 0.0)
 	])
 	p.color_ramp = ramp
@@ -195,7 +196,7 @@ func _build_flash() -> void:
 	var l := OmniLight3D.new()
 	l.name = "Flash"
 	l.light_color = Color(1.0, 0.75, 0.35)
-	l.light_energy = 70.0 * size_scale
+	l.light_energy = 70.0 * size_scale * brightness
 	l.omni_range = 35.0 * size_scale
 	add_child(l)
 	_flash_light = l
@@ -212,6 +213,11 @@ func _make_sphere(radius: float) -> SphereMesh:
 	m.radial_segments = 8
 	m.rings = 4
 	return m
+
+
+## Escurece apenas o RGB (brilho HDR), preservando o alfa da cor original.
+func _dim(c: Color) -> Color:
+	return Color(c.r * brightness, c.g * brightness, c.b * brightness, c.a)
 
 
 func _make_material(blend_mode: StandardMaterial3D.BlendMode) -> StandardMaterial3D:

@@ -1201,7 +1201,7 @@ func _spawn_single_missile(target: Node3D, _index: int) -> void:
 	missile.global_position = spawn_global
 	missile.setup(target, initial_launch_dir, current_ship_speed)
 
-	# Efeito de flash e brilho alaranjado saindo da nave no disparo do míssil
+	# Clarão de ignição do míssil: luz real de disparo (sem mesh esférico de brilho)
 	# Anexado diretamente ao modelo da nave para acompanhar o caça a 65 m/s e iluminar a fuselagem
 	if MissileLaunchFlashScript:
 		var flash: Node3D = MissileLaunchFlashScript.new()

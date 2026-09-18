@@ -90,7 +90,7 @@ func _setup_scene() -> void:
 	_replay_cam.name = "ReplayCamera3D"
 	_replay_cam.current = true
 	_replay_cam.fov = 65.0
-	_replay_cam.far = 4000.0
+	_replay_cam.far = GameConfig.CAMERA_FAR_PC if not GameConfig.is_mobile else GameConfig.CAMERA_FAR_MOBILE
 	add_child(_replay_cam)
 
 

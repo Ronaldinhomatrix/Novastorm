@@ -100,6 +100,9 @@ func _ready() -> void:
 	if primary_fire_panel:
 		primary_fire_panel.visible = GameConfig.is_mobile
 
+	if GameConfig.is_mobile:
+		_apply_mobile_ui_scaling()
+
 	_build_shield_pips()
 	_build_hull_pips()
 	_build_missile_pips()
@@ -113,6 +116,110 @@ func _ready() -> void:
 			_missile_panel_sb = sb as StyleBoxFlat
 
 
+func _apply_mobile_ui_scaling() -> void:
+	# 1. Painel Tático (Escudos e Blindagem) no canto superior direito
+	if tactical_panel:
+		var panel_w: float = 440.0
+		var panel_h: float = 124.0
+		tactical_panel.custom_minimum_size = Vector2(panel_w, panel_h)
+		tactical_panel.offset_left = -panel_w
+		tactical_panel.offset_bottom = panel_h
+		tactical_panel.offset_right = 0.0
+		tactical_panel.offset_top = 0.0
+
+		var panel_sb := StyleBoxFlat.new()
+		panel_sb.bg_color = Color(0.015, 0.035, 0.075, 0.88)
+		panel_sb.border_width_left = 2
+		panel_sb.border_width_top = 2
+		panel_sb.border_width_right = 3
+		panel_sb.border_width_bottom = 2
+		panel_sb.border_color = Color(0.0, 0.95, 1.2, 0.85)
+		panel_sb.set_corner_radius_all(6)
+		panel_sb.shadow_color = Color(0, 0.6, 1.0, 0.45)
+		panel_sb.shadow_size = 14
+		tactical_panel.add_theme_stylebox_override("panel", panel_sb)
+
+		var margin: MarginContainer = tactical_panel.get_node_or_null("Margin") as MarginContainer
+		if margin:
+			margin.add_theme_constant_override("margin_left", 20)
+			margin.add_theme_constant_override("margin_right", 20)
+			margin.add_theme_constant_override("margin_top", 14)
+			margin.add_theme_constant_override("margin_bottom", 14)
+
+		var vbox: VBoxContainer = tactical_panel.get_node_or_null("Margin/StatusVBox") as VBoxContainer
+		if vbox:
+			vbox.add_theme_constant_override("separation", 12)
+
+		if shield_label:
+			shield_label.custom_minimum_size = Vector2(115, 0)
+			shield_label.add_theme_font_size_override("font_size", 22)
+
+		if hull_label:
+			hull_label.custom_minimum_size = Vector2(115, 0)
+			hull_label.add_theme_font_size_override("font_size", 22)
+
+		if shield_pips:
+			shield_pips.custom_minimum_size = Vector2(0, 26)
+			shield_pips.add_theme_constant_override("separation", 8)
+
+		if hull_pips:
+			hull_pips.custom_minimum_size = Vector2(0, 26)
+			hull_pips.add_theme_constant_override("separation", 8)
+
+	# 2. Painéis e Botões de Ação Mobile (Laser Primário e Mísseis) no canto inferior esquerdo
+	var btn_w: float = 440.0
+	var btn_h: float = 120.0
+	var margin_x: float = 20.0
+	var missile_bottom: float = -20.0
+
+	if missile_panel:
+		missile_panel.custom_minimum_size = Vector2(btn_w, btn_h)
+		missile_panel.offset_left = margin_x
+		missile_panel.offset_right = margin_x + btn_w
+		missile_panel.offset_bottom = missile_bottom
+		missile_panel.offset_top = missile_bottom - btn_h
+
+		var mis_sb := StyleBoxFlat.new()
+		mis_sb.bg_color = Color(0.02, 0.04, 0.07, 0.88)
+		mis_sb.set_border_width_all(3)
+		mis_sb.border_color = Color(0.1, 1.3, 0.5, 1.0)
+		mis_sb.set_corner_radius_all(8)
+		mis_sb.shadow_color = Color(0.1, 1.0, 0.4, 0.75)
+		mis_sb.shadow_size = 14
+		missile_panel.add_theme_stylebox_override("panel", mis_sb)
+		_missile_panel_sb = mis_sb
+
+		if missile_reload_label:
+			missile_reload_label.add_theme_font_size_override("font_size", 26)
+
+		if missile_pips:
+			missile_pips.add_theme_constant_override("separation", 38)
+
+	var primary_bottom: float = missile_bottom - btn_h - 18.0
+	if primary_fire_panel:
+		primary_fire_panel.custom_minimum_size = Vector2(btn_w, btn_h)
+		primary_fire_panel.offset_left = margin_x
+		primary_fire_panel.offset_right = margin_x + btn_w
+		primary_fire_panel.offset_bottom = primary_bottom
+		primary_fire_panel.offset_top = primary_bottom - btn_h
+
+		var pri_sb := StyleBoxFlat.new()
+		pri_sb.bg_color = Color(0.02, 0.04, 0.07, 0.88)
+		pri_sb.set_border_width_all(3)
+		pri_sb.border_color = Color(0.1, 0.95, 1.3, 1.0)
+		pri_sb.set_corner_radius_all(8)
+		pri_sb.shadow_color = Color(0.05, 0.75, 1.0, 0.75)
+		pri_sb.shadow_size = 14
+		primary_fire_panel.add_theme_stylebox_override("panel", pri_sb)
+
+		var laser_label: Label = primary_fire_panel.get_node_or_null("Margin/CenterBox/LaserLabel") as Label
+		if laser_label:
+			laser_label.add_theme_font_size_override("font_size", 28)
+
+		if primary_laser_icon:
+			primary_laser_icon.custom_minimum_size = Vector2(48, 48)
+
+
 func _process(delta: float) -> void:
 	# Atualiza câmera no retículo de mira tática
 	if lock_on_reticle and not lock_on_reticle._camera:
@@ -122,17 +229,20 @@ func _process(delta: float) -> void:
 
 	# Efeito visual tático do painel e botão de mísseis (Alerta de Reload pulsante ou Lock-on ativo)
 	if missile_panel:
+		# Enquanto o tutorial aponta para o painel, quem anima o brilho AO REDOR
+		# dele é o TutorialOverlay — o HUD não escreve a moldura nesse caso.
+		var tutorial_prompting: bool = _tutorial_overlay != null and _tutorial_overlay.is_prompting()
 		if _is_reloading_missiles:
 			# Frequência de pulso acelera conforme a recarga avança (de 6.5 rad/s até 16.0 rad/s)
 			var pulse_speed := lerpf(6.5, 16.0, _current_reload_progress)
 			_missile_reload_pulse_time += delta * pulse_speed
 			var pulse_wave := (sin(_missile_reload_pulse_time) + 1.0) * 0.5  # 0.0 a 1.0
 
-			# Brilho dinâmico do painel e botão: oscila entre vermelho alerta e vermelho neon incandescente
+			# Brilho dinâmico do painel: oscila entre vermelho alerta e vermelho neon incandescente
 			var border_pulse := lerpf(1.2, 2.5, pulse_wave)
 			var shadow_spread := lerpf(14.0, 32.0, pulse_wave)
 
-			if _missile_panel_sb:
+			if _missile_panel_sb and not tutorial_prompting:
 				var sb_flat := _missile_panel_sb
 				sb_flat.border_width_left = 3
 				sb_flat.border_width_top = 3
@@ -147,26 +257,26 @@ func _process(delta: float) -> void:
 				var label_glow := lerpf(0.6, 1.4, pulse_wave)
 				missile_reload_label.modulate = Color(label_glow, label_glow * 0.85, label_glow * 0.8, 1.0)
 
+			# O corpo do botão permanece ESTÁVEL: apenas o brilho ao redor pisca
 			if missile_btn:
-				# Pulso sutil no próprio botão para acompanhar o contorno
-				var btn_glow := lerpf(0.9, 1.25, pulse_wave)
-				missile_btn.modulate = Color(btn_glow, 0.75 + 0.25 * (1.0 - pulse_wave), 0.75 + 0.25 * (1.0 - pulse_wave), 1.0)
+				missile_btn.modulate = Color.WHITE
 		elif _has_locked_targets and _current_missiles > 0:
+			# Lock-on ativo: o botão não pulsa, quem pisca é o halo verde ao redor
 			_missile_pulse_time += delta * 7.5
-			var pulse := (sin(_missile_pulse_time) + 1.0) * 0.5 * 0.45 + 0.85
+			var pulse_wave := (sin(_missile_pulse_time) + 1.0) * 0.5
 			if missile_btn:
-				missile_btn.modulate = Color(1.35 * pulse, 1.15 * pulse, 0.9 * pulse, 1.0)
-			if _missile_panel_sb:
+				missile_btn.modulate = Color.WHITE
+			if _missile_panel_sb and not tutorial_prompting:
 				var sb_flat := _missile_panel_sb
-				sb_flat.border_color = Color(0.1, 1.4, 0.45, 1.0)
-				sb_flat.shadow_color = Color(0.1, 1.0, 0.4, 0.8)
-				sb_flat.shadow_size = 12
+				sb_flat.border_color = Color(lerpf(0.1, 0.25, pulse_wave), lerpf(1.4, 2.2, pulse_wave), lerpf(0.45, 0.7, pulse_wave), 1.0)
+				sb_flat.shadow_color = Color(0.1, 1.0, 0.4, lerpf(0.5, 1.0, pulse_wave))
+				sb_flat.shadow_size = int(lerpf(10.0, 22.0, pulse_wave))
 		else:
 			if missile_btn:
 				missile_btn.modulate = Color.WHITE
 			if missile_reload_label:
 				missile_reload_label.modulate = Color.WHITE
-			if _missile_panel_sb:
+			if _missile_panel_sb and not tutorial_prompting:
 				var sb_flat := _missile_panel_sb
 				if _current_missiles > 0:
 					sb_flat.border_color = Color(0.1, 1.4, 0.45, 1.0)
@@ -351,9 +461,10 @@ func _build_shield_pips() -> void:
 	for child in shield_pips.get_children():
 		child.queue_free()
 
+	var pip_h: float = 26.0 if GameConfig.is_mobile else 10.0
 	for i in range(_max_shield):
 		var pip := PanelContainer.new()
-		pip.custom_minimum_size = Vector2(0, 10)
+		pip.custom_minimum_size = Vector2(0, pip_h)
 		pip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		pip.size_flags_vertical = Control.SIZE_FILL
 		pip.name = "ShieldPip_%d" % i
@@ -368,9 +479,10 @@ func _build_hull_pips() -> void:
 	for child in hull_pips.get_children():
 		child.queue_free()
 
+	var pip_h: float = 26.0 if GameConfig.is_mobile else 10.0
 	for i in range(_max_hull):
 		var pip := PanelContainer.new()
-		pip.custom_minimum_size = Vector2(0, 10)
+		pip.custom_minimum_size = Vector2(0, pip_h)
 		pip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		pip.size_flags_vertical = Control.SIZE_FILL
 		pip.name = "HullPip_%d" % i
@@ -396,30 +508,22 @@ func _update_shield_display(animate: bool) -> void:
 
 		var is_active := (i < _current_shield)
 		var sb := StyleBoxFlat.new()
-		sb.corner_radius_top_left = 2
-		sb.corner_radius_top_right = 2
-		sb.corner_radius_bottom_right = 2
-		sb.corner_radius_bottom_left = 2
+		var rad: int = 4 if GameConfig.is_mobile else 2
+		sb.set_corner_radius_all(rad)
 
 		if is_active:
 			# ACESO: Extremamente brilhante, neon emissivo com contorno luminoso e sombra de glow intensa
 			sb.bg_color = Color(0.1, 1.1, 1.35, 1.0)
-			sb.border_width_left = 1
-			sb.border_width_top = 1
-			sb.border_width_right = 1
-			sb.border_width_bottom = 1
+			sb.set_border_width_all(2 if GameConfig.is_mobile else 1)
 			sb.border_color = Color(0.9, 1.3, 1.4, 1.0)
 			sb.shadow_color = Color(0.0, 0.95, 1.0, 0.85)
-			sb.shadow_size = 6
+			sb.shadow_size = 10 if GameConfig.is_mobile else 6
 			pip.modulate = Color(1.15, 1.15, 1.15, 1.0)
 		else:
 			# APAGADO: Escuro, oco, desativado, sem brilho
 			sb.bg_color = Color(0.03, 0.05, 0.08, 0.85)
-			sb.border_width_left = 1
-			sb.border_width_top = 1
-			sb.border_width_right = 1
-			sb.border_width_bottom = 1
-			sb.border_color = Color(0.15, 0.2, 0.28, 0.35)
+			sb.set_border_width_all(1)
+			sb.border_color = Color(0.15, 0.2, 0.28, 0.45)
 			sb.shadow_size = 0
 			pip.modulate = Color(1.0, 1.0, 1.0, 0.5)
 
@@ -461,30 +565,22 @@ func _update_hull_display(animate: bool) -> void:
 
 		var is_active := (i < _current_hull)
 		var sb := StyleBoxFlat.new()
-		sb.corner_radius_top_left = 2
-		sb.corner_radius_top_right = 2
-		sb.corner_radius_bottom_right = 2
-		sb.corner_radius_bottom_left = 2
+		var rad: int = 4 if GameConfig.is_mobile else 2
+		sb.set_corner_radius_all(rad)
 
 		if is_active:
 			# ACESO: Muito brilhante com contorno e glow correspondentes
 			sb.bg_color = target_color
-			sb.border_width_left = 1
-			sb.border_width_top = 1
-			sb.border_width_right = 1
-			sb.border_width_bottom = 1
+			sb.set_border_width_all(2 if GameConfig.is_mobile else 1)
 			sb.border_color = target_border
 			sb.shadow_color = target_glow
-			sb.shadow_size = 6
+			sb.shadow_size = 10 if GameConfig.is_mobile else 6
 			pip.modulate = Color(1.15, 1.15, 1.15, 1.0)
 		else:
 			# APAGADO: Vazio e escuro
 			sb.bg_color = Color(0.05, 0.03, 0.03, 0.85)
-			sb.border_width_left = 1
-			sb.border_width_top = 1
-			sb.border_width_right = 1
-			sb.border_width_bottom = 1
-			sb.border_color = Color(0.25, 0.12, 0.12, 0.35)
+			sb.set_border_width_all(1)
+			sb.border_color = Color(0.25, 0.12, 0.12, 0.45)
 			sb.shadow_size = 0
 			pip.modulate = Color(1.0, 1.0, 1.0, 0.5)
 
@@ -587,9 +683,10 @@ func _build_missile_pips() -> void:
 	for child in missile_pips.get_children():
 		child.queue_free()
 
+	var icon_size := Vector2(40, 52) if GameConfig.is_mobile else Vector2(18, 22)
 	for i in range(_max_missiles):
 		var missile_icon := Control.new()
-		missile_icon.custom_minimum_size = Vector2(18, 22)
+		missile_icon.custom_minimum_size = icon_size
 		missile_icon.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		missile_icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		missile_icon.name = "MissileIcon_%d" % i
@@ -603,6 +700,7 @@ func _draw_missile_icon(icon: Control, index: int) -> void:
 	var is_active := (index < _current_missiles and not _is_reloading_missiles)
 	var size := icon.size
 	var center_x := size.x * 0.5
+	var s := size.y / 24.0
 	
 	# Cores: Laranja neon brilhante com ogiva destacada quando ativo, cinza/escuro quando descarregado
 	var body_color: Color = Color(1.3, 0.6, 0.15, 1.0) if is_active else Color(0.25, 0.22, 0.25, 0.35)
@@ -612,37 +710,37 @@ func _draw_missile_icon(icon: Control, index: int) -> void:
 
 	# 1. Glow sutil de fundo quando carregado
 	if is_active:
-		icon.draw_rect(Rect2(center_x - 8.0, 2.0, 16.0, 24.0), glow_color, false, 2.0)
+		icon.draw_rect(Rect2(center_x - 8.0 * s, 2.0 * s, 16.0 * s, 24.0 * s), glow_color, false, 2.0 * s)
 
 	# 2. Ogiva / Ponta do Míssil (Triângulo apontando para cima)
 	var nose_poly: PackedVector2Array = [
-		Vector2(center_x, 2.0),
-		Vector2(center_x + 4.0, 8.0),
-		Vector2(center_x - 4.0, 8.0)
+		Vector2(center_x, 2.0 * s),
+		Vector2(center_x + 4.0 * s, 8.0 * s),
+		Vector2(center_x - 4.0 * s, 8.0 * s)
 	]
 	icon.draw_colored_polygon(nose_poly, nose_color)
 
 	# 3. Corpo cilíndrico central do míssil
-	var body_rect := Rect2(center_x - 3.5, 8.0, 7.0, 13.0)
+	var body_rect := Rect2(center_x - 3.5 * s, 8.0 * s, 7.0 * s, 13.0 * s)
 	icon.draw_rect(body_rect, body_color, true)
 
 	# 4. Aletas traseiras estabilizadoras (Fins)
 	var left_fin: PackedVector2Array = [
-		Vector2(center_x - 3.5, 14.0),
-		Vector2(center_x - 8.0, 20.0),
-		Vector2(center_x - 3.5, 19.5)
+		Vector2(center_x - 3.5 * s, 14.0 * s),
+		Vector2(center_x - 8.0 * s, 20.0 * s),
+		Vector2(center_x - 3.5 * s, 19.5 * s)
 	]
 	icon.draw_colored_polygon(left_fin, fin_color)
 
 	var right_fin: PackedVector2Array = [
-		Vector2(center_x + 3.5, 14.0),
-		Vector2(center_x + 8.0, 20.0),
-		Vector2(center_x + 3.5, 19.5)
+		Vector2(center_x + 3.5 * s, 14.0 * s),
+		Vector2(center_x + 8.0 * s, 20.0 * s),
+		Vector2(center_x + 3.5 * s, 19.5 * s)
 	]
 	icon.draw_colored_polygon(right_fin, fin_color)
 
 	# 5. Bocal de propulsão na base
-	var nozzle_rect := Rect2(center_x - 2.2, 21.0, 4.4, 2.5)
+	var nozzle_rect := Rect2(center_x - 2.2 * s, 21.0 * s, 4.4 * s, 2.5 * s)
 	var nozzle_color := Color(1.4, 0.9, 0.3, 1.0) if is_active else Color(0.15, 0.15, 0.15, 0.4)
 	icon.draw_rect(nozzle_rect, nozzle_color, true)
 
@@ -650,31 +748,27 @@ func _draw_missile_icon(icon: Control, index: int) -> void:
 func _update_missile_display() -> void:
 	if missile_panel:
 		var sb := StyleBoxFlat.new()
-		sb.corner_radius_top_left = 4
-		sb.corner_radius_top_right = 4
-		sb.corner_radius_bottom_right = 4
-		sb.corner_radius_bottom_left = 4
-		sb.border_width_left = 2
-		sb.border_width_top = 2
-		sb.border_width_right = 2
-		sb.border_width_bottom = 2
-		sb.bg_color = Color(0.02, 0.04, 0.07, 0.85)
+		var rad: int = 8 if GameConfig.is_mobile else 4
+		sb.set_corner_radius_all(rad)
+		var b_w: int = 3 if GameConfig.is_mobile else 2
+		sb.set_border_width_all(b_w)
+		sb.bg_color = Color(0.02, 0.04, 0.07, 0.88)
 
 		if _is_reloading_missiles:
 			# Moldura vermelha neon durante reload
 			sb.border_color = Color(1.4, 0.2, 0.2, 1.0)
 			sb.shadow_color = Color(1.0, 0.15, 0.15, 0.8)
-			sb.shadow_size = 12
+			sb.shadow_size = 14 if GameConfig.is_mobile else 12
 		elif _current_missiles > 0:
 			# Moldura verde neon brilhante com mísseis disponíveis
 			sb.border_color = Color(0.1, 1.4, 0.45, 1.0)
 			sb.shadow_color = Color(0.1, 1.0, 0.4, 0.8)
-			sb.shadow_size = 12
+			sb.shadow_size = 14 if GameConfig.is_mobile else 12
 		else:
 			# Descarregado
 			sb.border_color = Color(0.4, 0.2, 0.2, 0.6)
 			sb.shadow_color = Color(0, 0, 0, 0.4)
-			sb.shadow_size = 4
+			sb.shadow_size = 6 if GameConfig.is_mobile else 4
 
 		missile_panel.add_theme_stylebox_override("panel", sb)
 		_missile_panel_sb = sb
@@ -795,9 +889,9 @@ func _on_primary_fire_up() -> void:
 		var sb := primary_fire_panel.get_theme_stylebox("panel")
 		if sb is StyleBoxFlat:
 			var sb_flat: StyleBoxFlat = sb as StyleBoxFlat
-			sb_flat.border_color = Color(0.1, 0.85, 1.2, 1.0)
-			sb_flat.shadow_color = Color(0.05, 0.75, 1.0, 0.7)
-			sb_flat.shadow_size = 10
+			sb_flat.border_color = Color(0.1, 0.95, 1.3, 1.0) if GameConfig.is_mobile else Color(0.1, 0.85, 1.2, 1.0)
+			sb_flat.shadow_color = Color(0.05, 0.75, 1.0, 0.75) if GameConfig.is_mobile else Color(0.05, 0.75, 1.0, 0.7)
+			sb_flat.shadow_size = 14 if GameConfig.is_mobile else 10
 	if primary_laser_icon:
 		primary_laser_icon.queue_redraw()
 	if _player_ref and _player_ref.has_method("stop_firing"):
@@ -809,23 +903,28 @@ func _draw_primary_laser_icon() -> void:
 		return
 	var size := primary_laser_icon.size
 	var cx := size.x * 0.5
-	var cy := size.y * 0.5
+	var s := size.y / 24.0
 
 	var active_color: Color = Color(1.8, 2.4, 3.0, 1.0) if _is_primary_fire_pressed else Color(0.2, 0.95, 1.2, 0.95)
 	var glow_color: Color = Color(0.1, 0.8, 1.4, 0.8) if _is_primary_fire_pressed else Color(0.05, 0.5, 0.9, 0.4)
 
+	var beam_offset := 5.0 * s
+	var glow_w := 4.0 * s
+	var line_w := 2.0 * s
+	var dot_rad := 3.0 * s
+
 	# Feixe duplo de plasma / canhões lasers gêmeos
 	# Canhão esquerdo
-	primary_laser_icon.draw_line(Vector2(cx - 5.0, 3.0), Vector2(cx - 5.0, size.y - 3.0), glow_color, 4.0)
-	primary_laser_icon.draw_line(Vector2(cx - 5.0, 4.0), Vector2(cx - 5.0, size.y - 4.0), active_color, 2.0)
+	primary_laser_icon.draw_line(Vector2(cx - beam_offset, 3.0 * s), Vector2(cx - beam_offset, size.y - 3.0 * s), glow_color, glow_w)
+	primary_laser_icon.draw_line(Vector2(cx - beam_offset, 4.0 * s), Vector2(cx - beam_offset, size.y - 4.0 * s), active_color, line_w)
 
 	# Canhão direito
-	primary_laser_icon.draw_line(Vector2(cx + 5.0, 3.0), Vector2(cx + 5.0, size.y - 3.0), glow_color, 4.0)
-	primary_laser_icon.draw_line(Vector2(cx + 5.0, 4.0), Vector2(cx + 5.0, size.y - 4.0), active_color, 2.0)
+	primary_laser_icon.draw_line(Vector2(cx + beam_offset, 3.0 * s), Vector2(cx + beam_offset, size.y - 3.0 * s), glow_color, glow_w)
+	primary_laser_icon.draw_line(Vector2(cx + beam_offset, 4.0 * s), Vector2(cx + beam_offset, size.y - 4.0 * s), active_color, line_w)
 
 	# Flares frontais
-	primary_laser_icon.draw_circle(Vector2(cx - 5.0, 3.0), 3.0, active_color)
-	primary_laser_icon.draw_circle(Vector2(cx + 5.0, 3.0), 3.0, active_color)
+	primary_laser_icon.draw_circle(Vector2(cx - beam_offset, 3.0 * s), dot_rad, active_color)
+	primary_laser_icon.draw_circle(Vector2(cx + beam_offset, 3.0 * s), dot_rad, active_color)
 
 
 # ---------------------------------------------------------------------------

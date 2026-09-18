@@ -4,7 +4,7 @@
 [ext_resource type="Script" path="res://scripts/world/canyon_mesh_generator.gd" id="2_canyon_gen"]
 [ext_resource type="Script" path="res://scripts/world/path_follower.gd" id="3_path_follower"]
 [ext_resource type="PackedScene" uid="uid://di8jrupvocyse" path="res://scenes/player.tscn" id="4_player"]
-[ext_resource type="Material" uid="uid://c3rl2bq5nn7p" path="res://assets/materials/terrain_detailed.tres" id="5_terrain_mat"]
+[ext_resource type="Material" path="res://assets/materials/terrain_detailed_pc.tres" id="5_terrain_mat"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_canyon"]
 sky_top_color = Color(0.82, 0.48, 0.26, 1)

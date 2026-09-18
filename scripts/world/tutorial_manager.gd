@@ -71,8 +71,7 @@ func _exit_tree() -> void:
 			player.min_locks_required = 0
 		if "_locked_targets" in player:
 			player._locked_targets.clear()
-			if player.has_signal("missile_targets_changed"):
-				player.missile_targets_changed.emit([])
+			_emit_empty_missile_targets()
 	if path_follower and path_follower.has_method("set_speed_multiplier"):
 		path_follower.set_speed_multiplier(1.0)
 	if hud:
@@ -81,6 +80,16 @@ func _exit_tree() -> void:
 		if hud.has_method("stop_tutorial_missile_blink"):
 			hud.stop_tutorial_missile_blink()
 	_purge_all_tutorial_enemies()
+
+
+## Emite a lista vazia de alvos com o tipo exigido pelo signal (Array[Node3D]).
+## Um literal [] é um Array NÃO tipado e não é convertível para Array[Node3D],
+## o que fazia o signal falhar nos callbacks (hud.gd e aqui) com
+## "Cannot convert argument 1 from Array to Array".
+func _emit_empty_missile_targets() -> void:
+	if player and player.has_signal("missile_targets_changed"):
+		var no_targets: Array[Node3D] = []
+		player.missile_targets_changed.emit(no_targets)
 
 
 func setup(p_follower: PathFollower, p_player: Player, p_hud: CombatHUD) -> void:
@@ -238,7 +247,12 @@ func _start_step_1() -> void:
 	# 3. Exibe texto instrutivo contextualizado por plataforma
 	if _overlay:
 		if GameConfig.is_mobile:
-			_overlay.show_instruction("USE O DEDO PARA CONTROLAR")
+			_overlay.show_instruction(
+				"USE O DEDO PARA CONTROLAR",
+				"DISPARAR LASERS",
+				"",
+				Color(0.2, 1.4, 1.8, 1.0)
+			)
 			if hud and hud.has_method("start_tutorial_laser_blink"):
 				hud.start_tutorial_laser_blink("DISPARAR LASERS")
 		else:
@@ -247,10 +261,10 @@ func _start_step_1() -> void:
 
 func _spawn_step1_pair() -> void:
 	_step1_enemies.clear()
-	# Nave 1: lateral esquerda (-7.5m), distância 135m (espaçamento confortável à frente da nave)
-	var e1 := _create_tutorial_enemy(-7.5, 135.0, 4.0, false)
-	# Nave 2: lateral direita (+7.5m), distância 135m (espaçamento confortável à frente da nave)
-	var e2 := _create_tutorial_enemy(7.5, 135.0, 4.0, false)
+	# Distância calibrada para visibilidade: 90m no Mobile vs 135m no PC
+	var dist_pair: float = 90.0 if GameConfig.is_mobile else 135.0
+	var e1 := _create_tutorial_enemy(-7.5, dist_pair, 4.0, false)
+	var e2 := _create_tutorial_enemy(7.5, dist_pair, 4.0, false)
 
 	if e1:
 		_step1_enemies.append(e1)
@@ -320,13 +334,12 @@ func _spawn_step2_enemies() -> void:
 
 func _spawn_step2_trio() -> void:
 	_step2_enemies.clear()
-	# As 3 naves ocupam posições com maior espaçamento lateral para exigir movimento de mira do jogador:
-	# Nave 1: lateral esquerda (-26.0m), voa mais afastada à esquerda em altitude reduzida (2.5m)
-	var e1 := _create_tutorial_enemy(-26.0, 160.0, 2.5, true, -26.0, 2.5)
-	# Nave 2: lateral direita (+26.0m), voa mais afastada à direita em altitude reduzida (2.5m)
-	var e2 := _create_tutorial_enemy(26.0, 160.0, 2.5, true, 26.0, 2.5)
-	# Nave 3: topo central (+12.0m), mantida no centro elevado
-	var e3 := _create_tutorial_enemy(0.0, 165.0, 12.0, true, 0.0, 12.0)
+	# Distância e abertura calibradas: no mobile as 3 naves ficam a 95m (em vez de 160m) para serem perfeitamente nítidas
+	var dist_trio: float = 95.0 if GameConfig.is_mobile else 160.0
+	var lat_span: float = 20.0 if GameConfig.is_mobile else 26.0
+	var e1 := _create_tutorial_enemy(-lat_span, dist_trio, 2.5, true, -lat_span, 2.5)
+	var e2 := _create_tutorial_enemy(lat_span, dist_trio, 2.5, true, lat_span, 2.5)
+	var e3 := _create_tutorial_enemy(0.0, dist_trio + 6.0, 10.0 if GameConfig.is_mobile else 12.0, true, 0.0, 10.0 if GameConfig.is_mobile else 12.0)
 
 	if e1:
 		_step2_enemies.append(e1)
@@ -353,9 +366,6 @@ func _on_player_missile_targets_changed(targets: Array[Node3D]) -> void:
 						"",
 						Color(0.1, 1.4, 0.45, 1.0)
 					)
-					# Faz o botão de mísseis piscar no mobile
-					if hud and hud.has_method("start_tutorial_missile_blink"):
-						hud.start_tutorial_missile_blink()
 				else:
 					_overlay.show_instruction(
 						"DISPARE 3 MÍSSEIS",
@@ -363,6 +373,10 @@ func _on_player_missile_targets_changed(targets: Array[Node3D]) -> void:
 						"",
 						Color(0.1, 1.4, 0.45, 1.0)
 					)
+
+			# Em ambas as versões (PC e Mobile), dispara o efeito da flecha grande pulsando apontada para o botão/painel de mísseis
+			if hud and hud.has_method("start_tutorial_missile_blink"):
+				hud.start_tutorial_missile_blink()
 	elif _state == State.STEP2_LOCKED:
 		var required_locks := mini(3, _step2_enemies.size())
 		if targets.size() < required_locks:
@@ -430,8 +444,7 @@ func _finish_tutorial() -> void:
 			player.min_locks_required = 0
 		if "_locked_targets" in player:
 			player._locked_targets.clear()
-			if player.has_signal("missile_targets_changed"):
-				player.missile_targets_changed.emit([])
+			_emit_empty_missile_targets()
 
 	if path_follower and path_follower.has_method("set_speed_multiplier"):
 		path_follower.set_speed_multiplier(1.0)
@@ -466,8 +479,7 @@ func _abort_tutorial_at_limit() -> void:
 			player.min_locks_required = 0
 		if "_locked_targets" in player:
 			player._locked_targets.clear()
-			if player.has_signal("missile_targets_changed"):
-				player.missile_targets_changed.emit([])
+			_emit_empty_missile_targets()
 
 	if path_follower and path_follower.has_method("set_speed_multiplier"):
 		path_follower.set_speed_multiplier(1.0)

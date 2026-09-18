@@ -33,7 +33,7 @@ window/vsync/vsync_mode=0
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/godot_ai/plugin.cfg", "res://addons/godot_mcp/plugin.cfg", "res://addons/lowpolyterrain/plugin.cfg", "res://addons/path_point_inserter/plugin.cfg", "res://addons/path_point_viewer/plugin.cfg", "res://addons/ship_to_cursor/plugin.cfg", "res://addons/sketchfab/plugin.cfg")
+enabled=PackedStringArray("res://addons/godot_ai/plugin.cfg", "res://addons/godot_mcp/plugin.cfg", "res://addons/lowpolyterrain/plugin.cfg", "res://addons/novastorm_mobile_launcher/plugin.cfg", "res://addons/path_point_inserter/plugin.cfg", "res://addons/path_point_viewer/plugin.cfg", "res://addons/ship_to_cursor/plugin.cfg", "res://addons/sketchfab/plugin.cfg")
 
 [internationalization]
 
@@ -56,4 +56,4 @@ textures/vram_compression/import_etc2_astc=true
 lights_and_shadows/directional_shadow/size.mobile=512
 textures/default_filters/anisotropic_filtering_level=4
 scaling_3d/mode.mobile=1
-scaling_3d/scale.mobile=0.75
+scaling_3d/scale.mobile=0.85

@@ -22,6 +22,7 @@ const WarningBattlecruiserSound := preload("res://assets/audio/warning_enemy_bat
 
 @export_category("Gatilhos por Ponto do Path3D")
 @export var enable_audio_alerts: bool = true
+@export var alert_enemy_ships_point: int = -1  ## Ponto para o aviso de naves inimigas. Se -1, toca 1 ponto antes da Wave 1.
 @export var wave_1_point: int = 8         ## Ponto onde os 3 primeiros Scouts entram em rasante (Wave 1 Parte 1). -1 = desativado
 @export var wave_1_part2_point: int = 13   ## Ponto onde os 3 Scouts restantes entram (Wave 1 Parte 2). -1 = desativado
 @export var wave_1_exit_point: int = 16    ## Ponto onde os Scouts da Wave 1 remanescentes se retiram. -1 = desativado
@@ -110,7 +111,8 @@ func _update_target_ratios() -> void:
 	_target_ratio_1 = _get_point_ratio(curve, wave_1_point, total_len)
 	_target_ratio_1_part2 = _get_point_ratio(curve, wave_1_part2_point, total_len)
 	_target_ratio_1_exit = _get_point_ratio(curve, wave_1_exit_point, total_len)
-	_target_ratio_1_alert = _get_point_ratio(curve, maxi(0, wave_1_point - 1), total_len) if wave_1_point >= 0 else -1.0
+	var alert_pt: int = alert_enemy_ships_point if alert_enemy_ships_point >= 0 else maxi(0, wave_1_point - 1)
+	_target_ratio_1_alert = _get_point_ratio(curve, alert_pt, total_len) if alert_pt >= 0 else -1.0
 	
 	_target_ratio_2 = _get_point_ratio(curve, wave_2_point, total_len)
 	_target_ratio_2_exit = _get_point_ratio(curve, wave_2_exit_point, total_len)

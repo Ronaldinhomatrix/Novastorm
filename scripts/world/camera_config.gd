@@ -9,8 +9,14 @@ extends Node
 # Constantes do Padrão Oficial (Nível 1)
 # ---------------------------------------------------------------------------
 
-## Posição padrão da câmera relativa ao PathFollower (5m atrás do follower, totalizando 45m de distância até o Player em Z=-40)
-const DEFAULT_CAMERA_POSITION := Vector3(0.0, 1.3, 5.0)
+## Posição padrão da câmera relativa ao PathFollower no PC (5m atrás do follower, totalizando 45m de distância até o Player em Z=-40)
+const DEFAULT_CAMERA_POSITION_PC := Vector3(0.0, 1.3, 5.0)
+
+## Posição padrão da câmera relativa ao PathFollower no Mobile (8m à frente do follower, totalizando 32m de distância até o Player em Z=-40)
+const DEFAULT_CAMERA_POSITION_MOBILE := Vector3(0.0, 1.3, -8.0)
+
+## Manter compatibilidade com código existente
+const DEFAULT_CAMERA_POSITION := DEFAULT_CAMERA_POSITION_PC
 
 ## Rotação padrão da câmera (leve inclinação de -1.6° para visão desimpedida sobre o caça)
 const DEFAULT_CAMERA_ROTATION := Vector3(-0.027925, 0.0, 0.0)
@@ -20,6 +26,10 @@ const DEFAULT_CAMERA_FOV := 57.0
 
 ## Posição padrão da nave do jogador relativa ao PathFollower (40m à frente da origem do follower)
 const DEFAULT_PLAYER_POSITION := Vector3(0.0, 0.0, -40.0)
+
+## Distância base nominal da câmera dinâmica
+const DYNAMIC_CAMERA_BASE_DISTANCE_PC := 45.0
+const DYNAMIC_CAMERA_BASE_DISTANCE_MOBILE := 32.0
 
 ## Alcances padrão de renderização (camera.far)
 const DEFAULT_CAMERA_FAR_PC := 4000.0
@@ -35,7 +45,7 @@ const LEVEL1_CAMERA_FAR_MOBILE := 5000.0
 ## Aplica o enquadramento e posição padronizados à Câmera e ao Player fornecidos.
 static func apply_standard_setup(camera: Camera3D, player: Node3D = null) -> void:
 	if camera:
-		camera.position = DEFAULT_CAMERA_POSITION
+		camera.position = DEFAULT_CAMERA_POSITION_MOBILE if GameConfig.is_mobile else DEFAULT_CAMERA_POSITION_PC
 		camera.rotation = DEFAULT_CAMERA_ROTATION
 		camera.fov = DEFAULT_CAMERA_FOV
 	
@@ -60,8 +70,17 @@ static func apply_depth_fog(env: Environment, target_far: float) -> void:
 		fog_color = env.get_meta("original_sky_horizon_color") as Color
 	
 	env.fog_light_color = fog_color
-	env.fog_light_energy = 1.0
-	env.fog_depth_begin = maxf(target_far * 0.25, 400.0)  # Névoa sutil começa a 25% do horizonte
-	env.fog_depth_end = target_far * 0.95  # 100% de opacidade no limite do horizonte para transição invisível
-	env.fog_depth_curve = 1.0
-	env.fog_sky_affect = 0.8
+	if GameConfig.is_mobile:
+		env.fog_light_energy = 0.85
+		# No mobile, a névoa começa mais longe (45% da distância) para manter cânions e inimigos nítidos
+		env.fog_depth_begin = maxf(target_far * 0.45, 1200.0)
+		env.fog_depth_end = target_far * 0.98
+		env.fog_depth_curve = 1.4
+		env.fog_sky_affect = 0.5
+	else:
+		# No PC: preserva 100% os valores originais
+		env.fog_light_energy = 1.0
+		env.fog_depth_begin = maxf(target_far * 0.25, 400.0)
+		env.fog_depth_end = target_far * 0.95
+		env.fog_depth_curve = 1.0
+		env.fog_sky_affect = 0.8
