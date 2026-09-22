@@ -1,7 +1,7 @@
 class_name Player
 extends CharacterBody3D
 
-## Nave do jogador — estilo Novastorm (1994).
+## Nave do jogador — Pterodon.
 ## A nave é FILHA do PathFollower (que percorre o Path3D), então herda
 ## automaticamente o movimento e a rotação do caminho.
 ##

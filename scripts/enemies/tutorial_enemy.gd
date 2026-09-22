@@ -1,7 +1,7 @@
 class_name TutorialEnemy
 extends EnemyScout
 
-## Inimigo exclusivo do Tutorial para Novastorm.
+## Inimigo exclusivo do Tutorial para Pterodon.
 ## Mantém voo constante em formação à frente do jogador ao longo do Path3D,
 ## sem disparar armas hostis e sem fugir da tela.
 ## Suporta modo imune a lasers primários para a etapa de mísseis secundários.

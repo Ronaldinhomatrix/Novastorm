@@ -1,7 +1,7 @@
 class_name CombatHUD
 extends CanvasLayer
 
-## HUD de combate tático estilo AAA para Novastorm.
+## HUD de combate tático estilo AAA para Pterodon.
 ## Painel militar/cyberpunk de monitoramento dual:
 ##   - Módulo de SHIELD (Células de energia holográfica ciano / aviso OFFLINE)
 ##   - Módulo de HULL INTEGRITY (Blindagem em células com estados Verde/Âmbar/Vermelho)

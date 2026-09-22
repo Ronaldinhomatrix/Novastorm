@@ -3,7 +3,7 @@ render_mode blend_mix, depth_draw_opaque, cull_back, diffuse_lambert, specular_s
 
 /*
 ================================================================================
-  NOVASTORM - ULTRA TERRAIN VARIATION SHADER (PC ULTRA) - VERSÃO BALANCEADA
+  PTERODON - ULTRA TERRAIN VARIATION SHADER (PC ULTRA) - VERSÃO BALANCEADA
   - Cores foscas e naturais (PBR sem estouro de brilho ou glow)
   - Rugosidade alta para evitar reflexos brancos incômodos
   - Contraste nítido entre paredões escuros e chão arenoso

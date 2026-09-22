@@ -1,7 +1,7 @@
 class_name TutorialManager
 extends Node
 
-## Gerenciador Central do Tutorial Interativo para Novastorm.
+## Gerenciador Central do Tutorial Interativo para Pterodon.
 ##
 ## Controla o fluxo de 2 etapas:
 ## Etapa 1: Disparo Primário (Laser)

@@ -1,7 +1,7 @@
 @tool
 extends EditorPlugin
 
-## Novastorm Mobile Launcher (plugin de editor)
+## Pterodon Mobile Launcher (plugin de editor)
 ##
 ## Adiciona o botão "Build + Rodar no Celular" na toolbar principal do editor,
 ## ao lado das opções de Play.
@@ -12,7 +12,7 @@ extends EditorPlugin
 ##
 ## Ctrl+clique no botão: apenas abre no celular o jogo já instalado (sem build).
 
-const BUTTON_SCRIPT := preload("res://addons/novastorm_mobile_launcher/mobile_launcher_button.gd")
+const BUTTON_SCRIPT := preload("res://addons/pterodon_mobile_launcher/mobile_launcher_button.gd")
 
 var _button: Button
 

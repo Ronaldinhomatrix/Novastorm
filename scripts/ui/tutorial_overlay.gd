@@ -1,7 +1,7 @@
 class_name TutorialOverlay
 extends Control
 
-## Overlay do Tutorial Tático estilo AAA para Novastorm.
+## Overlay do Tutorial Tático estilo AAA para Pterodon.
 ## Apresenta tipografia grossa/impactante, animação elástica (pop-in com overshoot/bounce)
 ## e ambientação cinematográfica sem caixas restritivas ao redor dos textos.
 

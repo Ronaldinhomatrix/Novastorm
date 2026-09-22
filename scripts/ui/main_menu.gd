@@ -1,7 +1,7 @@
 class_name MainMenu
 extends Control
 
-## Tela inicial Novastorm — visual AAA Sci-Fi Espacial Escuro:
+## Tela inicial Pterodon — visual AAA Sci-Fi Espacial Escuro:
 ## • Fundo preto espacial profundo (deep space) com gradiente cósmico
 ## • Nebulosas sutis em tons violeta e azul profundo
 ## • Arco planetário escuro com limbo luminoso ciano pulsante na base

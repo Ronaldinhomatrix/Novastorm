@@ -20,7 +20,7 @@ extends Button
 signal pipeline_finished(success: bool)
 
 ## Pacote do jogo no celular (Projeto > Exportar > Android > unique name).
-const PACKAGE := "com.ronaldo.novastorm"
+const PACKAGE := "com.ronaldo.pterodon"
 
 ## Activity de launcher gerada pelo export Android do Godot.
 const ACTIVITY := "com.godot.game.GodotAppLauncher"
@@ -32,7 +32,7 @@ const INTENT_CATEGORY := "android.intent.category.LAUNCHER"
 const EXPORT_PRESET := "Android"
 
 ## APK gerado pelo build.
-const APK_PATH := "res://build/android/Novastorm.apk"
+const APK_PATH := "res://build/android/Pterodon.apk"
 
 ## Onde ficam os logs dos comandos (fora do projeto, para não sujar o repo).
 const LOG_DIR := "user://mobile_launcher"
@@ -182,28 +182,28 @@ func _advance(exit_code: int) -> void:
 			if exit_code != 0 or _fingerprint(apk) == _apk_before:
 				_fail("exportação falhou (código %d).%s" % [exit_code, tail])
 				return
-			print("Novastorm Mobile Launcher: APK exportado em %ds (%s)." % [elapsed, APK_PATH])
+			print("Pterodon Mobile Launcher: APK exportado em %ds (%s)." % [elapsed, APK_PATH])
 			_step = Step.INSTALLING
 			_defer(HANDLE_RELEASE_DELAY, _start_install)
 		Step.INSTALLING:
 			if exit_code != 0 or not _log_had_success():
 				if _is_connection_error(tail) and _install_attempt < INSTALL_RETRIES:
 					_install_attempt += 1
-					print(("Novastorm Mobile Launcher: celular momentaneamente indisponível "
+					print(("Pterodon Mobile Launcher: celular momentaneamente indisponível "
 						+ "(tentativa %d/%d), repetindo em %ds. %s") % [
 							_install_attempt, INSTALL_RETRIES, int(INSTALL_RETRY_DELAY), tail])
 					_defer(INSTALL_RETRY_DELAY, _start_install)
 					return
 				_fail("adb install falhou (código %d).%s" % [exit_code, tail])
 				return
-			print("Novastorm Mobile Launcher: APK instalado no celular em %ds." % elapsed)
+			print("Pterodon Mobile Launcher: APK instalado no celular em %ds." % elapsed)
 			_step = Step.LAUNCHING
 			_run(_adb, _with_serial(_launch_args()))
 		Step.LAUNCHING:
 			if exit_code != 0:
 				_fail("não foi possível abrir o jogo no celular (código %d).%s" % [exit_code, tail])
 				return
-			print("Novastorm Mobile Launcher: jogo aberto no celular (%s)." % PACKAGE)
+			print("Pterodon Mobile Launcher: jogo aberto no celular (%s)." % PACKAGE)
 			_finish(true)
 		_:
 			_finish(false)
@@ -274,7 +274,7 @@ func _finish(success: bool) -> void:
 
 
 func _fail(message: String) -> void:
-	push_error("Novastorm Mobile Launcher: " + message)
+	push_error("Pterodon Mobile Launcher: " + message)
 	_finish(false)
 
 
@@ -411,9 +411,9 @@ func _finish_device_resolve(exit_code: int) -> bool:
 	# fica imune ao nome mDNS, que muda sem avisar.
 	_needs_serial = serials.size() > 1
 	if pool.size() > 1 or not plain.is_empty() and not dupes.is_empty():
-		print("Novastorm Mobile Launcher: %d celulares, usando %s." % [pool.size(), _serial])
+		print("Pterodon Mobile Launcher: %d celulares, usando %s." % [pool.size(), _serial])
 	elif _serial.contains(" (2)."):
-		print("Novastorm Mobile Launcher: usando entrada reserva %s." % _serial)
+		print("Pterodon Mobile Launcher: usando entrada reserva %s." % _serial)
 	return true
 
 
@@ -429,7 +429,7 @@ func _refresh_device_then(call: Callable) -> void:
 func _retry_device(reason: String) -> bool:
 	_resolve_attempt += 1
 	if _resolve_attempt <= DEVICE_RETRIES:
-		print("Novastorm Mobile Launcher: %s (tentativa %d/%d), repetindo em %ds." % [
+		print("Pterodon Mobile Launcher: %s (tentativa %d/%d), repetindo em %ds." % [
 			reason, _resolve_attempt, DEVICE_RETRIES, int(DEVICE_RETRY_DELAY)])
 		_defer(DEVICE_RETRY_DELAY, _resolve_device_then_continue)
 		return false

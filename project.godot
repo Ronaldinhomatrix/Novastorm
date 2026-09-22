@@ -10,7 +10,7 @@ config_version=5
 
 [application]
 
-config/name="Novastorm"
+config/name="Pterodon"
 run/main_scene="res://scenes/splash_screen.tscn"
 config/features=PackedStringArray("4.7", "Mobile")
 config/icon="res://icon.svg"
@@ -33,7 +33,7 @@ window/vsync/vsync_mode=0
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/godot_ai/plugin.cfg", "res://addons/godot_mcp/plugin.cfg", "res://addons/lowpolyterrain/plugin.cfg", "res://addons/novastorm_mobile_launcher/plugin.cfg", "res://addons/path_point_inserter/plugin.cfg", "res://addons/path_point_viewer/plugin.cfg", "res://addons/ship_to_cursor/plugin.cfg", "res://addons/sketchfab/plugin.cfg")
+enabled=PackedStringArray("res://addons/godot_ai/plugin.cfg", "res://addons/godot_mcp/plugin.cfg", "res://addons/lowpolyterrain/plugin.cfg", "res://addons/path_point_inserter/plugin.cfg", "res://addons/path_point_viewer/plugin.cfg", "res://addons/pterodon_mobile_launcher/plugin.cfg", "res://addons/ship_to_cursor/plugin.cfg", "res://addons/sketchfab/plugin.cfg")
 
 [internationalization]
 

@@ -1,4 +1,4 @@
-# Novastorm - Documentação de Criação de Níveis
+# Pterodon - Documentação de Criação de Níveis
 
 ## Visão Geral
 

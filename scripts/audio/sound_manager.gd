@@ -1,7 +1,7 @@
 class_name SoundManagerClass
 extends Node
 
-## Gerenciador Central de Áudio e Pool de SFX com Ring Buffer Dedicado para Novastorm.
+## Gerenciador Central de Áudio e Pool de SFX com Ring Buffer Dedicado para Pterodon.
 ##
 ## Arquitetura:
 ## - Ring Buffer (Round-Robin) com canais independentes e dedicados por tipo de áudio.

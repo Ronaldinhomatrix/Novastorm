@@ -1,5 +1,5 @@
 # ============================================================================
-# optimize_assets.ps1 - Otimizacao automatica de assets do Astro Striker
+# optimize_assets.ps1 - Otimizacao automatica de assets do Pterodon
 # ----------------------------------------------------------------------------
 # USO:
 #   .\tools\optimize_assets.ps1                    # otimiza tudo acima do limite
@@ -20,7 +20,7 @@ param(
 	[int]$MaxDim = 2048,
 	[int]$JpegQuality = 92,
 	[int]$MeshWarnMB = 10,
-	[string]$BackupRoot = 'C:\AstroStriker-Backup-Auto',
+	[string]$BackupRoot = 'C:\Pterodon-Backup-Auto',
 	[switch]$DryRun,
 	[switch]$ConvertAudio,
 	[switch]$Reimport,

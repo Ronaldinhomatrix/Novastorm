@@ -1,4 +1,4 @@
-# Novastorm - Project Guidelines & Architecture Rules
+# Pterodon - Project Guidelines & Architecture Rules
 
 ## 1. Dual Platform Architecture (PC Ultra vs Mobile 60 FPS)
 - **Developer Request Workflow:** The user describes game features, mechanics, bosses, levels, and VFX naturally in full quality. The AI must NOT require the user to specify platform-specific restrictions per prompt.

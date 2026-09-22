@@ -1,7 +1,7 @@
 class_name EnemyBase
 extends Area3D
 
-## Classe base para todas as naves inimigas no Novastorm.
+## Classe base para todas as naves inimigas no Pterodon.
 ## Gerencia vida (HP), detecção de dano do jogador, efeito visual de hit-flash,
 ## disparo de projéteis, isolamento de malha e explosão de destruição.
 

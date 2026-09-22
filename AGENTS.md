@@ -1,4 +1,4 @@
-# Diretrizes de Projeto do Novastorm
+# Diretrizes de Projeto do Pterodon
 
 ## Regras de Construção de Cenários e Fases (Level Design)
 
