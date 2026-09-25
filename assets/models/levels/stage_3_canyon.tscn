@@ -1,0 +1,8 @@
+[gd_scene format=3 uid="uid://stage_3_canyon_mesh_instance"]
+
+[ext_resource type="Material" path="res://assets/materials/terrain_detailed_pc.tres" id="1_pc_mat"]
+[ext_resource type="ArrayMesh" path="res://assets/models/levels/stage_3_canyon_mesh.res" id="2_canyon_mesh"]
+
+[node name="Stage3Canyon" type="MeshInstance3D"]
+material_override = ExtResource("1_pc_mat")
+mesh = ExtResource("2_canyon_mesh")

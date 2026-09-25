@@ -33,12 +33,10 @@ func _ready() -> void:
 	current_hp = max_hp
 	_initial_pos_y = position.y
 	_disable_all_shadows(self)
-	call_deferred("_disable_all_shadows", self)
 	_setup_hitboxes()
 	add_to_group("mothership")
 	_setup_ship_lights()
 	_enhance_ship_materials(self)
-	call_deferred("_enhance_ship_materials", self)
 
 
 func _disable_all_shadows(node: Node) -> void:
@@ -163,10 +161,14 @@ func take_damage(amount: int, hit_global_pos: Vector3 = Vector3.ZERO) -> void:
 
 	# Efeito visual de fagulhas/impacto
 	if hit_global_pos != Vector3.ZERO and SparkScript:
-		var spark := SparkScript.new()
-		get_tree().current_scene.add_child(spark)
-		spark.global_position = hit_global_pos
-		spark.setup(Vector3.UP)
+		var scene := get_tree().current_scene if get_tree() else null
+		if not scene and get_tree():
+			scene = get_tree().root
+		if scene:
+			var spark := SparkScript.new()
+			scene.add_child(spark)
+			spark.global_position = hit_global_pos
+			spark.setup(Vector3.UP)
 
 	if current_hp <= 0:
 		_defeat_boss()
@@ -182,6 +184,7 @@ func _defeat_boss() -> void:
 		audio.volume_db = 2.0
 		add_child(audio)
 		audio.play()
+		audio.finished.connect(audio.queue_free)
 
 	# Efeito de explosões secundárias ao longo do casco
 	var tween := create_tween()
@@ -200,6 +203,11 @@ func _spawn_hull_explosion() -> void:
 		randf_range(-20.0, 20.0),
 		randf_range(-150.0, 150.0)
 	)
+	var scene := get_tree().current_scene if get_tree() else null
+	if not scene and get_tree():
+		scene = get_tree().root
+	if not scene:
+		return
 	var exp_instance: Node3D = ExplosionScript.new()
-	get_tree().current_scene.add_child(exp_instance)
+	scene.add_child(exp_instance)
 	exp_instance.global_position = global_position + offset

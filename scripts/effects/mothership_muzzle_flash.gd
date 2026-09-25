@@ -64,6 +64,8 @@ func _process(delta: float) -> void:
 
 
 func _build_muzzle_lights() -> void:
+	if GameConfig.is_mobile:
+		return
 	# Luz 3D de altíssima intensidade que ilumina fortemente a proa e o casco da Mothership
 	_light_global = OmniLight3D.new()
 	_light_global.name = "FlashLightGlobal"

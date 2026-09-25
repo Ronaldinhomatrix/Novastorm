@@ -12,10 +12,15 @@ const FLASH_DURATION: float = 0.09
 
 
 func _ready() -> void:
+	if GameConfig.is_mobile:
+		set_process(false)
+		return
 	_setup_effect()
 
 
 func _setup_effect() -> void:
+	if GameConfig.is_mobile:
+		return
 	# Luz dinâmica de disparo
 	_light = OmniLight3D.new()
 	_light.light_color = Color(0.15, 0.85, 1.0)

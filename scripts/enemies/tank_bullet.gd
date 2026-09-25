@@ -18,6 +18,11 @@ var _ray_query: PhysicsRayQueryParameters3D = null
 
 
 func _ready() -> void:
+	if GameConfig.is_mobile:
+		var light := get_node_or_null("OmniLight3D")
+		if light:
+			light.queue_free()
+
 	add_to_group("enemy_bullets")
 	collision_layer = 4  # Layer 3: enemy_projectiles (mask bit 4)
 	collision_mask = 1   # Layer 1: player
@@ -81,8 +86,11 @@ func _check_world_hit() -> void:
 
 
 func _spawn_explosion(point: Vector3, normal: Vector3) -> void:
+	var scene_root: Node = get_tree().current_scene if get_tree() and get_tree().current_scene else (get_tree().root if get_tree() else null)
+	if not scene_root:
+		return
 	var explosion: Node3D = ExplosionScript.new()
-	get_tree().current_scene.add_child(explosion)
+	scene_root.add_child(explosion)
 	explosion.global_position = point + normal * 0.5
 	if explosion.has_method("set"):
 		explosion.set("size_scale", 0.45)

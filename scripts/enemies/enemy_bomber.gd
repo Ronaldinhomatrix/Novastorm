@@ -229,10 +229,10 @@ func _drop_bomb() -> void:
 
 	# Adiciona no container de mundo ou cena
 	var container: Node = get_parent()
+	if not container and get_tree():
+		container = get_tree().current_scene if get_tree().current_scene else get_tree().root
 	if container:
 		container.add_child(bomb)
-	else:
-		get_tree().current_scene.add_child(bomb)
 
 	if bomb.has_method("setup_bomb"):
 		bomb.setup_bomb(drop_pos, drop_fwd, drop_curve_offset, _current_lateral, _current_vertical)
@@ -243,20 +243,23 @@ func _drop_bomb() -> void:
 	_play_drop_sound()
 
 
+var _drop_audio_player: AudioStreamPlayer3D = null
+
 func _play_drop_sound() -> void:
 	if not BombDropSound:
 		return
-	var audio := AudioStreamPlayer3D.new()
-	audio.stream = BombDropSound
-	audio.bus = "Master"
-	audio.volume_db = -14.0
-	audio.pitch_scale = randf_range(1.15, 1.4)
-	audio.unit_size = 12.0
-	audio.max_distance = 220.0
-	audio.finished.connect(audio.queue_free)
-	get_tree().current_scene.add_child(audio)
-	audio.global_position = global_position
-	audio.play()
+	if not _drop_audio_player:
+		_drop_audio_player = AudioStreamPlayer3D.new()
+		_drop_audio_player.name = "DropAudioPlayer"
+		_drop_audio_player.stream = BombDropSound
+		_drop_audio_player.bus = "Master"
+		_drop_audio_player.volume_db = -14.0
+		_drop_audio_player.unit_size = 12.0
+		_drop_audio_player.max_distance = 220.0
+		_drop_audio_player.max_polyphony = 4
+		add_child(_drop_audio_player)
+	_drop_audio_player.pitch_scale = randf_range(1.15, 1.4)
+	_drop_audio_player.play()
 
 
 # ---------------------------------------------------------------------------

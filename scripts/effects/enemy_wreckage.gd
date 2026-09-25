@@ -57,7 +57,16 @@ static func spawn_from_enemy(enemy: Node3D, force_mult: float = 1.0, vel: Vector
 	return wreckage
 
 
+static var _mobile_box_mesh: BoxMesh = null
+static var _mobile_debris_mat: StandardMaterial3D = null
+
 func _build_from_enemy(enemy: Node3D) -> void:
+	# No mobile, ignora o fatiamento pesado em tempo de execução via SurfaceTool
+	# para evitar travamento de quadro (hitch/freeze) no abate dos inimigos.
+	if GameConfig.is_mobile:
+		_spawn_mobile_debris_fallback(enemy)
+		return
+
 	var ship_key: String = ""
 	if "target_ship_node_name" in enemy and enemy.target_ship_node_name != "":
 		ship_key = enemy.target_ship_node_name
@@ -82,6 +91,41 @@ func _build_from_enemy(enemy: Node3D) -> void:
 	if cache_data and not cache_data.is_empty():
 		_wreckage_cache[ship_key] = cache_data
 		_spawn_cached_pieces(enemy, cache_data)
+	else:
+		queue_free()
+
+
+func _spawn_mobile_debris_fallback(enemy: Node3D) -> void:
+	var pos := enemy.global_position
+	global_position = pos
+
+	if not _mobile_box_mesh:
+		_mobile_box_mesh = BoxMesh.new()
+		_mobile_box_mesh.size = Vector3(0.6, 0.6, 0.6)
+		_mobile_debris_mat = StandardMaterial3D.new()
+		_mobile_debris_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		_mobile_debris_mat.albedo_color = Color(1.2, 0.6, 0.2, 1.0)
+		_mobile_box_mesh.material = _mobile_debris_mat
+
+	var particles := CPUParticles3D.new()
+	particles.name = "MobileDebrisParticles"
+	particles.emitting = true
+	particles.one_shot = true
+	particles.explosiveness = 0.95
+	particles.amount = 10
+	particles.lifetime = 1.0
+	particles.spread = 180.0
+	particles.direction = Vector3.UP
+	particles.gravity = Vector3(0.0, -9.8, 0.0)
+	particles.initial_velocity_min = 12.0
+	particles.initial_velocity_max = 30.0
+	particles.mesh = _mobile_box_mesh
+	add_child(particles)
+
+	var tween := create_tween()
+	if tween:
+		tween.tween_interval(1.1)
+		tween.tween_callback(queue_free)
 	else:
 		queue_free()
 

@@ -114,6 +114,8 @@ func _build_particles() -> void:
 # ---------------------------------------------------------------------------
 
 func _build_flash() -> void:
+	if GameConfig.is_mobile:
+		return
 	var l := OmniLight3D.new()
 	l.name = "Flash"
 	l.light_color = Color(1.0, 0.7, 0.3)

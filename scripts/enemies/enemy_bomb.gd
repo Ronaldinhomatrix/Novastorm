@@ -41,7 +41,10 @@ var _vertical_offset: float = 0.0
 @onready var core_mesh: MeshInstance3D = get_node_or_null("CoreMesh") as MeshInstance3D
 @onready var beacon_group: Node3D = get_node_or_null("BeaconGroup") as Node3D
 
-var _beacon_material: StandardMaterial3D = null
+static var _shared_beacon_on: StandardMaterial3D = null
+static var _shared_beacon_off: StandardMaterial3D = null
+var _last_blink_on: bool = false
+var _beacon_meshes: Array[MeshInstance3D] = []
 
 
 func _ready() -> void:
@@ -52,14 +55,28 @@ func _ready() -> void:
 		_random_rot_axis = Vector3.UP
 	_random_rot_speed = randf_range(0.8, 1.8)
 
-	# Instancia um material local para os pontos vermelhos piscantes com forte emissão
-	if beacon_group and beacon_group.get_child_count() > 0:
-		_beacon_material = StandardMaterial3D.new()
-		_beacon_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		_beacon_material.albedo_color = Color(1.0, 0.05, 0.05, 1.0)
+	if GameConfig.is_mobile and light:
+		light.visible = false
+		light.queue_free()
+		light = null
+
+	# Compartilha materiais estáticos para os pontos vermelhos piscantes (evita alocar StandardMaterial3D por bomba)
+	if not _shared_beacon_on:
+		_shared_beacon_on = StandardMaterial3D.new()
+		_shared_beacon_on.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		_shared_beacon_on.albedo_color = Color(3.0, 0.1, 0.1, 1.0)
+
+		_shared_beacon_off = StandardMaterial3D.new()
+		_shared_beacon_off.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		_shared_beacon_off.albedo_color = Color(0.12, 0.01, 0.01, 1.0)
+
+	_beacon_meshes.clear()
+	if beacon_group:
 		for child in beacon_group.get_children():
 			if child is MeshInstance3D:
-				child.material_override = _beacon_material
+				var mi := child as MeshInstance3D
+				_beacon_meshes.append(mi)
+				mi.material_override = _shared_beacon_off
 
 	collision_layer = 2 | 4  # Layer 2 (inimigo atingível por tiros) e Layer 4 (projétil/perigo)
 	collision_mask = 1 | 2   # Detecta jogador (Layer 1) e tiros do jogador (Layer 2)
@@ -129,8 +146,12 @@ func _physics_process(delta: float) -> void:
 	var blink_phase := fmod(_float_time * blink_speed, 1.0)
 	var is_on := blink_phase < 0.45  # 45% aceso, 55% apagado
 
-	if _beacon_material:
-		_beacon_material.albedo_color = Color(3.0, 0.1, 0.1, 1.0) if is_on else Color(0.12, 0.01, 0.01, 1.0)
+	if is_on != _last_blink_on:
+		_last_blink_on = is_on
+		var mat: StandardMaterial3D = _shared_beacon_on if is_on else _shared_beacon_off
+		for mi in _beacon_meshes:
+			if is_instance_valid(mi):
+				mi.material_override = mat
 
 	if light:
 		light.light_energy = 24.0 if is_on else 0.0
@@ -208,22 +229,30 @@ func _explode() -> void:
 		return
 	_is_exploding = true
 
+	var scene_root: Node = null
+	if is_inside_tree() and get_tree():
+		scene_root = get_tree().current_scene if get_tree().current_scene else get_tree().root
+
 	# Explosão visual com múltiplas camadas
-	var explosion: Node3D = ExplosionScript.new()
-	get_tree().current_scene.add_child(explosion)
-	explosion.global_position = global_position
-	if explosion.has_method("set"):
-		explosion.set("size_scale", explosion_scale)
+	if scene_root:
+		var explosion: Node3D = ExplosionScript.new()
+		scene_root.add_child(explosion)
+		explosion.global_position = global_position
+		if explosion.has_method("set"):
+			explosion.set("size_scale", explosion_scale)
 
 	# Som de explosão
-	if ExplosionSounds.size() > 0:
+	var sound_mgr = get_node_or_null("/root/SoundManager")
+	if sound_mgr and sound_mgr.has_method("play_explosion"):
+		sound_mgr.play_explosion(-2.0)
+	elif ExplosionSounds.size() > 0 and scene_root:
 		var sound: AudioStream = ExplosionSounds.pick_random()
 		var audio := AudioStreamPlayer.new()
 		audio.stream = sound
 		audio.bus = "Master"
 		audio.volume_db = -2.0
 		audio.finished.connect(audio.queue_free)
-		get_tree().current_scene.add_child(audio)
+		scene_root.add_child(audio)
 		audio.play()
 
 	queue_free()

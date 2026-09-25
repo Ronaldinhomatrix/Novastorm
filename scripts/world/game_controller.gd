@@ -29,6 +29,9 @@ const MothershipMuzzleFlashScript := preload("res://scripts/effects/mothership_m
 
 var _crosshair: Control = null  ## Instância do crosshair UI
 
+signal score_updated(new_score: int)
+var _score: int = 0
+
 @export_category("Áudio e Música")
 ## Trilha sonora do nível.
 @export var background_music: AudioStream = preload("res://assets/audio/music_1_Aphelion.ogg")
@@ -237,6 +240,7 @@ var _tutorial_manager: Node = null
 # ---------------------------------------------------------------------------
 
 func _ready():
+	add_to_group("game_controller")
 	_start_background_music()
 
 	if not get_node_or_null("ReplaySystem"):
@@ -249,9 +253,13 @@ func _ready():
 	
 	if not mothership:
 		mothership = get_node_or_null("Mothership")
+	if not mothership:
+		mothership = get_tree().get_first_node_in_group("mothership") as Node3D
 	
 	if mothership:
 		_initial_mothership_rot_y = mothership.rotation_degrees.y
+		if mothership.has_signal("boss_defeated") and not mothership.boss_defeated.is_connected(_on_boss_defeated):
+			mothership.boss_defeated.connect(_on_boss_defeated)
 
 	if not player:
 		player = get_node_or_null("FlightPath/PathFollower/Player")
@@ -410,6 +418,9 @@ func _ready():
 
 
 func _setup_dev_ui() -> void:
+	if not OS.is_debug_build():
+		return
+
 	_dev_layer = CanvasLayer.new()
 	_dev_layer.layer = 50
 	add_child(_dev_layer)
@@ -451,6 +462,33 @@ func _setup_hud() -> void:
 
 	if hud and player:
 		hud.attach_player(player)
+
+	if hud and mothership and mothership.has_signal("boss_damaged") and hud.has_method("update_boss_health"):
+		mothership.boss_damaged.connect(hud.update_boss_health)
+
+
+func _on_boss_defeated() -> void:
+	if _level_completed:
+		return
+	# Aguarda as explosões secundárias do casco da nave-mãe terminarem antes da transição
+	var timer := get_tree().create_timer(2.5)
+	timer.timeout.connect(func():
+		if not _level_completed:
+			_on_level_finished()
+	)
+
+
+func add_score(amount: int) -> void:
+	if amount <= 0:
+		return
+	_score += amount
+	score_updated.emit(_score)
+	if hud and hud.has_method("set_score"):
+		hud.set_score(_score)
+
+
+func get_score() -> int:
+	return _score
 
 
 func _process(delta: float) -> void:
@@ -1144,20 +1182,6 @@ func _trigger_maneuver2_sound() -> void:
 	if _maneuver2_p19_played and _maneuver2_p22_played:
 		return
 
-	if _maneuver2_player == null:
-		_maneuver2_player = AudioStreamPlayer.new()
-		_maneuver2_player.stream = MANEUVER_2_SOUND
-		_maneuver2_player.bus = "Master"
-		_maneuver2_player.volume_db = 0.0
-		add_child(_maneuver2_player)
-
-	if _maneuver2_short_player == null:
-		_maneuver2_short_player = AudioStreamPlayer.new()
-		_maneuver2_short_player.stream = MANEUVER_2_SHORT_SOUND
-		_maneuver2_short_player.bus = "Master"
-		_maneuver2_short_player.volume_db = 0.0
-		add_child(_maneuver2_short_player)
-
 	if _maneuver2_p19_offset <= 0.0 and maneuver_sound_p19_point >= 0:
 		var flight_path := get_node_or_null("FlightPath") as Path3D
 		if flight_path and flight_path.curve and flight_path.curve.point_count > 0:
@@ -1177,6 +1201,12 @@ func _trigger_maneuver2_sound() -> void:
 		if has_node("/root/SoundManager"):
 			get_node("/root/SoundManager").play_voice(MANEUVER_2_SOUND, 0.0, randf_range(0.97, 1.03))
 		else:
+			if _maneuver2_player == null:
+				_maneuver2_player = AudioStreamPlayer.new()
+				_maneuver2_player.stream = MANEUVER_2_SOUND
+				_maneuver2_player.bus = "Master"
+				_maneuver2_player.volume_db = 0.0
+				add_child(_maneuver2_player)
 			_maneuver2_player.pitch_scale = randf_range(0.97, 1.03)
 			_maneuver2_player.play()
 		_maneuver2_p19_played = true
@@ -1186,6 +1216,12 @@ func _trigger_maneuver2_sound() -> void:
 		if has_node("/root/SoundManager"):
 			get_node("/root/SoundManager").play_voice(MANEUVER_2_SHORT_SOUND, 0.0, randf_range(0.97, 1.03))
 		else:
+			if _maneuver2_short_player == null:
+				_maneuver2_short_player = AudioStreamPlayer.new()
+				_maneuver2_short_player.stream = MANEUVER_2_SHORT_SOUND
+				_maneuver2_short_player.bus = "Master"
+				_maneuver2_short_player.volume_db = 0.0
+				add_child(_maneuver2_short_player)
 			_maneuver2_short_player.pitch_scale = randf_range(0.97, 1.03)
 			_maneuver2_short_player.play()
 		_maneuver2_p22_played = true

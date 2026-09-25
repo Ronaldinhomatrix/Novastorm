@@ -203,10 +203,38 @@ func _build_flash() -> void:
 
 
 # ---------------------------------------------------------------------------
-# Helpers de Construção
+# Helpers de Construção & Recursos Estáticos Compartilhados
 # ---------------------------------------------------------------------------
 
+static var _mesh_sphere_060: SphereMesh = null
+static var _mesh_sphere_018: SphereMesh = null
+static var _mesh_sphere_025: SphereMesh = null
+static var _mesh_sphere_050: SphereMesh = null
+
+static var _mat_add: StandardMaterial3D = null
+static var _mat_mix: StandardMaterial3D = null
+
 func _make_sphere(radius: float) -> SphereMesh:
+	if is_equal_approx(radius, 0.6):
+		if not _mesh_sphere_060:
+			_mesh_sphere_060 = _create_sphere(0.6)
+		return _mesh_sphere_060
+	elif is_equal_approx(radius, 0.18):
+		if not _mesh_sphere_018:
+			_mesh_sphere_018 = _create_sphere(0.18)
+		return _mesh_sphere_018
+	elif is_equal_approx(radius, 0.25):
+		if not _mesh_sphere_025:
+			_mesh_sphere_025 = _create_sphere(0.25)
+		return _mesh_sphere_025
+	elif is_equal_approx(radius, 0.5):
+		if not _mesh_sphere_050:
+			_mesh_sphere_050 = _create_sphere(0.5)
+		return _mesh_sphere_050
+	return _create_sphere(radius)
+
+
+static func _create_sphere(radius: float) -> SphereMesh:
 	var m := SphereMesh.new()
 	m.radius = radius
 	m.height = radius * 2.0
@@ -221,6 +249,18 @@ func _dim(c: Color) -> Color:
 
 
 func _make_material(blend_mode: StandardMaterial3D.BlendMode) -> StandardMaterial3D:
+	if blend_mode == BaseMaterial3D.BLEND_MODE_ADD:
+		if not _mat_add:
+			_mat_add = _create_material(BaseMaterial3D.BLEND_MODE_ADD)
+		return _mat_add
+	elif blend_mode == BaseMaterial3D.BLEND_MODE_MIX:
+		if not _mat_mix:
+			_mat_mix = _create_material(BaseMaterial3D.BLEND_MODE_MIX)
+		return _mat_mix
+	return _create_material(blend_mode)
+
+
+static func _create_material(blend_mode: StandardMaterial3D.BlendMode) -> StandardMaterial3D:
 	var mat := StandardMaterial3D.new()
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	mat.blend_mode = blend_mode

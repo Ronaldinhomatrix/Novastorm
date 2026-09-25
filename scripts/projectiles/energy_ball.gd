@@ -23,8 +23,15 @@ var _audio_player: AudioStreamPlayer = null
 
 
 func _ready() -> void:
+	collision_mask = PLAYER_LAYER_MASK | WORLD_LAYER_MASK
 	body_entered.connect(_on_body_entered)
 	area_entered.connect(_on_area_entered)
+
+	if GameConfig.is_mobile:
+		var light := get_node_or_null("OmniLight3D") as OmniLight3D
+		if light:
+			light.visible = false
+			light.queue_free()
 
 	_ray = RayCast3D.new()
 	_ray.enabled = false
@@ -85,7 +92,7 @@ func _check_hits() -> void:
 		return
 
 	_ray.global_position = _prev_position
-	_ray.target_position = travel
+	_ray.target_position = _ray.to_local(_prev_position + travel)
 	_ray.force_raycast_update()
 
 	if _ray.is_colliding():
@@ -105,10 +112,15 @@ func _check_hits() -> void:
 
 func _spawn_explosion(point: Vector3, normal: Vector3) -> void:
 	if ExplosionScript:
+		var scene := get_tree().current_scene if get_tree() else null
+		if not scene and get_tree():
+			scene = get_tree().root
+		if not scene:
+			return
 		var explosion: Node3D = ExplosionScript.new()
 		if "size_scale" in explosion:
 			explosion.size_scale = 2.3
-		get_tree().current_scene.add_child(explosion)
+		scene.add_child(explosion)
 		explosion.global_position = point + normal * 0.5
 
 
@@ -123,9 +135,9 @@ func _on_body_entered(body: Node3D) -> void:
 		queue_free()
 		return
 
-	if body is CharacterBody3D:
-		_spawn_explosion(global_position, Vector3.UP)
-		queue_free()
+	# Terreno estático (StaticBody3D), CharacterBody3D ou outros obstáculos rígidos
+	_spawn_explosion(global_position, Vector3.UP)
+	queue_free()
 
 
 func _on_area_entered(area: Area3D) -> void:

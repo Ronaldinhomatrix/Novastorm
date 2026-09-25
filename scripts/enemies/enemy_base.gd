@@ -176,6 +176,12 @@ var _curve_pos: Vector3 = Vector3.ZERO
 var _curve_fwd: Vector3 = Vector3.FORWARD
 var _curve_right: Vector3 = Vector3.RIGHT
 var _curve_up: Vector3 = Vector3.UP
+var _cached_frame: Dictionary = {
+	"position": Vector3.ZERO,
+	"forward": Vector3.FORWARD,
+	"right": Vector3.RIGHT,
+	"up": Vector3.UP
+}
 
 
 func _get_flight_path() -> Path3D:
@@ -272,14 +278,18 @@ func _sample_curve_frame(offset: float, lateral: float = 0.0, vertical: float = 
 		_curve_up = _curve_right.cross(_curve_fwd).normalized()
 		var center := _sample_curve_position(offset)
 		_curve_pos = center + _curve_right * lateral + _curve_up * vertical
-		return {"position": _curve_pos, "forward": _curve_fwd, "right": _curve_right, "up": _curve_up}
+	else:
+		# Fallback: voo em linha reta (sem curva disponível).
+		_curve_fwd = Vector3.FORWARD
+		_curve_right = Vector3.RIGHT
+		_curve_up = Vector3.UP
+		_curve_pos = global_position + Vector3.RIGHT * lateral + Vector3.UP * vertical
 
-	# Fallback: voo em linha reta (sem curva disponível).
-	_curve_fwd = Vector3.FORWARD
-	_curve_right = Vector3.RIGHT
-	_curve_up = Vector3.UP
-	_curve_pos = global_position + Vector3.RIGHT * lateral + Vector3.UP * vertical
-	return {"position": _curve_pos, "forward": _curve_fwd, "right": _curve_right, "up": _curve_up}
+	_cached_frame["position"] = _curve_pos
+	_cached_frame["forward"] = _curve_fwd
+	_cached_frame["right"] = _curve_right
+	_cached_frame["up"] = _curve_up
+	return _cached_frame
 
 
 ## Avança o inimigo ao longo da curva e devolve posição/orientação com offsets

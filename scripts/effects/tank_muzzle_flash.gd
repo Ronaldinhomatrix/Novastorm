@@ -42,6 +42,8 @@ func _process(delta: float) -> void:
 
 
 func _build_flash_light() -> void:
+	if GameConfig.is_mobile:
+		return
 	_flash_light = OmniLight3D.new()
 	_flash_light.light_color = Color(1.0, 0.9, 0.55)
 	_flash_light.light_energy = 250.0

@@ -353,6 +353,8 @@ func _spawn_wave_1() -> void:
 	for cfg: Dictionary in configs:
 		var timer: SceneTreeTimer = get_tree().create_timer(cfg["delay"])
 		timer.timeout.connect(func():
+			if not is_inside_tree() or not is_instance_valid(self):
+				return
 			var scout: EnemyScout = scout_scene.instantiate() as EnemyScout
 			if not scout:
 				return
@@ -386,6 +388,8 @@ func _spawn_wave_1_part2() -> void:
 	for cfg: Dictionary in configs:
 		var timer: SceneTreeTimer = get_tree().create_timer(cfg["delay"])
 		timer.timeout.connect(func():
+			if not is_inside_tree() or not is_instance_valid(self):
+				return
 			var scout: EnemyScout = scout_scene.instantiate() as EnemyScout
 			if not scout:
 				return
@@ -451,6 +455,8 @@ func _spawn_wave_2() -> void:
 	for cfg: Dictionary in configs:
 		var timer: SceneTreeTimer = get_tree().create_timer(cfg["delay"])
 		timer.timeout.connect(func():
+			if not is_inside_tree() or not is_instance_valid(self):
+				return
 			var fighter: EnemyFighter = fighter_scene.instantiate() as EnemyFighter
 			if not fighter:
 				return
@@ -477,6 +483,8 @@ func _spawn_bomber() -> void:
 	if bomber_dismiss_delay > 0.0:
 		var dismiss_timer: SceneTreeTimer = get_tree().create_timer(bomber_dismiss_delay)
 		dismiss_timer.timeout.connect(func():
+			if not is_inside_tree() or not is_instance_valid(self):
+				return
 			_dismiss_non_bomber_enemies()
 		)
 	else:
@@ -523,6 +531,8 @@ func _spawn_wave_3() -> void:
 	for cfg: Dictionary in configs:
 		var timer: SceneTreeTimer = get_tree().create_timer(cfg["delay"])
 		timer.timeout.connect(func():
+			if not is_inside_tree() or not is_instance_valid(self):
+				return
 			var heavy: EnemyHeavy = heavy_scene.instantiate() as EnemyHeavy
 			if not heavy:
 				return
@@ -548,7 +558,7 @@ func _spawn_wave_3() -> void:
 func _add_enemy_to_world(enemy: Node3D) -> void:
 	if is_instance_valid(_enemies_container) and _enemies_container.is_inside_tree():
 		_enemies_container.add_child(enemy)
-	elif get_tree().current_scene:
+	elif get_tree() and get_tree().current_scene:
 		get_tree().current_scene.add_child(enemy)
 	elif get_parent():
 		get_parent().add_child(enemy)
@@ -565,12 +575,18 @@ func _register_enemy(enemy: Node) -> void:
 	)
 
 
-func _on_enemy_destroyed(enemy: Node, _score: int) -> void:
+func _on_enemy_destroyed(enemy: Node, score: int) -> void:
 	_active_enemies.erase(enemy)
+	var game_ctrl := get_tree().get_first_node_in_group("game_controller") if get_tree() else null
+	if game_ctrl and game_ctrl.has_method("add_score"):
+		game_ctrl.add_score(score)
 
 
 func _play_audio_alert(stream: AudioStream) -> void:
 	if not stream:
+		return
+	if has_node("/root/SoundManager"):
+		get_node("/root/SoundManager").play_voice(stream, 0.0)
 		return
 	var audio_player := AudioStreamPlayer.new()
 	audio_player.stream = stream

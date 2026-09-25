@@ -594,7 +594,13 @@ func _spawn_bullet() -> void:
 	if not bullet:
 		return
 
-	get_tree().current_scene.add_child(bullet)
+	var scene := get_tree().current_scene if get_tree() else null
+	if not scene and get_tree():
+		scene = get_tree().root
+	if not scene:
+		return
+
+	scene.add_child(bullet)
 	bullet.global_position = spawn_pos
 	bullet.setup(aim_dir)
 
@@ -667,8 +673,13 @@ func _on_ship_collision(collision: KinematicCollision3D, motion_local: Vector3) 
 
 func _spawn_spark(point: Vector3, normal: Vector3) -> void:
 	## Cria a faísca de atrito procedural no ponto de contato.
+	var scene := get_tree().current_scene if get_tree() else null
+	if not scene and get_tree():
+		scene = get_tree().root
+	if not scene:
+		return
 	var spark: Node3D = SparkScript.new()
-	get_tree().current_scene.add_child(spark)
+	scene.add_child(spark)
 	# Desloca levemente para fora da superfície (ao longo da normal) para o
 	# efeito não ficar enterrado/clipado dentro do terreno.
 	spark.global_position = point + normal * 0.5
@@ -812,11 +823,15 @@ func _start_death_sequence() -> void:
 	Engine.time_scale = 0.22
 
 	# 2. Explosão cinematográfica de grande porte
-	var explosion: Node3D = ExplosionScript.new()
-	get_tree().current_scene.add_child(explosion)
-	explosion.global_position = global_position
-	if explosion.has_method("set"):
-		explosion.set("size_scale", 2.8)
+	var scene := get_tree().current_scene if get_tree() else null
+	if not scene and get_tree():
+		scene = get_tree().root
+	if scene:
+		var explosion: Node3D = ExplosionScript.new()
+		scene.add_child(explosion)
+		explosion.global_position = global_position
+		if explosion.has_method("set"):
+			explosion.set("size_scale", 2.8)
 
 	_play_explosion_sound()
 
@@ -824,7 +839,9 @@ func _start_death_sequence() -> void:
 	var forward_vel := -global_basis.z.normalized() * 65.0
 	var pf = get_parent()
 	if pf:
-		if pf.has_method("_current_speed"):
+		if pf.has_method("get_current_speed"):
+			forward_vel = -global_basis.z.normalized() * float(pf.get_current_speed())
+		elif pf.has_method("_current_speed"):
 			forward_vel = -global_basis.z.normalized() * float(pf.call("_current_speed"))
 		elif "speed" in pf:
 			forward_vel = -global_basis.z.normalized() * float(pf.get("speed"))
@@ -1185,15 +1202,21 @@ func _spawn_single_missile(target: Node3D, _index: int) -> void:
 	else:
 		initial_launch_dir = -global_basis.z.normalized()
 
-	var scene_root := get_tree().current_scene
+	var scene_root := get_tree().current_scene if get_tree() else null
+	if not scene_root and get_tree():
+		scene_root = get_tree().root
 	if not scene_root:
 		scene_root = get_parent()
+	if not scene_root:
+		return
 	scene_root.add_child(missile)
 
 	var current_ship_speed := 65.0
 	var pf := get_parent()
 	if pf:
-		if pf.has_method("_current_speed"):
+		if pf.has_method("get_current_speed"):
+			current_ship_speed = float(pf.get_current_speed())
+		elif pf.has_method("_current_speed"):
 			current_ship_speed = float(pf.call("_current_speed"))
 		elif "forward_speed" in pf:
 			current_ship_speed = float(pf.get("forward_speed"))

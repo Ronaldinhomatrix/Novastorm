@@ -49,6 +49,9 @@ var _age: float = 0.0
 var _flicker_seed: float = 0.0
 const SPAWN_PULSE_DURATION: float = 0.07
 
+# Shape estático compartilhado para ShapeCast (evita BoxShape3D.new() a cada tiro)
+static var _shared_shape: BoxShape3D = null
+
 func _ready() -> void:
 	collision_layer = 2
 	collision_mask = 2
@@ -64,22 +67,25 @@ func _ready() -> void:
 
 	# ShapeCast3D para detecção volumétrica contínua (CCD 3D) cobrindo
 	# o feixe inteiro do laser (3.8m), evitando tunelamento e falso-negativos em alta velocidade.
-	var col_shape: CollisionShape3D = get_node_or_null("CollisionShape3D") as CollisionShape3D
-	_shape_cast = ShapeCast3D.new()
-	_shape_cast.name = "BulletShapeCast"
-	if col_shape and col_shape.shape:
-		_shape_cast.shape = col_shape.shape
-	else:
-		var default_shape := BoxShape3D.new()
-		default_shape.size = Vector3(3.8, 3.8, 18.0)
-		_shape_cast.shape = default_shape
-	_shape_cast.collision_mask = 2 | WORLD_LAYER_MASK
-	_shape_cast.collide_with_areas = true
-	_shape_cast.collide_with_bodies = true
-	_shape_cast.enabled = false
-	_shape_cast.add_exception(self)
-	_shape_cast.add_exception_rid(self.get_rid())
-	add_child(_shape_cast)
+	_shape_cast = get_node_or_null("BulletShapeCast") as ShapeCast3D
+	if not _shape_cast:
+		var col_shape: CollisionShape3D = get_node_or_null("CollisionShape3D") as CollisionShape3D
+		_shape_cast = ShapeCast3D.new()
+		_shape_cast.name = "BulletShapeCast"
+		if col_shape and col_shape.shape:
+			_shape_cast.shape = col_shape.shape
+		else:
+			if not _shared_shape:
+				_shared_shape = BoxShape3D.new()
+				_shared_shape.size = Vector3(3.8, 3.8, 18.0)
+			_shape_cast.shape = _shared_shape
+		_shape_cast.collision_mask = 2 | WORLD_LAYER_MASK
+		_shape_cast.collide_with_areas = true
+		_shape_cast.collide_with_bodies = true
+		_shape_cast.enabled = false
+		_shape_cast.add_exception(self)
+		_shape_cast.add_exception_rid(self.get_rid())
+		add_child(_shape_cast)
 
 	_setup_visuals()
 
@@ -87,22 +93,29 @@ func _ready() -> void:
 func _setup_visuals() -> void:
 	## Cacheia referências visuais e prepara o pulso de "nascimento" do tiro.
 	_light = get_node_or_null("OmniLight3D") as OmniLight3D
+	if not _light:
+		_light = get_node_or_null("VisualRoot/OmniLight3D") as OmniLight3D
 	if _light:
-		_light_base_energy = _light.light_energy
+		if GameConfig.is_mobile:
+			_light.visible = false
+			_light.queue_free()
+			_light = null
+		else:
+			_light_base_energy = _light.light_energy
 	_flicker_seed = randf() * 100.0
 
-	# Agrupa os meshes visuais para animar o pulso de disparo sem tocar
-	# na CollisionShape (a hitbox permanece constante).
-	_visual_root = Node3D.new()
-	_visual_root.name = "VisualRoot"
-	var meshes: Array[Node] = []
-	for child in get_children():
-		if child is MeshInstance3D or child is CPUParticles3D or child is OmniLight3D:
-			meshes.append(child)
-	for child in meshes:
-		remove_child(child)
-		_visual_root.add_child(child)
-	add_child(_visual_root)
+	_visual_root = get_node_or_null("VisualRoot") as Node3D
+	if not _visual_root:
+		_visual_root = Node3D.new()
+		_visual_root.name = "VisualRoot"
+		var meshes: Array[Node] = []
+		for child in get_children():
+			if child is MeshInstance3D or child is CPUParticles3D or child is OmniLight3D:
+				meshes.append(child)
+		for child in meshes:
+			remove_child(child)
+			_visual_root.add_child(child)
+		add_child(_visual_root)
 
 	# Nasce levemente "esticado" e brilhante, assentando no tamanho real.
 	_visual_root.scale = Vector3(1.35, 1.35, 1.15)
@@ -187,6 +200,15 @@ func _check_sweep_hit(from_pos: Vector3, to_pos: Vector3) -> bool:
 		if not collider or collider == self:
 			continue
 
+		# Ignora projéteis amigos, jogador e áreas aliadas para evitar auto-destruição em voo
+		if collider is Node:
+			var node_col := collider as Node
+			if node_col.is_in_group("player_bullets") or node_col.is_in_group("player"):
+				continue
+			var parent := node_col.get_parent()
+			if parent and (parent.is_in_group("player_bullets") or parent.is_in_group("player")):
+				continue
+
 		# 1. Alvos com método take_damage (inimigos, partes de chefe, etc.)
 		if collider.has_method("take_damage"):
 			collider.take_damage(damage)
@@ -213,8 +235,13 @@ func _check_sweep_hit(from_pos: Vector3, to_pos: Vector3) -> bool:
 
 func _spawn_explosion(point: Vector3, normal: Vector3) -> void:
 	## Cria uma pequena faísca/puff no ponto de impacto na rocha (sem tocar som de explosão de nave)
+	var scene := get_tree().current_scene if get_tree() else null
+	if not scene and get_tree():
+		scene = get_tree().root
+	if not scene:
+		return
 	var explosion: Node3D = ExplosionScript.new()
-	get_tree().current_scene.add_child(explosion)
+	scene.add_child(explosion)
 	explosion.global_position = point + normal * 0.5
 	if explosion.has_method("set"):
 		explosion.set("size_scale", 0.25)
@@ -227,6 +254,11 @@ func _spawn_explosion(point: Vector3, normal: Vector3) -> void:
 func _on_body_entered(body: Node3D) -> void:
 	if is_queued_for_deletion():
 		return
+	if body == self or body.is_in_group("player") or body.is_in_group("player_bullets"):
+		return
+	var parent := body.get_parent()
+	if parent and (parent.is_in_group("player") or parent.is_in_group("player_bullets")):
+		return
 	if body.has_method("take_damage"):
 		body.take_damage(damage)
 		queue_free()
@@ -236,6 +268,11 @@ func _on_body_entered(body: Node3D) -> void:
 
 func _on_area_entered(area: Area3D) -> void:
 	if is_queued_for_deletion():
+		return
+	if area == self or area.is_in_group("player") or area.is_in_group("player_bullets"):
+		return
+	var parent := area.get_parent()
+	if parent and (parent.is_in_group("player") or parent.is_in_group("player_bullets")):
 		return
 	if area.has_method("take_damage"):
 		area.take_damage(damage)

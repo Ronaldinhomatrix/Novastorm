@@ -73,6 +73,12 @@ var _debug_loop_start_offset: float = -1.0
 var _debug_loop_end_offset: float = -1.0
 var _parent_path: Path3D = null
 
+# Cache pré-calculado de zonas de velocidade e offsets da curva para máxima performance em runtime
+var _cached_speed_zones: Array[Dictionary] = []
+var _roll_start_offset: float = -1.0
+var _roll_end_offset: float = -1.0
+var _offsets_cached: bool = false
+
 # Player de áudio da manobra (barrel roll) + controle de disparo único.
 var _maneuver_player: AudioStreamPlayer = null
 var _barrel_roll_sound_played: bool = false
@@ -94,6 +100,7 @@ func _ready() -> void:
 	add_child(_maneuver_player)
 	_parent_path = get_parent() as Path3D
 	_setup_debug_offsets()
+	_cache_curve_offsets()
 	reset_progress()
 	_align_to_path(0.016)
 
@@ -118,6 +125,52 @@ func _setup_debug_offsets() -> void:
 		_debug_loop_end_offset = c.get_closest_offset(c.get_point_position(end_idx))
 	else:
 		_debug_loop_end_offset = -1.0
+
+
+func _cache_curve_offsets() -> void:
+	var parent_path := _parent_path
+	var c: Curve3D = parent_path.curve if parent_path else null
+	if not c or c.point_count < 2:
+		return
+
+	# 1. Pré-calcula os offsets de cada speed_zone
+	_cached_speed_zones.clear()
+	for zone in speed_zones:
+		if not zone:
+			continue
+		if zone.start_point < 0 or zone.start_point >= c.point_count:
+			continue
+		if zone.end_point < 0 or zone.end_point >= c.point_count:
+			continue
+
+		var s_off := c.get_closest_offset(c.get_point_position(zone.start_point))
+		var e_off := c.get_closest_offset(c.get_point_position(zone.end_point))
+		if e_off <= s_off:
+			continue
+
+		var zone_target := zone.target_speed if zone.target_speed > 0.0 else (forward_speed * zone.speed_multiplier)
+		var blend := maxf(zone.blend_distance, 0.0)
+
+		_cached_speed_zones.append({
+			"s_off": s_off,
+			"e_off": e_off,
+			"target": zone_target,
+			"blend": blend
+		})
+
+	# 2. Pré-calcula os offsets do barrel roll
+	var total_len := maxf(c.get_baked_length(), 0.001)
+	if roll_start_ratio >= 0.0 and roll_end_ratio > roll_start_ratio:
+		_roll_start_offset = roll_start_ratio * total_len
+		_roll_end_offset = roll_end_ratio * total_len
+	elif roll_start_point >= 0 and roll_start_point < c.point_count and roll_end_point >= 0 and roll_end_point < c.point_count:
+		_roll_start_offset = c.get_closest_offset(c.get_point_position(roll_start_point))
+		_roll_end_offset = c.get_closest_offset(c.get_point_position(roll_end_point))
+	else:
+		_roll_start_offset = -1.0
+		_roll_end_offset = -1.0
+
+	_offsets_cached = true
 
 
 func _physics_process(delta: float) -> void:
@@ -149,35 +202,27 @@ func _current_speed() -> float:
 	var parent_path := _parent_path
 	var c: Curve3D = parent_path.curve if parent_path else null
 
-	# 1. Zonas de Velocidade por Pontos (Prioridade alta para trechos específicos)
-	if c and speed_zones.size() > 0:
-		for zone in speed_zones:
-			if not zone:
-				continue
-			if zone.start_point < 0 or zone.start_point >= c.point_count:
-				continue
-			if zone.end_point < 0 or zone.end_point >= c.point_count:
-				continue
+	# 1. Zonas de Velocidade por Pontos (Pré-calculadas para máxima performance)
+	if not _offsets_cached:
+		_cache_curve_offsets()
 
-			var s_off := c.get_closest_offset(c.get_point_position(zone.start_point))
-			var e_off := c.get_closest_offset(c.get_point_position(zone.end_point))
-			if e_off <= s_off:
-				continue
+	for zone in _cached_speed_zones:
+		var s_off: float = zone["s_off"]
+		var e_off: float = zone["e_off"]
+		var zone_target: float = zone["target"]
+		var blend: float = zone["blend"]
 
-			var zone_target := zone.target_speed if zone.target_speed > 0.0 else (forward_speed * zone.speed_multiplier)
-			var blend := maxf(zone.blend_distance, 0.0)
-
-			# Verifica se está no intervalo da zona (incluindo margens de blend)
-			if progress >= (s_off - blend) and progress <= (e_off + blend):
-				var weight := 1.0
-				if blend > 0.0:
-					if progress < s_off:
-						# Entrada suave na zona
-						weight = smoothstep(s_off - blend, s_off, progress)
-					elif progress > e_off:
-						# Saída suave da zona
-						weight = 1.0 - smoothstep(e_off, e_off + blend, progress)
-				base_speed = lerpf(base_speed, zone_target, weight)
+		# Verifica se está no intervalo da zona (incluindo margens de blend)
+		if progress >= (s_off - blend) and progress <= (e_off + blend):
+			var weight := 1.0
+			if blend > 0.0:
+				if progress < s_off:
+					# Entrada suave na zona
+					weight = smoothstep(s_off - blend, s_off, progress)
+				elif progress > e_off:
+					# Saída suave da zona
+					weight = 1.0 - smoothstep(e_off, e_off + blend, progress)
+			base_speed = lerpf(base_speed, zone_target, weight)
 
 	# 2. Curva Global de Velocidade (Opcional)
 	if speed_curve and speed_curve.point_count > 0 and c:
@@ -317,29 +362,16 @@ func _calculate_barrel_roll_angle(c: Curve3D) -> float:
 	if not enable_barrel_roll or c == null or c.point_count < 2:
 		return 0.0
 
-	var start_offset: float = 0.0
-	var end_offset: float = 0.0
-	var total_len := maxf(c.get_baked_length(), 0.001)
+	if not _offsets_cached:
+		_cache_curve_offsets()
 
-	if roll_start_ratio >= 0.0 and roll_end_ratio > roll_start_ratio:
-		start_offset = roll_start_ratio * total_len
-		end_offset = roll_end_ratio * total_len
-	else:
-		if roll_start_point >= 0 and roll_start_point < c.point_count and roll_end_point >= 0 and roll_end_point < c.point_count:
-			var p_start := c.get_point_position(roll_start_point)
-			var p_end := c.get_point_position(roll_end_point)
-			start_offset = c.get_closest_offset(p_start)
-			end_offset = c.get_closest_offset(p_end)
-		else:
-			return 0.0
-
-	if end_offset <= start_offset:
+	if _roll_end_offset <= _roll_start_offset or _roll_start_offset < 0.0:
 		return 0.0
 
-	if progress < start_offset or progress > end_offset:
+	if progress < _roll_start_offset or progress > _roll_end_offset:
 		return 0.0
 
-	var t := clampf((progress - start_offset) / (end_offset - start_offset), 0.0, 1.0)
+	var t := clampf((progress - _roll_start_offset) / (_roll_end_offset - _roll_start_offset), 0.0, 1.0)
 	var organic_t := t * t * t * (t * (t * 6.0 - 15.0) + 10.0)
 	var full_rotation := TAU * roll_direction
 	return organic_t * full_rotation
@@ -353,23 +385,12 @@ func _update_barrel_roll_sound(c: Curve3D) -> void:
 	if c == null or c.point_count < 2:
 		return
 
-	var start_offset: float = 0.0
-	var end_offset: float = 0.0
-	var total_len := maxf(c.get_baked_length(), 0.001)
+	if not _offsets_cached:
+		_cache_curve_offsets()
 
-	if roll_start_ratio >= 0.0 and roll_end_ratio > roll_start_ratio:
-		start_offset = roll_start_ratio * total_len
-		end_offset = roll_end_ratio * total_len
-	else:
-		if roll_start_point >= 0 and roll_start_point < c.point_count and roll_end_point >= 0 and roll_end_point < c.point_count:
-			start_offset = c.get_closest_offset(c.get_point_position(roll_start_point))
-			end_offset = c.get_closest_offset(c.get_point_position(roll_end_point))
-		else:
-			return
-
-	if end_offset <= start_offset:
+	if _roll_end_offset <= _roll_start_offset or _roll_start_offset < 0.0:
 		return
-	if progress < start_offset or progress > end_offset:
+	if progress < _roll_start_offset or progress > _roll_end_offset:
 		return
 
 	_maneuver_player.pitch_scale = randf_range(0.97, 1.03)

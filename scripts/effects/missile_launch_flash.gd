@@ -45,23 +45,24 @@ func _ready() -> void:
 
 
 func _setup_visuals() -> void:
-	# 1. Luz de núcleo: o clarão que realmente ilumina a fuselagem da asa e o cockpit.
-	_core_light = OmniLight3D.new()
-	_core_light.name = "CoreFlashLight"
-	_core_light.light_color = CORE_COLOR
-	_core_light.light_energy = CORE_ENERGY
-	_core_light.omni_range = CORE_RANGE
-	_core_light.omni_attenuation = CORE_ATTENUATION
-	add_child(_core_light)
+	if not GameConfig.is_mobile:
+		# 1. Luz de núcleo: o clarão que realmente ilumina a fuselagem da asa e o cockpit.
+		_core_light = OmniLight3D.new()
+		_core_light.name = "CoreFlashLight"
+		_core_light.light_color = CORE_COLOR
+		_core_light.light_energy = CORE_ENERGY
+		_core_light.omni_range = CORE_RANGE
+		_core_light.omni_attenuation = CORE_ATTENUATION
+		add_child(_core_light)
 
-	# 2. Luz de spill: alcance maior para o clarão vazar no cenário em volta.
-	_spill_light = OmniLight3D.new()
-	_spill_light.name = "SpillFlashLight"
-	_spill_light.light_color = SPILL_COLOR
-	_spill_light.light_energy = SPILL_ENERGY
-	_spill_light.omni_range = SPILL_RANGE
-	_spill_light.omni_attenuation = SPILL_ATTENUATION
-	add_child(_spill_light)
+		# 2. Luz de spill: alcance maior para o clarão vazar no cenário em volta.
+		_spill_light = OmniLight3D.new()
+		_spill_light.name = "SpillFlashLight"
+		_spill_light.light_color = SPILL_COLOR
+		_spill_light.light_energy = SPILL_ENERGY
+		_spill_light.omni_range = SPILL_RANGE
+		_spill_light.omni_attenuation = SPILL_ATTENUATION
+		add_child(_spill_light)
 
 	# 3. Faíscas de ignição ejetadas para trás (curtas, rápidas e pequenas:
 	#    leem como jato de fagulhas, não como bola de glow).

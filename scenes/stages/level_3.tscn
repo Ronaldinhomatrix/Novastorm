@@ -1,10 +1,9 @@
-[gd_scene load_steps=10 format=3 uid="uid://canyon_stage_level_03"]
+[gd_scene format=3 uid="uid://canyon_stage_level_03"]
 
 [ext_resource type="Script" path="res://scripts/world/game_controller.gd" id="1_game"]
-[ext_resource type="Script" path="res://scripts/world/canyon_mesh_generator.gd" id="2_canyon_gen"]
+[ext_resource type="PackedScene" uid="uid://stage_3_canyon_mesh_instance" path="res://assets/models/levels/stage_3_canyon.tscn" id="2_stage_3_canyon"]
 [ext_resource type="Script" path="res://scripts/world/path_follower.gd" id="3_path_follower"]
 [ext_resource type="PackedScene" uid="uid://di8jrupvocyse" path="res://scenes/player.tscn" id="4_player"]
-[ext_resource type="Material" path="res://assets/materials/terrain_detailed_pc.tres" id="5_terrain_mat"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_canyon"]
 sky_top_color = Color(0.82, 0.48, 0.26, 1)
@@ -75,16 +74,4 @@ fire_rate = 0.25
 bounce_strength = 320.0
 bounce_damping = 15.0
 
-[node name="CanyonGenerator" type="MeshInstance3D" parent="FlightPath" node_paths=PackedStringArray("path_node")]
-script = ExtResource("2_canyon_gen")
-path_node = NodePath("..")
-terrain_material = ExtResource("5_terrain_mat")
-step_length = 8.0
-profile_segments = 25
-base_width = 160.0
-wall_height = 160.0
-floor_depth = 36.0
-mode = 2
-noise_displacement = 22.0
-noise_frequency = 0.018
-detail_noise_displacement = 5.0
+[node name="Stage3Canyon" parent="." instance=ExtResource("2_stage_3_canyon")]

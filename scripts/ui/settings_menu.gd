@@ -139,10 +139,10 @@ func _make_toggle(label_text: String, callback: Callable) -> CheckButton:
 
 
 func _refresh_toggles() -> void:
-	_toggles["shadows"].button_pressed = UserSettings.get_shadows()
-	_toggles["glow"].button_pressed = UserSettings.get_glow()
-	_toggles["ssao"].button_pressed = UserSettings.get_ssao()
-	_toggles["ssil"].button_pressed = UserSettings.get_ssil()
+	_toggles["shadows"].set_pressed_no_signal(UserSettings.get_shadows())
+	_toggles["glow"].set_pressed_no_signal(UserSettings.get_glow())
+	_toggles["ssao"].set_pressed_no_signal(UserSettings.get_ssao())
+	_toggles["ssil"].set_pressed_no_signal(UserSettings.get_ssil())
 	
 	var current_lang = UserSettings.get_language()
 	for i in range(_lang_opt.item_count):

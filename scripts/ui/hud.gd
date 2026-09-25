@@ -419,20 +419,25 @@ func _on_player_damage_taken(_amount: int) -> void:
 	_shiver_tactical_panel()
 
 
+var _tactical_panel_base_x: float = -9999.0
+
 ## Dispara o efeito de tremer o painel tático ao sofrer impacto
 func _shiver_tactical_panel() -> void:
 	if not tactical_panel:
 		return
+	if _tactical_panel_base_x < -9000.0:
+		_tactical_panel_base_x = tactical_panel.position.x
 	if _panel_shake_tween and _panel_shake_tween.is_running():
 		_panel_shake_tween.kill()
+		tactical_panel.position.x = _tactical_panel_base_x
 
-	var orig_pos := Vector2(0, 0)
+	var orig_x := _tactical_panel_base_x
 	_panel_shake_tween = create_tween()
 	_panel_shake_tween.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
-	_panel_shake_tween.tween_property(tactical_panel, "position:x", orig_pos.x - 8.0, 0.04)
-	_panel_shake_tween.tween_property(tactical_panel, "position:x", orig_pos.x + 6.0, 0.04)
-	_panel_shake_tween.tween_property(tactical_panel, "position:x", orig_pos.x - 3.0, 0.04)
-	_panel_shake_tween.tween_property(tactical_panel, "position:x", orig_pos.x, 0.04)
+	_panel_shake_tween.tween_property(tactical_panel, "position:x", orig_x - 8.0, 0.04)
+	_panel_shake_tween.tween_property(tactical_panel, "position:x", orig_x + 6.0, 0.04)
+	_panel_shake_tween.tween_property(tactical_panel, "position:x", orig_x - 3.0, 0.04)
+	_panel_shake_tween.tween_property(tactical_panel, "position:x", orig_x, 0.04)
 
 
 ## Dispara o efeito de vinheta de dano na tela (flash vermelho nas bordas)
@@ -507,7 +512,10 @@ func _update_shield_display(animate: bool) -> void:
 			continue
 
 		var is_active := (i < _current_shield)
-		var sb := StyleBoxFlat.new()
+		var sb := pip.get_theme_stylebox("panel") as StyleBoxFlat
+		if not sb:
+			sb = StyleBoxFlat.new()
+			pip.add_theme_stylebox_override("panel", sb)
 		var rad: int = 4 if GameConfig.is_mobile else 2
 		sb.set_corner_radius_all(rad)
 
@@ -526,8 +534,6 @@ func _update_shield_display(animate: bool) -> void:
 			sb.border_color = Color(0.15, 0.2, 0.28, 0.45)
 			sb.shadow_size = 0
 			pip.modulate = Color(1.0, 1.0, 1.0, 0.5)
-
-		pip.add_theme_stylebox_override("panel", sb)
 
 		if animate and i == _current_shield:
 			var flash_tween := create_tween()
@@ -564,7 +570,10 @@ func _update_hull_display(animate: bool) -> void:
 			continue
 
 		var is_active := (i < _current_hull)
-		var sb := StyleBoxFlat.new()
+		var sb := pip.get_theme_stylebox("panel") as StyleBoxFlat
+		if not sb:
+			sb = StyleBoxFlat.new()
+			pip.add_theme_stylebox_override("panel", sb)
 		var rad: int = 4 if GameConfig.is_mobile else 2
 		sb.set_corner_radius_all(rad)
 
@@ -583,8 +592,6 @@ func _update_hull_display(animate: bool) -> void:
 			sb.border_color = Color(0.25, 0.12, 0.12, 0.45)
 			sb.shadow_size = 0
 			pip.modulate = Color(1.0, 1.0, 1.0, 0.5)
-
-		pip.add_theme_stylebox_override("panel", sb)
 
 		if animate and i == _current_hull:
 			var flash_tween := create_tween()
@@ -747,7 +754,15 @@ func _draw_missile_icon(icon: Control, index: int) -> void:
 
 func _update_missile_display() -> void:
 	if missile_panel:
-		var sb := StyleBoxFlat.new()
+		if not _missile_panel_sb:
+			var existing_sb := missile_panel.get_theme_stylebox("panel")
+			if existing_sb is StyleBoxFlat:
+				_missile_panel_sb = existing_sb as StyleBoxFlat
+			else:
+				_missile_panel_sb = StyleBoxFlat.new()
+				missile_panel.add_theme_stylebox_override("panel", _missile_panel_sb)
+
+		var sb := _missile_panel_sb
 		var rad: int = 8 if GameConfig.is_mobile else 4
 		sb.set_corner_radius_all(rad)
 		var b_w: int = 3 if GameConfig.is_mobile else 2
@@ -769,9 +784,6 @@ func _update_missile_display() -> void:
 			sb.border_color = Color(0.4, 0.2, 0.2, 0.6)
 			sb.shadow_color = Color(0, 0, 0, 0.4)
 			sb.shadow_size = 6 if GameConfig.is_mobile else 4
-
-		missile_panel.add_theme_stylebox_override("panel", sb)
-		_missile_panel_sb = sb
 
 	if _is_reloading_missiles:
 		if missile_reload_label:
@@ -970,5 +982,15 @@ func start_tutorial_missile_blink(arrow_text: String = "DISPARAR") -> void:
 func stop_tutorial_missile_blink() -> void:
 	if _tutorial_overlay:
 		_tutorial_overlay.stop_mobile_button_prompt()
+
+
+func set_score(_amount: int) -> void:
+	# Interface pública de pontuação para o HUD
+	pass
+
+
+func update_boss_health(_current: int, _max_hp: int) -> void:
+	# Interface pública para exibição da barra de vida do chefe
+	pass
 
 
